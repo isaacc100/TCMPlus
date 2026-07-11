@@ -23,18 +23,27 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var session = new SessionFactory().CreateNewSession();
-            var services = ConfigureServices(session);
-            var viewModel = services.GetRequiredService<MainViewModel>();
-            var window = new MainWindow { DataContext = viewModel };
-            window.Opened += async (_, _) => await viewModel.InitializeAsync();
-            desktop.MainWindow = window;
+            var shiftSetup = new ShiftSetupWindow();
+            shiftSetup.ShiftStarted += (_, draft) => OpenShift(desktop, shiftSetup, draft);
+            desktop.MainWindow = shiftSetup;
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static ServiceProvider ConfigureServices(TCMPlus.Domain.Models.SessionDescriptor session)
+    private static void OpenShift(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
+    {
+        var session = new SessionFactory().CreateNewSession(draft.ShiftName);
+        var services = ConfigureServices(session, draft);
+        var viewModel = services.GetRequiredService<MainViewModel>();
+        var window = new MainWindow { DataContext = viewModel };
+        window.Opened += async (_, _) => await viewModel.InitializeAsync();
+        desktop.MainWindow = window;
+        window.Show();
+        shiftSetup.Close();
+    }
+
+    private static ServiceProvider ConfigureServices(TCMPlus.Domain.Models.SessionDescriptor session, ShiftSetupDraft draft)
     {
         var services = new ServiceCollection();
         var connectionFactory = new SqliteConnectionFactory(session.DatabasePath);
@@ -48,6 +57,10 @@ public partial class App : Application
         services.AddSingleton<IShiftPinService, ShiftPinService>();
         services.AddSingleton<ITreatmentCentreService, TreatmentCentreService>();
         services.AddSingleton<MainViewModel>();
-        return services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
+        var pinService = provider.GetRequiredService<IShiftPinService>();
+        var settings = pinService.CreateSettings(draft.Pin) with { ShiftName = draft.ShiftName.Trim() };
+        provider.GetRequiredService<ITcSettingsRepository>().SaveAsync(settings).GetAwaiter().GetResult();
+        return provider;
     }
 }

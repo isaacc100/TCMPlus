@@ -14,15 +14,27 @@ public sealed class SessionFactory
         _sessionsRoot = Path.Combine(root, "Sessions");
     }
 
-    public SessionDescriptor CreateNewSession()
+    public SessionDescriptor CreateNewSession(string shiftName)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(shiftName);
         var id = Guid.NewGuid();
         var startedAt = DateTimeOffset.UtcNow;
-        var name = $"{startedAt:yyyyMMdd-HHmmss}-{id:N}";
+        var safeShiftName = ToSafeFolderSegment(shiftName);
+        var name = $"{startedAt:yyyyMMdd-HHmmss}-{safeShiftName}-{id:N}";
         var directoryPath = Path.Combine(_sessionsRoot, name);
 
         Directory.CreateDirectory(directoryPath);
 
-        return new SessionDescriptor(id, startedAt, directoryPath, Path.Combine(directoryPath, "tcm.sqlite"));
+        return new SessionDescriptor(id, startedAt, shiftName.Trim(), directoryPath, Path.Combine(directoryPath, "tcm.sqlite"));
+    }
+
+    private static string ToSafeFolderSegment(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var characters = value.Trim()
+            .Select(character => invalid.Contains(character) || char.IsWhiteSpace(character) ? '-' : character)
+            .ToArray();
+        var segment = new string(characters).Trim('-');
+        return string.IsNullOrWhiteSpace(segment) ? "shift" : segment;
     }
 }

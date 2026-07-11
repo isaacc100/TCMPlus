@@ -22,7 +22,7 @@ public sealed class ShiftPinService : IShiftPinService
 
         var salt = RandomNumberGenerator.GetBytes(SaltBytes);
         var hash = Rfc2898DeriveBytes.Pbkdf2(pin, salt, Iterations, HashAlgorithmName.SHA256, HashBytes);
-        return new TcSessionSettings(Convert.ToBase64String(salt), Convert.ToBase64String(hash));
+        return new TcSessionSettings(null, Convert.ToBase64String(salt), Convert.ToBase64String(hash));
     }
 
     public bool Verify(string pin, TcSessionSettings settings)

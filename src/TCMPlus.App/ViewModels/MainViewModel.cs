@@ -25,6 +25,7 @@ public partial class MainViewModel : ViewModelBase
         _settingsRepository = settingsRepository;
         _shiftPinService = shiftPinService;
         Session = session;
+        _shiftName = session.ShiftName;
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _clockTimer.Tick += (_, _) => RefreshClock();
         RefreshClock();
@@ -49,6 +50,9 @@ public partial class MainViewModel : ViewModelBase
     private string _newPin = "";
 
     [ObservableProperty]
+    private string _shiftName = "";
+
+    [ObservableProperty]
     private string _pinStatusText = "No shift PIN set.";
 
     [ObservableProperty]
@@ -62,6 +66,30 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _currentTimeText = "";
+
+    [ObservableProperty]
+    private bool _isLocked;
+
+    [ObservableProperty]
+    private string _unlockDigit1 = "";
+
+    [ObservableProperty]
+    private string _unlockDigit2 = "";
+
+    [ObservableProperty]
+    private string _unlockDigit3 = "";
+
+    [ObservableProperty]
+    private string _unlockDigit4 = "";
+
+    [ObservableProperty]
+    private string _unlockDigit5 = "";
+
+    [ObservableProperty]
+    private string _unlockDigit6 = "";
+
+    [ObservableProperty]
+    private string _lockMessage = "Enter the shift PIN to continue.";
 
     public bool HasNoStations => Stations.Count == 0;
     public bool IsMapPage => SelectedPage == TcPage.Map;
@@ -81,6 +109,7 @@ public partial class MainViewModel : ViewModelBase
             }
 
             var settings = await _settingsRepository.GetAsync();
+            ShiftName = string.IsNullOrWhiteSpace(settings.ShiftName) ? Session.ShiftName : settings.ShiftName;
             PinStatusText = settings.HasShiftPin ? "A shift PIN is stored for this session." : "No shift PIN set.";
             await RefreshSummaryAsync();
             Notice = Stations.Count == 0 ? "Edit the treatment centre to add the first station." : "";
@@ -106,6 +135,35 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void RequestAddStation() => AddStationRequested?.Invoke(this, EventArgs.Empty);
 
+    [RelayCommand]
+    private void Lock()
+    {
+        ClearUnlockPin();
+        LockMessage = "Enter the shift PIN to continue.";
+        IsLocked = true;
+    }
+
+    [RelayCommand]
+    private async Task UnlockAsync()
+    {
+        var settings = await _settingsRepository.GetAsync();
+        if (_shiftPinService.Verify(UnlockPin, settings))
+        {
+            IsLocked = false;
+            ClearUnlockPin();
+            return;
+        }
+
+        LockMessage = "That PIN does not match this shift.";
+        ClearUnlockPin();
+    }
+
+    [RelayCommand]
+    private void ShowDashboardPlaceholder() => Notice = "Dashboard is coming in a future update.";
+
+    [RelayCommand]
+    private void ShowSettingsPlaceholder() => Notice = "Application settings are coming in a future update.";
+
     public async Task CreateStationAsync(StationDraft draft)
     {
         try
@@ -124,15 +182,27 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveShiftPinAsync()
     {
-        if (!_shiftPinService.IsValidFormat(NewPin))
+        if (string.IsNullOrWhiteSpace(ShiftName))
         {
-            PinStatusText = "Enter exactly six digits.";
+            PinStatusText = "Enter a shift name.";
             return;
         }
 
-        await _settingsRepository.SaveAsync(_shiftPinService.CreateSettings(NewPin));
+        var settings = await _settingsRepository.GetAsync();
+        if (!string.IsNullOrWhiteSpace(NewPin))
+        {
+            if (!_shiftPinService.IsValidFormat(NewPin))
+            {
+                PinStatusText = "Enter exactly six digits when changing the PIN.";
+                return;
+            }
+
+            settings = _shiftPinService.CreateSettings(NewPin);
+        }
+
+        await _settingsRepository.SaveAsync(settings with { ShiftName = ShiftName.Trim() });
         NewPin = "";
-        PinStatusText = "Shift PIN saved for this session.";
+        PinStatusText = "Shift details saved for this session.";
     }
 
     partial void OnSelectedPageChanged(TcPage value)
@@ -262,6 +332,18 @@ public partial class MainViewModel : ViewModelBase
         {
             station.RefreshPatientArrivalText();
         }
+    }
+
+    private string UnlockPin => string.Concat(UnlockDigit1, UnlockDigit2, UnlockDigit3, UnlockDigit4, UnlockDigit5, UnlockDigit6);
+
+    private void ClearUnlockPin()
+    {
+        UnlockDigit1 = "";
+        UnlockDigit2 = "";
+        UnlockDigit3 = "";
+        UnlockDigit4 = "";
+        UnlockDigit5 = "";
+        UnlockDigit6 = "";
     }
 
     private static bool Intersects(StationViewModel first, StationViewModel second) =>

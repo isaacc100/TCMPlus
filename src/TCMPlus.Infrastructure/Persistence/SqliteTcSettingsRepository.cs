@@ -10,7 +10,7 @@ public sealed class SqliteTcSettingsRepository(SqliteConnectionFactory connectio
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         await using var connection = connectionFactory.OpenConnection();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT key, value FROM session_settings WHERE key IN ('pin_salt', 'pin_hash');";
+        command.CommandText = "SELECT key, value FROM session_settings WHERE key IN ('shift_name', 'pin_salt', 'pin_hash');";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         while (await reader.ReadAsync(cancellationToken))
@@ -19,6 +19,7 @@ public sealed class SqliteTcSettingsRepository(SqliteConnectionFactory connectio
         }
 
         return new TcSessionSettings(
+            values.GetValueOrDefault("shift_name"),
             values.GetValueOrDefault("pin_salt"),
             values.GetValueOrDefault("pin_hash"));
     }
@@ -27,6 +28,7 @@ public sealed class SqliteTcSettingsRepository(SqliteConnectionFactory connectio
     {
         await using var connection = connectionFactory.OpenConnection();
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await UpsertAsync(connection, "shift_name", settings.ShiftName ?? string.Empty, cancellationToken);
         await UpsertAsync(connection, "pin_salt", settings.PinSalt ?? string.Empty, cancellationToken);
         await UpsertAsync(connection, "pin_hash", settings.PinHash ?? string.Empty, cancellationToken);
         await transaction.CommitAsync(cancellationToken);

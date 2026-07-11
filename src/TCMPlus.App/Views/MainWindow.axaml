@@ -36,6 +36,16 @@
             <Setter Property="Background" Value="#55828B" />
             <Setter Property="Foreground" Value="White" />
         </Style>
+        <Style Selector="Button.icon">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
         <Style Selector="Button.sub-nav">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -84,26 +94,35 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,Auto,*">
+    <Grid>
+        <Border Classes.locked="{Binding IsLocked}">
+            <Border.Styles>
+                <Style Selector="Border.locked">
+                    <Setter Property="Effect">
+                        <BlurEffect Radius="7" />
+                    </Setter>
+                </Style>
+            </Border.Styles>
+            <Grid RowDefinitions="Auto,Auto,*">
         <Border Background="{StaticResource InkBrush}" Height="62" Padding="28,0">
             <Grid ColumnDefinitions="Auto,*">
                 <TextBlock Text="TCM+" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="18">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12">
                     <TextBlock Text="{Binding CurrentTimeText}" Foreground="White" FontFamily="Consolas" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Button Classes="primary-nav" Content="Dashboard" Command="{Binding ShowDashboardPlaceholderCommand}" />
                     <Button Classes="primary-nav active" Content="Manager" />
+                    <Button Classes="icon" Content="🔒" Command="{Binding LockCommand}" ToolTip.Tip="Lock application" />
+                    <Button Classes="icon" Content="⚙" Command="{Binding ShowSettingsPlaceholderCommand}" ToolTip.Tip="Application settings (coming soon)" />
                 </StackPanel>
             </Grid>
         </Border>
 
         <Border Grid.Row="1" Background="White" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1" Padding="28,8">
-            <Grid ColumnDefinitions="Auto,*">
-                <TextBlock Text="Manager" Foreground="#364958" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,18,0" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="4">
                     <Button Classes="sub-nav" Classes.active="{Binding IsMapPage}" Content="Map" Command="{Binding ShowMapCommand}" />
                     <Button Classes="sub-nav" Classes.active="{Binding IsTablesPage}" Content="Tables" Command="{Binding ShowTablesCommand}" />
                     <Button Classes="sub-nav" Classes.active="{Binding IsSetupPage}" Content="Setup" Command="{Binding ShowSetupCommand}" />
                 </StackPanel>
-            </Grid>
         </Border>
 
         <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsMapPage}" ColumnDefinitions="220,16,*">
@@ -244,13 +263,36 @@
         <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSetupPage}">
             <Border Classes="card" Padding="20" Width="520" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Shift PIN" Classes="section-title" />
-                    <TextBlock Text="Set the six-digit PIN for this session. App locking will be added later; the PIN is stored as a salted hash." Classes="muted" TextWrapping="Wrap" />
-                    <TextBox Text="{Binding NewPin}" PasswordChar="*" MaxLength="6" PlaceholderText="Six digits" />
-                    <Button Classes="primary" Content="Save PIN" Command="{Binding SaveShiftPinCommand}" />
+                    <TextBlock Text="Shift setup" Classes="section-title" />
+                    <TextBlock Text="The shift name identifies this session and is used in its save folder name." Classes="muted" TextWrapping="Wrap" />
+                    <TextBox Text="{Binding ShiftName}" PlaceholderText="Shift name" />
+                    <TextBlock Text="Enter a new six-digit PIN only when changing it." Classes="muted" TextWrapping="Wrap" />
+                    <TextBox Text="{Binding NewPin}" PasswordChar="*" MaxLength="6" PlaceholderText="New six-digit PIN" />
+                    <Button Classes="primary" Content="Save shift details" Command="{Binding SaveShiftPinCommand}" />
                     <TextBlock Text="{Binding PinStatusText}" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>
+            </Grid>
+        </Border>
+
+        <Border IsVisible="{Binding IsLocked}" ZIndex="100" Background="#364958B8">
+            <Border Width="460" HorizontalAlignment="Center" VerticalAlignment="Center" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="14" Padding="30" BoxShadow="0 16 48 0 #00000055">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="Secure PIN verification" FontSize="21" FontWeight="Bold" Foreground="#364958" HorizontalAlignment="Center" />
+                    <TextBlock Text="Enter this shift's six-digit security code." Classes="muted" HorizontalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="9">
+                        <TextBox Name="UnlockDigitBox1" Text="{Binding UnlockDigit1, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox2" Text="{Binding UnlockDigit2, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox3" Text="{Binding UnlockDigit3, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox4" Text="{Binding UnlockDigit4, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox5" Text="{Binding UnlockDigit5, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox6" Text="{Binding UnlockDigit6, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding LockMessage}" Foreground="#963D3D" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                    <Button Classes="primary" Content="Unlock" Command="{Binding UnlockCommand}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </Window>

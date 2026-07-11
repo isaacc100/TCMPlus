@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TCMPlus.App.Views.ShiftSetupWindow"
+        Width="540"
+        Height="510"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Title="Start shift"
+        Background="#F5F8F4">
+    <Window.Styles>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#3B6064" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="16,10" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#E7F5EC" />
+            <Setter Property="Foreground" Value="#245A42" />
+            <Setter Property="BorderBrush" Value="#87BBA2" />
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+    </Window.Styles>
+    <Border Margin="24" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="14" Padding="28">
+        <StackPanel Spacing="13">
+            <TextBlock Text="Start a shift" FontSize="24" FontWeight="Bold" Foreground="#364958" HorizontalAlignment="Center" />
+            <TextBlock Text="Create a shift name and PIN before opening the treatment centre." Foreground="#60737A" TextWrapping="Wrap" TextAlignment="Center" />
+            <TextBlock Text="Shift name" FontWeight="SemiBold" Foreground="#364958" Margin="0,5,0,0" />
+            <TextBox Name="ShiftNameInput" PlaceholderText="e.g. Night shift" />
+            <TextBlock Text="Six-digit shift PIN" FontWeight="SemiBold" Foreground="#364958" Margin="0,4,0,0" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="9">
+                <TextBox Name="PinDigitBox1" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown" />
+                <TextBox Name="PinDigitBox2" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown" />
+                <TextBox Name="PinDigitBox3" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown" />
+                <TextBox Name="PinDigitBox4" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown" />
+                <TextBox Name="PinDigitBox5" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown" />
+                <TextBox Name="PinDigitBox6" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown" />
+            </StackPanel>
+            <TextBlock Name="ValidationMessage" Foreground="#963D3D" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,5,0,0">
+                <Button Classes="secondary" Content="Load existing shift" Click="OnLoadExistingShift" />
+                <Button Classes="primary" Content="Start shift" Click="OnStartShift" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

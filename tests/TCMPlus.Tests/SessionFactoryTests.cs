@@ -11,14 +11,16 @@ public sealed class SessionFactoryTests : IDisposable
     {
         var factory = new SessionFactory(_root);
 
-        var first = factory.CreateNewSession();
-        var second = factory.CreateNewSession();
+        var first = factory.CreateNewSession("Night shift");
+        var second = factory.CreateNewSession("Night shift");
 
         Assert.NotEqual(first.Id, second.Id);
         Assert.NotEqual(first.DirectoryPath, second.DirectoryPath);
         Assert.True(Directory.Exists(first.DirectoryPath));
         Assert.True(Directory.Exists(second.DirectoryPath));
         Assert.EndsWith("tcm.sqlite", first.DatabasePath, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Night shift", first.ShiftName);
+        Assert.Contains("Night-shift", first.DirectoryPath, StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()
