@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using TCMPlus.App.ViewModels;
 
 namespace TCMPlus.App.Views;
@@ -6,6 +7,7 @@ namespace TCMPlus.App.Views;
 public partial class MainWindow : Window
 {
     private MainViewModel? _viewModel;
+    private WindowState _windowStateBeforeFullScreen = WindowState.Normal;
 
     public MainWindow()
     {
@@ -39,5 +41,25 @@ public partial class MainWindow : Window
         {
             await _viewModel.CreateStationAsync(draft);
         }
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F11)
+        {
+            return;
+        }
+
+        if (WindowState == WindowState.FullScreen)
+        {
+            WindowState = _windowStateBeforeFullScreen;
+        }
+        else
+        {
+            _windowStateBeforeFullScreen = WindowState;
+            WindowState = WindowState.FullScreen;
+        }
+
+        e.Handled = true;
     }
 }

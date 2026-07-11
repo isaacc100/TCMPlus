@@ -13,6 +13,7 @@
         Height="820"
         MinWidth="1040"
         MinHeight="680"
+        KeyDown="OnKeyDown"
         Background="{StaticResource CanvasBrush}">
 
     <Design.DataContext>
@@ -87,7 +88,8 @@
         <Border Background="{StaticResource InkBrush}" Height="62" Padding="28,0">
             <Grid ColumnDefinitions="Auto,*">
                 <TextBlock Text="TCM+" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="18">
+                    <TextBlock Text="{Binding CurrentTimeText}" Foreground="White" FontFamily="Consolas" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Button Classes="primary-nav active" Content="Manager" />
                 </StackPanel>
             </Grid>
@@ -222,7 +224,7 @@
                                             <TextBlock Grid.Column="1" Text="{Binding Type}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" Classes="muted" />
                                             <TextBox Grid.Column="1" Text="{Binding Type}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="2" Text="{Binding StatusText}" Classes="status" Classes.occupied="{Binding IsOccupied}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="3" Text="{Binding PatientAddedText}" VerticalAlignment="Center" Classes="muted" />
+                                            <TextBlock Grid.Column="3" Text="{Binding PatientArrivalText}" VerticalAlignment="Center" Classes="muted" />
                                             <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
                                                 <Button Classes="secondary" Content="Add Patient" Command="{Binding AddPatientCommand}" IsVisible="{Binding CanAddPatient}" />
                                                 <Button Classes="danger" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding CanDischargePatient}" />

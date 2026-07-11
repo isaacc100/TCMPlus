@@ -74,7 +74,7 @@ public partial class StationViewModel : ViewModelBase
     public bool CanDischargePatient => IsOperationalMode && IsOccupied;
     public bool CanDelete => !IsOccupied;
     public string StatusText => IsOccupied ? "Occupied" : "Available";
-    public string PatientAddedText => CurrentPatient?.AddedAt.ToLocalTime().ToString("dd MMM HH:mm") ?? "";
+    public string PatientArrivalText => CurrentPatient is null ? "" : FormatRelativeTime(CurrentPatient.AddedAt);
 
     public StationGeometry Geometry => new(GridX, GridY, GridWidth, GridHeight);
 
@@ -89,6 +89,8 @@ public partial class StationViewModel : ViewModelBase
     }
 
     public Task CommitGeometryAsync(StationGeometry originalGeometry) => _commitGeometry(this, originalGeometry);
+
+    public void RefreshPatientArrivalText() => OnPropertyChanged(nameof(PatientArrivalText));
 
     [RelayCommand]
     private Task SaveStationAsync() => _saveStation(this);
@@ -109,7 +111,7 @@ public partial class StationViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDischargePatient));
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(StatusText));
-        OnPropertyChanged(nameof(PatientAddedText));
+        OnPropertyChanged(nameof(PatientArrivalText));
     }
 
     partial void OnIsEditModeChanged(bool value)
@@ -123,4 +125,28 @@ public partial class StationViewModel : ViewModelBase
     partial void OnGridYChanged(double value) => OnPropertyChanged(nameof(CanvasY));
     partial void OnGridWidthChanged(double value) => OnPropertyChanged(nameof(CanvasWidth));
     partial void OnGridHeightChanged(double value) => OnPropertyChanged(nameof(CanvasHeight));
+
+    private static string FormatRelativeTime(DateTimeOffset addedAt)
+    {
+        var elapsed = DateTimeOffset.UtcNow - addedAt;
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            return "now";
+        }
+
+        if (elapsed < TimeSpan.FromHours(1))
+        {
+            var minutes = Math.Max(1, (int)elapsed.TotalMinutes);
+            return $"{minutes} minute{(minutes == 1 ? string.Empty : "s")} ago";
+        }
+
+        if (elapsed < TimeSpan.FromDays(1))
+        {
+            var hours = Math.Max(1, (int)elapsed.TotalHours);
+            return $"{hours} hour{(hours == 1 ? string.Empty : "s")} ago";
+        }
+
+        var days = Math.Max(1, (int)elapsed.TotalDays);
+        return $"{days} day{(days == 1 ? string.Empty : "s")} ago";
+    }
 }

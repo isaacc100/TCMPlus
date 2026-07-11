@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Avalonia.Threading;
 using TCMPlus.Domain.Models;
 using TCMPlus.Domain.Persistence;
 using TCMPlus.Domain.Services;
@@ -12,6 +13,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly ITreatmentCentreService _treatmentCentreService;
     private readonly ITcSettingsRepository _settingsRepository;
     private readonly IShiftPinService _shiftPinService;
+    private readonly DispatcherTimer _clockTimer;
 
     public MainViewModel(
         ITreatmentCentreService treatmentCentreService,
@@ -23,6 +25,10 @@ public partial class MainViewModel : ViewModelBase
         _settingsRepository = settingsRepository;
         _shiftPinService = shiftPinService;
         Session = session;
+        _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _clockTimer.Tick += (_, _) => RefreshClock();
+        RefreshClock();
+        _clockTimer.Start();
     }
 
     public event EventHandler? AddStationRequested;
@@ -53,6 +59,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _patientsSeenThisShift;
+
+    [ObservableProperty]
+    private string _currentTimeText = "";
 
     public bool HasNoStations => Stations.Count == 0;
     public bool IsMapPage => SelectedPage == TcPage.Map;
@@ -244,6 +253,15 @@ public partial class MainViewModel : ViewModelBase
         OccupiedStations = Stations.Count(station => station.IsOccupied);
         PatientsSeenThisShift = await _treatmentCentreService.GetPatientsSeenThisShiftAsync();
         OnPropertyChanged(nameof(HasNoStations));
+    }
+
+    private void RefreshClock()
+    {
+        CurrentTimeText = DateTimeOffset.Now.ToString("HH:mm:ss");
+        foreach (var station in Stations)
+        {
+            station.RefreshPatientArrivalText();
+        }
     }
 
     private static bool Intersects(StationViewModel first, StationViewModel second) =>
