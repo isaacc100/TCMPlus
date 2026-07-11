@@ -1,0 +1,254 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TCMPlus.App.ViewModels"
+        xmlns:controls="using:TCMPlus.App.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="820"
+        x:Class="TCMPlus.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="TCM+"
+        Width="1280"
+        Height="820"
+        MinWidth="1040"
+        MinHeight="680"
+        Background="{StaticResource CanvasBrush}">
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.primary-nav">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#C9E4CA" />
+            <Setter Property="Padding" Value="16,10" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Button.primary-nav.active">
+            <Setter Property="Background" Value="#55828B" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.sub-nav">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#3B6064" />
+            <Setter Property="Padding" Value="13,8" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Button.sub-nav.active">
+            <Setter Property="Background" Value="#E7F5EC" />
+            <Setter Property="Foreground" Value="#245A42" />
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#3B6064" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#E7F5EC" />
+            <Setter Property="Foreground" Value="#245A42" />
+            <Setter Property="BorderBrush" Value="#87BBA2" />
+            <Setter Property="Padding" Value="13,8" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="#FCEAEA" />
+            <Setter Property="Foreground" Value="#963D3D" />
+            <Setter Property="BorderBrush" Value="#E5A0A0" />
+            <Setter Property="Padding" Value="13,8" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#D5E2DA" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="#60737A" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="#364958" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*">
+        <Border Background="{StaticResource InkBrush}" Height="62" Padding="28,0">
+            <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Text="TCM+" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Classes="primary-nav active" Content="Manager" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Background="White" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1" Padding="28,8">
+            <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Text="Manager" Foreground="#364958" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,18,0" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="sub-nav" Classes.active="{Binding IsMapPage}" Content="Map" Command="{Binding ShowMapCommand}" />
+                    <Button Classes="sub-nav" Classes.active="{Binding IsTablesPage}" Content="Tables" Command="{Binding ShowTablesCommand}" />
+                    <Button Classes="sub-nav" Classes.active="{Binding IsSetupPage}" Content="Setup" Command="{Binding ShowSetupCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsMapPage}" ColumnDefinitions="220,16,*">
+            <Border Classes="card" Padding="18">
+                <StackPanel Spacing="18">
+                    <TextBlock Text="Treatment centre" Classes="section-title" />
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding AvailableStations}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource OpenBrush}" />
+                        <TextBlock Text="Available stations" Classes="muted" />
+                    </StackPanel>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding OccupiedStations}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource ClosedBrush}" />
+                        <TextBlock Text="Occupied stations" Classes="muted" />
+                    </StackPanel>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding PatientsSeenThisShift}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource DeepSeaBrush}" />
+                        <TextBlock Text="Patients seen this shift" Classes="muted" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Classes="secondary" Content="{Binding EditModeText}" Command="{Binding ToggleEditModeCommand}" Margin="0,10,0,0" />
+                    <Button Classes="primary" Content="Add station" Command="{Binding RequestAddStationCommand}" IsVisible="{Binding IsEditMode}" />
+                    <TextBlock Text="{Binding Notice}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Background="#EEF5EF" Padding="18,14" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Text="Station map" Classes="section-title" />
+                                <TextBlock Text="{Binding MapStatusText}" Classes="muted" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Ellipse Width="9" Height="9" Fill="{StaticResource OpenBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Available" Classes="muted" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Ellipse Width="9" Height="9" Fill="{StaticResource ClosedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Occupied" Classes="muted" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Viewbox Grid.Row="1" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Grid Width="1200" Height="720">
+                            <controls:DotGridControl />
+                            <ItemsControl ItemsSource="{Binding Stations}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Canvas Width="1200" Height="720" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerTheme>
+                                    <ControlTheme x:DataType="vm:StationViewModel" TargetType="ContentPresenter">
+                                        <Setter Property="Canvas.Left" Value="{Binding CanvasX}" />
+                                        <Setter Property="Canvas.Top" Value="{Binding CanvasY}" />
+                                    </ControlTheme>
+                                </ItemsControl.ItemContainerTheme>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <controls:StationCard Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Border IsVisible="{Binding HasNoStations}" Width="320" Height="150" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#FFFFFFDD" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="10" Padding="20">
+                                <StackPanel Spacing="8" HorizontalAlignment="Center">
+                                    <TextBlock Text="No stations configured" FontWeight="Bold" FontSize="17" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Edit the treatment centre to add and place the first station." Classes="muted" TextWrapping="Wrap" TextAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Viewbox>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsTablesPage}" RowDefinitions="Auto,16,*">
+            <Border Classes="card" Padding="20">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Station tables" Classes="section-title" />
+                        <TextBlock Text="Each row reflects the current station state." Classes="muted" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Classes="secondary" Content="{Binding EditModeText}" Command="{Binding ToggleEditModeCommand}" />
+                        <Button Classes="primary" Content="Add station" Command="{Binding RequestAddStationCommand}" IsVisible="{Binding IsEditMode}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Border Grid.Row="2" Classes="card" Padding="0" ClipToBounds="True">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto">
+                    <StackPanel MinWidth="760">
+                        <Border Background="#EEF5EF" Padding="18,13">
+                            <Grid ColumnDefinitions="1.4*,1.15*,130,1.25*,Auto">
+                                <TextBlock Text="Station" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="1" Text="Type" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="2" Text="State" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="3" Text="Added" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                            </Grid>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Stations}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="White" Padding="18,13">
+                                        <Grid ColumnDefinitions="1.4*,1.15*,130,1.25*,Auto" ColumnSpacing="8">
+                                            <Grid.Styles>
+                                                <Style Selector="TextBlock.status">
+                                                    <Setter Property="Foreground" Value="#2F8F61" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </Style>
+                                                <Style Selector="TextBlock.status.occupied">
+                                                    <Setter Property="Foreground" Value="#B94B4B" />
+                                                </Style>
+                                            </Grid.Styles>
+                                            <TextBlock Text="{Binding Name}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" Foreground="{StaticResource InkBrush}" FontWeight="SemiBold" />
+                                            <TextBox Text="{Binding Name}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Type}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" Classes="muted" />
+                                            <TextBox Grid.Column="1" Text="{Binding Type}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding StatusText}" Classes="status" Classes.occupied="{Binding IsOccupied}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding PatientAddedText}" VerticalAlignment="Center" Classes="muted" />
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
+                                                <Button Classes="secondary" Content="Add Patient" Command="{Binding AddPatientCommand}" IsVisible="{Binding CanAddPatient}" />
+                                                <Button Classes="danger" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding CanDischargePatient}" />
+                                                <Button Classes="secondary" Content="Save" Command="{Binding SaveStationCommand}" IsVisible="{Binding IsEditMode}" />
+                                                <Button Classes="danger" Content="Delete" Command="{Binding DeleteStationCommand}" IsVisible="{Binding IsEditMode}" IsEnabled="{Binding CanDelete}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSetupPage}">
+            <Border Classes="card" Padding="20" Width="520" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Shift PIN" Classes="section-title" />
+                    <TextBlock Text="Set the six-digit PIN for this session. App locking will be added later; the PIN is stored as a salted hash." Classes="muted" TextWrapping="Wrap" />
+                    <TextBox Text="{Binding NewPin}" PasswordChar="*" MaxLength="6" PlaceholderText="Six digits" />
+                    <Button Classes="primary" Content="Save PIN" Command="{Binding SaveShiftPinCommand}" />
+                    <TextBlock Text="{Binding PinStatusText}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

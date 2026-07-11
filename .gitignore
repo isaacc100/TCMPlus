@@ -1,0 +1,7 @@
+legacy-web/
+bin/
+obj/
+.vs/
+TestResults/
+*.user
+*.suo

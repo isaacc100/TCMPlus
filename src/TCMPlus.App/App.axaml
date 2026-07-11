@@ -1,0 +1,21 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TCMPlus.App.App"
+             RequestedThemeVariant="Light">
+    <Application.Resources>
+        <SolidColorBrush x:Key="MistBrush" Color="#C9E4CA" />
+        <SolidColorBrush x:Key="SageBrush" Color="#87BBA2" />
+        <SolidColorBrush x:Key="SeaBrush" Color="#55828B" />
+        <SolidColorBrush x:Key="DeepSeaBrush" Color="#3B6064" />
+        <SolidColorBrush x:Key="InkBrush" Color="#364958" />
+        <SolidColorBrush x:Key="CanvasBrush" Color="#F5F8F4" />
+        <SolidColorBrush x:Key="OpenBrush" Color="#2F8F61" />
+        <SolidColorBrush x:Key="OpenSoftBrush" Color="#E7F5EC" />
+        <SolidColorBrush x:Key="ClosedBrush" Color="#B94B4B" />
+        <SolidColorBrush x:Key="ClosedSoftBrush" Color="#FCEAEA" />
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+</Application>

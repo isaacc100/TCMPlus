@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TCMPlus.App.ViewModels"
+             x:Class="TCMPlus.App.Controls.StationCard"
+             x:DataType="vm:StationViewModel"
+             PointerMoved="OnPointerMoved"
+             PointerReleased="OnPointerReleased"
+             PointerCaptureLost="OnPointerCaptureLost">
+    <UserControl.Styles>
+        <Style Selector="Border.station">
+            <Setter Property="Background" Value="#E7F5EC" />
+            <Setter Property="BorderBrush" Value="#2F8F61" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.station.occupied">
+            <Setter Property="Background" Value="#FCEAEA" />
+            <Setter Property="BorderBrush" Value="#B94B4B" />
+        </Style>
+        <Style Selector="Border.station-header">
+            <Setter Property="Background" Value="#2F8F61" />
+        </Style>
+        <Style Selector="Border.station-header.occupied">
+            <Setter Property="Background" Value="#B94B4B" />
+        </Style>
+        <Style Selector="Button.station-action">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="station" Classes.occupied="{Binding IsOccupied}" ClipToBounds="True" PointerPressed="OnDragSurfacePointerPressed">
+        <Grid RowDefinitions="28,*">
+            <Border Grid.Row="0" Classes="station-header" Classes.occupied="{Binding IsOccupied}">
+                <Grid ColumnDefinitions="Auto,*" Margin="9,0">
+                    <Ellipse Width="7" Height="7" Fill="White" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Type}" Foreground="White" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="7,0,0,0" />
+                </Grid>
+            </Border>
+            <Grid Grid.Row="1" Margin="11,9">
+                <StackPanel IsVisible="{Binding IsOperationalMode}" Spacing="4">
+                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="#364958" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding StatusText}" Foreground="#364958" FontSize="11" />
+                    <TextBlock Text="{Binding PatientAddedText}" IsVisible="{Binding IsOccupied}" Foreground="#50636B" FontSize="10" />
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
+                        <Button Classes="station-action" Background="#D8EFE0" Foreground="#245A42" Content="Add Patient" Command="{Binding AddPatientCommand}" IsVisible="{Binding CanAddPatient}" />
+                        <Button Classes="station-action" Background="#F5D5D5" Foreground="#843434" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding CanDischargePatient}" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" Spacing="5">
+                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="#364958" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="Drag anywhere to move." Foreground="#50636B" FontSize="10" />
+                    <TextBlock Text="Use any corner to resize." Foreground="#50636B" FontSize="10" />
+                </StackPanel>
+                <Border Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" BorderBrush="#3B6064" BorderThickness="2,2,0,0" Cursor="SizeNorthSouth" PointerPressed="OnTopLeftResizePointerPressed" IsVisible="{Binding IsEditMode}" />
+                <Border Width="18" Height="18" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" BorderBrush="#3B6064" BorderThickness="0,2,2,0" Cursor="SizeNorthSouth" PointerPressed="OnTopRightResizePointerPressed" IsVisible="{Binding IsEditMode}" />
+                <Border Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" BorderBrush="#3B6064" BorderThickness="2,0,0,2" Cursor="SizeNorthSouth" PointerPressed="OnBottomLeftResizePointerPressed" IsVisible="{Binding IsEditMode}" />
+                <Border Width="18" Height="18" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" BorderBrush="#3B6064" BorderThickness="0,0,2,2" Cursor="SizeNorthSouth" PointerPressed="OnBottomRightResizePointerPressed" IsVisible="{Binding IsEditMode}" />
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

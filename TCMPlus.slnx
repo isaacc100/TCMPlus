@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TCMPlus.App/TCMPlus.App.csproj" />
+    <Project Path="src/TCMPlus.Domain/TCMPlus.Domain.csproj" />
+    <Project Path="src/TCMPlus.Infrastructure/TCMPlus.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TCMPlus.Tests/TCMPlus.Tests.csproj" />
+  </Folder>
+</Solution>
