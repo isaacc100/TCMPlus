@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.4.3-DEV
+## 0.4.4-DEV
+
+- Fixed a lock-screen PIN crash by verifying against the cached active-shift PIN settings before decrypting the sealed database.
+
+## 0.4.3
 
 - Fixed shift start failing after encryption when SQLite connection pooling prevented removal of the decrypted workspace.
 

@@ -14,6 +14,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly ITcSettingsRepository _settingsRepository;
     private readonly IShiftPinService _shiftPinService;
     private readonly IAppSettingsRepository _appSettingsRepository;
+    private TcSessionSettings? _sessionSettings;
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _bannerTimer;
 
@@ -109,6 +110,7 @@ public partial class MainViewModel : ViewModelBase
         {
             foreach (var item in await _treatmentCentreService.GetSnapshotAsync()) AddViewModel(item.Station, item.CurrentPatient);
             var settings = await _settingsRepository.GetAsync();
+            _sessionSettings = settings;
             ShiftName = string.IsNullOrWhiteSpace(settings.ShiftName) ? Session.ShiftName : settings.ShiftName;
             PinStatusText = settings.HasShiftPin ? "A shift PIN is stored for this session." : "No shift PIN set.";
             QuickEntry = settings.QuickEntry;
@@ -157,9 +159,17 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task UnlockAsync()
     {
-        var settings = await _settingsRepository.GetAsync();
-        if (_shiftPinService.Verify(UnlockPin, settings)) { SessionUnlockRequested?.Invoke(this, EventArgs.Empty); return; }
-        LockMessage = "That PIN does not match this shift."; ClearUnlockPin();
+        try
+        {
+            var settings = _sessionSettings ?? await _settingsRepository.GetAsync();
+            if (_shiftPinService.Verify(UnlockPin, settings)) { SessionUnlockRequested?.Invoke(this, EventArgs.Empty); return; }
+            LockMessage = "That PIN does not match this shift."; ClearUnlockPin();
+        }
+        catch (Exception exception)
+        {
+            LockMessage = $"Unable to verify the shift PIN: {exception.Message}";
+            ClearUnlockPin();
+        }
     }
 
     public async Task CreateStationAsync(StationDraft draft)
@@ -191,6 +201,7 @@ public partial class MainViewModel : ViewModelBase
             settings = _shiftPinService.CreateSettings(NewPin);
         }
         await _settingsRepository.SaveAsync(settings with { ShiftName = ShiftName.Trim(), GridDensity = GridDensity });
+        _sessionSettings = settings with { ShiftName = ShiftName.Trim(), GridDensity = GridDensity };
         NewPin = ""; IsChangingPin = false; PinStatusText = "Shift details saved for this session.";
     }
 
@@ -289,7 +300,8 @@ public partial class MainViewModel : ViewModelBase
     private async Task SaveSessionOptionsAsync()
     {
         var settings = await _settingsRepository.GetAsync();
-        await _settingsRepository.SaveAsync(settings with { QuickEntry = QuickEntry, GridDensity = GridDensity });
+        _sessionSettings = settings with { QuickEntry = QuickEntry, GridDensity = GridDensity };
+        await _settingsRepository.SaveAsync(_sessionSettings);
     }
 
     private async Task CommitGeometryAsync(StationViewModel station, StationGeometry originalGeometry)
