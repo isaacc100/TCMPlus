@@ -51,10 +51,12 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<DashboardChartPoint> ThroughputPoints { get; } = [];
     public ObservableCollection<DashboardChartPoint> DischargeDurationPoints { get; } = [];
     public ObservableCollection<string> DischargeRoutes { get; } = [];
+    public ObservableCollection<PatientViewModel> Patients { get; } = [];
 
     [ObservableProperty] private TcArea _selectedArea = TcArea.Manager;
     [ObservableProperty] private TcPage _selectedPage = TcPage.Map;
     [ObservableProperty] private bool _isEditMode;
+    [ObservableProperty] private bool _isPatientEditMode;
     [ObservableProperty] private bool _quickEntry;
     [ObservableProperty] private GridDensity _gridDensity = GridDensity.Compact;
     [ObservableProperty] private SettingsPage _settingsPage = SettingsPage.General;
@@ -98,12 +100,15 @@ public partial class MainViewModel : ViewModelBase
     public double ActiveBlurRadius => IsLocked ? LockBlurRadius : 0d;
     public bool IsMapPage => IsManager && SelectedPage == TcPage.Map;
     public bool IsTablesPage => IsManager && SelectedPage == TcPage.Tables;
+    public bool IsPatientsPage => IsManager && SelectedPage == TcPage.Patients;
     public bool IsSetupPage => IsManager && SelectedPage == TcPage.Setup;
+    public bool HasNoPatients => Patients.Count == 0;
     public bool HasNoComplaintBreakdown => !HasComplaintBreakdown;
     public bool HasNoThroughput => !HasThroughput;
     public bool HasNoDischargeDurations => !HasDischargeDurations;
     public bool HasNoRecentActivity => RecentActivity.Count == 0;
     public string EditModeText => IsEditMode ? "Finish editing" : "Edit Treatment Centre";
+    public string PatientEditModeText => IsPatientEditMode ? "Finish editing" : "Edit patients";
     public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize." : "Click an available station to add a patient. Drag a patient counter to transfer.";
     public double GridPixelSize => GridDensity switch { GridDensity.Standard => 20d, GridDensity.Dense => 16d, _ => 24d };
 
@@ -128,14 +133,23 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify($"Unable to load this session: {exception.Message}", true); }
     }
 
-    [RelayCommand] private async Task ShowDashboardAsync() { SelectedArea = TcArea.Dashboard; await RefreshDashboardAsync(); }
+    [RelayCommand] private async Task ShowDashboardAsync() { ClearPatientEdits(); SelectedArea = TcArea.Dashboard; await RefreshDashboardAsync(); }
     [RelayCommand] private void ShowManager() => SelectedArea = TcArea.Manager;
     [RelayCommand] private void ShowMap() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Map; }
     [RelayCommand] private void ShowTables() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Tables; }
+    [RelayCommand]
+    private async Task ShowPatientsAsync()
+    {
+        SelectedArea = TcArea.Manager;
+        SelectedPage = TcPage.Patients;
+        try { await RefreshPatientsAsync(); }
+        catch (Exception exception) { Notify($"Unable to load patients: {exception.Message}", true); }
+    }
     [RelayCommand] private void ShowSetup() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Setup; }
     [RelayCommand] private void ToggleEditMode() => IsEditMode = !IsEditMode;
+    [RelayCommand] private void TogglePatientEditMode() => IsPatientEditMode = !IsPatientEditMode;
     [RelayCommand] private void RequestAddStation() => AddStationRequested?.Invoke(this, EventArgs.Empty);
-    [RelayCommand] private void ShowSettings() => SelectedArea = TcArea.Settings;
+    [RelayCommand] private void ShowSettings() { ClearPatientEdits(); SelectedArea = TcArea.Settings; }
     [RelayCommand] private void ShowSettingsGeneral() => SettingsPage = SettingsPage.General;
     [RelayCommand] private void ShowSettingsOperations() => SettingsPage = SettingsPage.Operations;
     [RelayCommand] private void ShowSettingsDisplays() => SettingsPage = SettingsPage.Displays;
@@ -219,11 +233,20 @@ public partial class MainViewModel : ViewModelBase
     }
     partial void OnSettingsPageChanged(SettingsPage value) { OnPropertyChanged(nameof(IsSettingsGeneral)); OnPropertyChanged(nameof(IsSettingsOperations)); OnPropertyChanged(nameof(IsSettingsDisplays)); }
     partial void OnNotificationKindChanged(NotificationKind value) { OnPropertyChanged(nameof(IsNotificationInfo)); OnPropertyChanged(nameof(IsNotificationWarning)); OnPropertyChanged(nameof(IsNotificationError)); }
-    partial void OnSelectedPageChanged(TcPage value) => RefreshAreaProperties();
+    partial void OnSelectedPageChanged(TcPage value)
+    {
+        if (value != TcPage.Patients) ClearPatientEdits();
+        RefreshAreaProperties();
+    }
     partial void OnIsEditModeChanged(bool value)
     {
         foreach (var station in Stations) station.IsEditMode = value;
         OnPropertyChanged(nameof(EditModeText)); OnPropertyChanged(nameof(MapStatusText));
+    }
+    partial void OnIsPatientEditModeChanged(bool value)
+    {
+        foreach (var patient in Patients) patient.IsEditMode = value;
+        OnPropertyChanged(nameof(PatientEditModeText));
     }
 
     partial void OnQuickEntryChanged(bool value) => _ = SaveSessionOptionsAsync();
@@ -231,7 +254,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void RefreshAreaProperties()
     {
-        OnPropertyChanged(nameof(IsDashboard)); OnPropertyChanged(nameof(IsManager)); OnPropertyChanged(nameof(IsSettings)); OnPropertyChanged(nameof(IsMapPage)); OnPropertyChanged(nameof(IsTablesPage)); OnPropertyChanged(nameof(IsSetupPage));
+        OnPropertyChanged(nameof(IsDashboard)); OnPropertyChanged(nameof(IsManager)); OnPropertyChanged(nameof(IsSettings)); OnPropertyChanged(nameof(IsMapPage)); OnPropertyChanged(nameof(IsTablesPage)); OnPropertyChanged(nameof(IsPatientsPage)); OnPropertyChanged(nameof(IsSetupPage));
     }
 
     private void SetGridDensity(GridDensity density)
@@ -284,6 +307,18 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
+    private async Task SavePatientAsync(PatientViewModel patient)
+    {
+        try
+        {
+            var updated = await _treatmentCentreService.UpdatePatientDetailsAsync(patient.Uid, patient.PresentingComplaint, patient.DischargeRoute);
+            patient.AcceptSavedDetails(updated);
+            await RefreshDashboardAsync();
+            Notify($"Patient {patient.PatientNumber} saved.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
     private async Task DeleteStationAsync(StationViewModel station)
     {
         try { await _treatmentCentreService.DeleteStationAsync(station.Id); Stations.Remove(station); await RefreshSummaryAsync(); OnPropertyChanged(nameof(HasNoStations)); Notify("Station deleted."); }
@@ -333,7 +368,12 @@ public partial class MainViewModel : ViewModelBase
         await SaveStationAsync(station);
     }
 
-    private async Task RefreshOperationalDataAsync() { await RefreshSummaryAsync(); await RefreshDashboardAsync(); }
+    private async Task RefreshOperationalDataAsync()
+    {
+        await RefreshSummaryAsync();
+        await RefreshDashboardAsync();
+        if (IsPatientsPage) await RefreshPatientsAsync();
+    }
     private async Task RefreshSummaryAsync()
     {
         AvailableStations = Stations.Count(station => !station.IsOccupied);
@@ -356,6 +396,26 @@ public partial class MainViewModel : ViewModelBase
         ComplaintBreakdown.Clear(); foreach (var item in dashboard.ComplaintBreakdown.Select((item, index) => new DashboardChartSlice(item.Complaint, item.Count, ChartColors[index % ChartColors.Length]))) ComplaintBreakdown.Add(item);
         ThroughputPoints.Clear(); foreach (var item in dashboard.Throughput) ThroughputPoints.Add(new DashboardChartPoint(item.BucketStart.LocalDateTime.ToString("HH:mm"), item.Discharges));
         DischargeDurationPoints.Clear(); foreach (var item in dashboard.DischargeDurations) DischargeDurationPoints.Add(new DashboardChartPoint(item.DischargedAt.LocalDateTime.ToString("HH:mm"), item.Duration.TotalMinutes));
+    }
+
+    private async Task RefreshPatientsAsync()
+    {
+        var stationNames = Stations.ToDictionary(station => station.Id, station => station.Name);
+        var patients = await _treatmentCentreService.GetPatientsAsync();
+        Patients.Clear();
+        foreach (var patient in patients)
+        {
+            var stationName = patient.CurrentStationId is Guid stationId ? stationNames.GetValueOrDefault(stationId, "Unknown station") : string.Empty;
+            Patients.Add(new PatientViewModel(patient, stationName, DischargeRoutes, SavePatientAsync) { IsEditMode = IsPatientEditMode });
+        }
+        OnPropertyChanged(nameof(HasNoPatients));
+    }
+
+    private void ClearPatientEdits()
+    {
+        if (!IsPatientEditMode) return;
+        foreach (var patient in Patients) patient.CancelEdits();
+        IsPatientEditMode = false;
     }
 
     private void Notify(string message, bool error = false)
@@ -381,6 +441,6 @@ public partial class MainViewModel : ViewModelBase
 public sealed record StationDraft(string Name, string Type);
 public sealed record NewPatientDraft(string? PresentingComplaint);
 public enum TcArea { Dashboard, Manager, Settings }
-public enum TcPage { Map, Tables, Setup }
+public enum TcPage { Map, Tables, Patients, Setup }
 public enum SettingsPage { General, Operations, Displays }
 public enum NotificationKind { Info, Warning, Error }

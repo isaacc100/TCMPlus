@@ -49,6 +49,28 @@ public sealed class TreatmentCentreService(
         return patient;
     }
 
+    public Task<IReadOnlyList<Patient>> GetPatientsAsync(CancellationToken cancellationToken = default) =>
+        patientRepository.GetAllAsync(cancellationToken);
+
+    public async Task<Patient> UpdatePatientDetailsAsync(Guid patientUid, string? presentingComplaint, string? dischargeRoute, CancellationToken cancellationToken = default)
+    {
+        var patient = (await patientRepository.GetAllAsync(cancellationToken)).FirstOrDefault(item => item.Uid == patientUid)
+            ?? throw new InvalidOperationException("The requested patient no longer exists.");
+        var normalizedRoute = NormalizeOptionalText(dischargeRoute);
+        if (patient.DischargedAt is null && normalizedRoute is not null)
+        {
+            throw new InvalidOperationException("Only discharged patients can have a discharge route.");
+        }
+
+        var updated = patient with
+        {
+            PresentingComplaint = NormalizeOptionalText(presentingComplaint),
+            DischargeRoute = patient.DischargedAt is null ? null : normalizedRoute
+        };
+        await patientRepository.UpdateDetailsAsync(updated, cancellationToken);
+        return updated;
+    }
+
     public async Task DischargePatientAsync(Guid stationId, string? dischargeRoute, CancellationToken cancellationToken = default)
     {
         var station = await FindStationAsync(stationId, cancellationToken);
@@ -96,4 +118,6 @@ public sealed class TreatmentCentreService(
 
     private Task AddEventAsync(Patient patient, PatientEventType type, string? from, string? to, CancellationToken cancellationToken) =>
         patientRepository.AddEventAsync(new PatientEvent(Guid.NewGuid(), patient.Uid, patient.PatientNumber, type, DateTimeOffset.UtcNow, from, to), cancellationToken);
+
+    private static string? NormalizeOptionalText(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

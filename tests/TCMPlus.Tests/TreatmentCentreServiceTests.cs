@@ -44,6 +44,30 @@ public sealed class TreatmentCentreServiceTests
         Assert.Equal(5, (await patients.GetAllEventsAsync()).Count);
     }
 
+    [Fact]
+    public async Task Returns_all_patients_and_allows_only_discharged_patient_detail_corrections()
+    {
+        var station = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var patients = new InMemoryPatientRepository();
+        var service = new TreatmentCentreService(new InMemoryStationRepository(station), patients);
+        var discharged = await service.AddPatientAsync(station.Id, "Initial complaint");
+        await service.DischargePatientAsync(station.Id, "Conveyed");
+        var active = await service.AddPatientAsync(station.Id, null);
+
+        var allPatients = await service.GetPatientsAsync();
+        Assert.Equal([discharged.Uid, active.Uid], allPatients.Select(patient => patient.Uid));
+
+        var updated = await service.UpdatePatientDetailsAsync(discharged.Uid, "  Corrected complaint  ", "  Self-care  ");
+        Assert.Equal("Corrected complaint", updated.PresentingComplaint);
+        Assert.Equal("Self-care", updated.DischargeRoute);
+
+        updated = await service.UpdatePatientDetailsAsync(discharged.Uid, "   ", "   ");
+        Assert.Null(updated.PresentingComplaint);
+        Assert.Null(updated.DischargeRoute);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdatePatientDetailsAsync(active.Uid, null, "Conveyed"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdatePatientDetailsAsync(Guid.NewGuid(), null, null));
+    }
+
     private sealed class InMemoryStationRepository(params Station[] stations) : IStationRepository
     {
         private readonly List<Station> _stations = [.. stations];
@@ -65,6 +89,12 @@ public sealed class TreatmentCentreServiceTests
         public Task<int> GetNextPatientNumberAsync(CancellationToken cancellationToken = default) => Task.FromResult(_patients.Count + 1);
         public Task<Patient?> GetByStationAsync(Guid stationId, CancellationToken cancellationToken = default) => Task.FromResult(_patients.FirstOrDefault(patient => patient.CurrentStationId == stationId));
         public Task AddAsync(Patient patient, CancellationToken cancellationToken = default) { _patients.Add(patient); return Task.CompletedTask; }
+        public Task UpdateDetailsAsync(Patient patient, CancellationToken cancellationToken = default)
+        {
+            var index = _patients.FindIndex(item => item.Uid == patient.Uid);
+            if (index >= 0) _patients[index] = patient;
+            return Task.CompletedTask;
+        }
         public Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, CancellationToken cancellationToken = default)
         {
             for (var index = 0; index < _patients.Count; index++)

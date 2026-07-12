@@ -42,6 +42,17 @@ public sealed class SqlitePatientRepository(SqliteConnectionFactory connectionFa
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task UpdateDetailsAsync(Patient patient, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE patients SET presenting_complaint = @complaint, discharge_route = @route WHERE uid = @uid;";
+        command.Parameters.AddWithValue("@uid", patient.Uid.ToString("N"));
+        command.Parameters.AddWithValue("@complaint", string.IsNullOrWhiteSpace(patient.PresentingComplaint) ? DBNull.Value : patient.PresentingComplaint.Trim());
+        command.Parameters.AddWithValue("@route", string.IsNullOrWhiteSpace(patient.DischargeRoute) ? DBNull.Value : patient.DischargeRoute.Trim());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.OpenConnection();
