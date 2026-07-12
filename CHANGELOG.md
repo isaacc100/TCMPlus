@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.4.1-DEV
+## 0.4.2-DEV
+
+- Added startup detection for other running TCM+ instances, with explicit options to terminate them and continue or exit the newly started instance.
+
+## 0.4.1
 
 - Fixed the shift-start crash caused by encryption reading a database file held by SQLite's connection pool; startup errors now remain visible in the setup window.
 

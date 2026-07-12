@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
 using TCMPlus.Domain.Persistence;
 using TCMPlus.Domain.Services;
 using TCMPlus.Infrastructure.Persistence;
@@ -27,13 +28,62 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _desktop = desktop;
-            var shiftSetup = new ShiftSetupWindow();
-            shiftSetup.ShiftStarted += async (_, draft) => await OpenShiftAsync(desktop, shiftSetup, draft);
-            shiftSetup.LoadExistingRequested += (_, _) => ShowRecentSessions(shiftSetup);
-            desktop.MainWindow = shiftSetup;
+            var otherProcesses = FindOtherInstances();
+            if (otherProcesses.Count == 0)
+            {
+                CreateShiftSetup(desktop, false);
+            }
+            else
+            {
+                var conflict = new ProcessConflictWindow(otherProcesses.Count);
+                conflict.Resolved += async (_, terminateOthers) =>
+                {
+                    if (terminateOthers)
+                    {
+                        var failed = await TerminateAsync(otherProcesses);
+                        if (failed.Count > 0) { conflict.ShowError($"Could not stop {failed.Count} existing TCM+ instance(s). Close them manually, then try again."); return; }
+                    }
+                    else { desktop.Shutdown(); return; }
+
+                    conflict.Close();
+                    CreateShiftSetup(desktop, true);
+                };
+                desktop.MainWindow = conflict;
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static void CreateShiftSetup(IClassicDesktopStyleApplicationLifetime desktop, bool show)
+    {
+        var shiftSetup = new ShiftSetupWindow();
+        shiftSetup.ShiftStarted += async (_, draft) => await OpenShiftAsync(desktop, shiftSetup, draft);
+        shiftSetup.LoadExistingRequested += (_, _) => ShowRecentSessions(shiftSetup);
+        desktop.MainWindow = shiftSetup;
+        if (show) shiftSetup.Show();
+    }
+
+    private static List<Process> FindOtherInstances()
+    {
+        using var current = Process.GetCurrentProcess();
+        return Process.GetProcessesByName(current.ProcessName).Where(process => process.Id != current.Id).ToList();
+    }
+
+    private static async Task<List<Process>> TerminateAsync(IEnumerable<Process> processes)
+    {
+        var failed = new List<Process>();
+        foreach (var process in processes)
+        {
+            try
+            {
+                if (!process.HasExited) process.Kill();
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
+            }
+            catch { failed.Add(process); }
+            finally { process.Dispose(); }
+        }
+        return failed;
     }
 
     private static async Task OpenShiftAsync(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
