@@ -27,6 +27,6 @@ public sealed class JsonAppSettingsRepository : IAppSettingsRepository
         var routes = settings.DischargeRoutes.Where(route => !string.IsNullOrWhiteSpace(route)).Select(route => route.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (routes.Count == 0) throw new InvalidOperationException("Keep at least one discharge route.");
         await using var stream = File.Create(_path);
-        await JsonSerializer.SerializeAsync(stream, new AppSettings(routes), cancellationToken: cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, settings with { DischargeRoutes = routes }, cancellationToken: cancellationToken);
     }
 }

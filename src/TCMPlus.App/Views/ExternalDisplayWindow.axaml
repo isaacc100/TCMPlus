@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TCMPlus.App.ViewModels"
+        x:Class="TCMPlus.App.Views.ExternalDisplayWindow"
+        x:DataType="vm:MainViewModel"
+        Title="TCM+ external display" Background="#F5F8F4">
+  <Grid RowDefinitions="Auto,*">
+    <Border Background="#364958" Padding="28,14">
+      <Grid ColumnDefinitions="*,Auto"><TextBlock Name="Heading" Foreground="White" FontSize="24" FontWeight="Bold"/><TextBlock Grid.Column="1" Text="{Binding CurrentTimeText}" Foreground="White" FontSize="20"/></Grid>
+    </Border>
+    <Grid Grid.Row="1" Name="DashboardPanel" Margin="28" RowDefinitions="Auto,*">
+      <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="14">
+        <Border Background="White" Padding="18" CornerRadius="10"><StackPanel><TextBlock Text="{Binding AvailableStations}" FontSize="38" FontWeight="Bold" Foreground="#2F8F61"/><TextBlock Text="Available stations"/></StackPanel></Border>
+        <Border Grid.Column="1" Background="White" Padding="18" CornerRadius="10"><StackPanel><TextBlock Text="{Binding OccupiedStations}" FontSize="38" FontWeight="Bold" Foreground="#B94B4B"/><TextBlock Text="Occupied stations"/></StackPanel></Border>
+        <Border Grid.Column="2" Background="White" Padding="18" CornerRadius="10"><StackPanel><TextBlock Text="{Binding PatientsSeenThisShift}" FontSize="38" FontWeight="Bold" Foreground="#3B6064"/><TextBlock Text="Patients seen this shift"/></StackPanel></Border>
+        <Border Grid.Column="3" Background="White" Padding="18" CornerRadius="10"><StackPanel><TextBlock Text="{Binding AverageDischargeText}" FontSize="26" FontWeight="Bold" Foreground="#55828B"/><TextBlock Text="Average discharge time"/></StackPanel></Border>
+      </Grid>
+      <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="22" Margin="0,14,0,0"><StackPanel Spacing="8"><TextBlock Text="Recent patient activity" FontSize="20" FontWeight="Bold" Foreground="#364958"/><ItemsControl ItemsSource="{Binding RecentActivity}"><ItemsControl.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,Auto" Margin="0,4"><StackPanel><TextBlock Text="{Binding Title}" FontWeight="SemiBold"/><TextBlock Text="{Binding Detail}" Foreground="#60737A"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding Time}" Foreground="#60737A"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></Border>
+    </Grid>
+    <ScrollViewer Grid.Row="1" Name="MapPanel" IsVisible="False" Margin="28"><ItemsControl ItemsSource="{Binding Stations}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemWidth="230" ItemHeight="135"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Margin="7" Padding="16" CornerRadius="10" Background="#E7F5EC" BorderBrush="#87BBA2" BorderThickness="2"><StackPanel><TextBlock Text="{Binding Name}" FontSize="19" FontWeight="Bold"/><TextBlock Text="{Binding Type}" Foreground="#60737A"/><TextBlock Text="{Binding StatusText}" FontWeight="Bold" Margin="0,12,0,0"/><TextBlock Text="{Binding PatientCounterText}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+  </Grid>
+</Window>

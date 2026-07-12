@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.3.1-DEV
+## 0.3.2-DEV
+
+- Added a persisted external-display mode setting and an action to open a fullscreen Dashboard or read-only treatment-centre mirror on a connected second monitor.
+- Added increase-only Compact, Standard, and Dense map-density controls to Shift setup.
+
+## 0.3.1
 
 - Fixed a UI-thread deadlock when creating a new shift or initializing its database.
 

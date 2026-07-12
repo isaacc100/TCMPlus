@@ -119,6 +119,9 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand] private void ShowSettings() => AppSettingsRequested?.Invoke(this, EventArgs.Empty);
     [RelayCommand] private void RequestSessionSwitch() => SessionSwitchRequested?.Invoke(this, EventArgs.Empty);
     [RelayCommand] private async Task SaveQuickEntryAsync() => await SaveSessionOptionsAsync();
+    [RelayCommand] private void SetCompactDensity() => SetGridDensity(GridDensity.Compact);
+    [RelayCommand] private void SetStandardDensity() => SetGridDensity(GridDensity.Standard);
+    [RelayCommand] private void SetDenseDensity() => SetGridDensity(GridDensity.Dense);
 
     [RelayCommand]
     private void Lock() { ClearUnlockPin(); LockMessage = "Enter the shift PIN to continue."; IsLocked = true; }
@@ -179,6 +182,16 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsDashboard)); OnPropertyChanged(nameof(IsManager)); OnPropertyChanged(nameof(IsMapPage)); OnPropertyChanged(nameof(IsTablesPage)); OnPropertyChanged(nameof(IsSetupPage));
     }
 
+    private void SetGridDensity(GridDensity density)
+    {
+        if (density < GridDensity)
+        {
+            Notify("Map density can only be increased after stations have been placed.", true);
+            return;
+        }
+        GridDensity = density;
+    }
+
     private void AddViewModel(Station station, Patient? patient)
     {
         var viewModel = new StationViewModel(station, patient, SaveStationAsync, DeleteStationAsync, RequestNewPatient, RequestDischarge, CommitGeometryAsync, RequestPatientDropAsync) { IsEditMode = IsEditMode, GridSizePixels = GridPixelSize };
@@ -229,9 +242,9 @@ public partial class MainViewModel : ViewModelBase
 
     public Task<AppSettings> GetAppSettingsAsync() => _appSettingsRepository.GetAsync();
 
-    public async Task SaveAppSettingsAsync(IEnumerable<string> dischargeRoutes)
+    public async Task SaveAppSettingsAsync(IEnumerable<string> dischargeRoutes, ExternalDisplayMode displayMode)
     {
-        var settings = new AppSettings(dischargeRoutes.ToList());
+        var settings = new AppSettings(dischargeRoutes.ToList(), displayMode);
         await _appSettingsRepository.SaveAsync(settings);
         DischargeRoutes.Clear();
         foreach (var route in (await _appSettingsRepository.GetAsync()).DischargeRoutes) DischargeRoutes.Add(route);

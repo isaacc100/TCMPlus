@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
 using TCMPlus.App.ViewModels;
+using TCMPlus.Domain.Models;
 
 namespace TCMPlus.App.Views;
 
@@ -9,6 +10,7 @@ public partial class MainWindow : Window
 {
     private MainViewModel? _viewModel;
     private WindowState _windowStateBeforeFullScreen = WindowState.Normal;
+    private ExternalDisplayWindow? _externalDisplay;
 
     public MainWindow()
     {
@@ -103,8 +105,26 @@ public partial class MainWindow : Window
     {
         if (_viewModel is null) return;
         var settings = await _viewModel.GetAppSettingsAsync();
-        var result = await new AppSettingsWindow(settings.DischargeRoutes).ShowDialog<AppSettingsDraft?>(this);
-        if (result is not null) await _viewModel.SaveAppSettingsAsync(result.DischargeRoutes);
+        var result = await new AppSettingsWindow(settings.DischargeRoutes, settings.ExternalDisplayMode).ShowDialog<AppSettingsDraft?>(this);
+        if (result is not null)
+        {
+            await _viewModel.SaveAppSettingsAsync(result.DischargeRoutes, result.DisplayMode);
+            if (result.OpenExternalDisplay) await OpenExternalDisplayAsync(result.DisplayMode);
+        }
+    }
+
+    private async Task OpenExternalDisplayAsync(ExternalDisplayMode mode)
+    {
+        var current = Screens.ScreenFromWindow(this);
+        var target = Screens.All.FirstOrDefault(screen => screen != current);
+        if (target is null)
+        {
+            await new MessageWindow("External display", "Connect a second monitor before opening an external display.").ShowDialog(this);
+            return;
+        }
+        _externalDisplay?.Close();
+        _externalDisplay = new ExternalDisplayWindow(_viewModel!, mode) { Position = target.Bounds.Position, Width = target.Bounds.Width, Height = target.Bounds.Height, WindowState = WindowState.FullScreen };
+        _externalDisplay.Show();
     }
 
     private void OnSessionSwitchRequested(object? sender, EventArgs e) => App.ShowRecentSessions(this);

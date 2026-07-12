@@ -1,17 +1,19 @@
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using TCMPlus.Domain.Models;
 
 namespace TCMPlus.App.Views;
 
 public partial class AppSettingsWindow : Window
 {
     private readonly ObservableCollection<string> _routes;
-    public AppSettingsWindow(IEnumerable<string> routes)
+    public AppSettingsWindow(IEnumerable<string> routes, ExternalDisplayMode displayMode = ExternalDisplayMode.Dashboard)
     {
         InitializeComponent();
         _routes = new ObservableCollection<string>(routes);
         RoutesList.ItemsSource = _routes;
+        DisplayModeInput.SelectedIndex = (int)displayMode;
     }
 
     public AppSettingsWindow() : this([]) { }
@@ -23,7 +25,8 @@ public partial class AppSettingsWindow : Window
     }
     private void OnRemoveRoute(object? sender, RoutedEventArgs e) { if (RoutesList.SelectedItem is string route && _routes.Count > 1) _routes.Remove(route); }
     private void OnCancel(object? sender, RoutedEventArgs e) => Close();
-    private void OnSave(object? sender, RoutedEventArgs e) => Close(new AppSettingsDraft(_routes.ToList()));
+    private void OnSave(object? sender, RoutedEventArgs e) => Close(new AppSettingsDraft(_routes.ToList(), (ExternalDisplayMode)Math.Clamp(DisplayModeInput.SelectedIndex, 0, 1)));
+    private void OnOpenDisplay(object? sender, RoutedEventArgs e) => Close(new AppSettingsDraft(_routes.ToList(), (ExternalDisplayMode)Math.Clamp(DisplayModeInput.SelectedIndex, 0, 1), true));
 }
 
-public sealed record AppSettingsDraft(IReadOnlyList<string> DischargeRoutes);
+public sealed record AppSettingsDraft(IReadOnlyList<string> DischargeRoutes, ExternalDisplayMode DisplayMode, bool OpenExternalDisplay = false);

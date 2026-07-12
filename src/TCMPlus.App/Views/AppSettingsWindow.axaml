@@ -4,7 +4,7 @@
         Width="500" Height="440" CanResize="False" WindowStartupLocation="CenterOwner"
         Title="Application settings" Background="#F5F8F4">
   <Border Margin="20" Padding="24" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="12">
-    <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="12">
       <TextBlock Text="Application settings" FontSize="22" FontWeight="Bold" Foreground="#364958" />
       <TextBlock Grid.Row="1" Text="Discharge routes" FontWeight="SemiBold" Foreground="#364958" />
       <Grid Grid.Row="2" RowDefinitions="*,Auto" RowSpacing="10">
@@ -15,7 +15,9 @@
           <Button Content="Remove selected" Click="OnRemoveRoute" />
         </StackPanel>
       </Grid>
-      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10"><TextBlock Text="External display" VerticalAlignment="Center" Foreground="#364958"/><ComboBox Name="DisplayModeInput" Width="150" SelectedIndex="0"><ComboBoxItem Content="Dashboard"/><ComboBoxItem Content="Map mirror"/></ComboBox></StackPanel>
+      <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Content="Open external display" Click="OnOpenDisplay" />
         <Button Content="Cancel" Click="OnCancel" />
         <Button Content="Save settings" Background="#3B6064" Foreground="White" Click="OnSave" />
       </StackPanel>

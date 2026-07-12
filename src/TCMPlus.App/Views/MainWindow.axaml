@@ -286,6 +286,9 @@
                     <TextBlock Text="Enter a new six-digit PIN only when changing it." Classes="muted" TextWrapping="Wrap" />
                     <TextBox Text="{Binding NewPin}" PasswordChar="*" MaxLength="6" PlaceholderText="New six-digit PIN" />
                     <Button Classes="primary" Content="Save shift details" Command="{Binding SaveShiftPinCommand}" />
+                    <TextBlock Text="Map density" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
+                    <TextBlock Text="You can increase density after stations are placed; it cannot be reduced for this shift." Classes="muted" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8"><Button Classes="secondary" Content="Compact 50 × 30" Command="{Binding SetCompactDensityCommand}" /><Button Classes="secondary" Content="Standard 60 × 36" Command="{Binding SetStandardDensityCommand}" /><Button Classes="secondary" Content="Dense 75 × 45" Command="{Binding SetDenseDensityCommand}" /></StackPanel>
                     <TextBlock Text="{Binding PinStatusText}" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
