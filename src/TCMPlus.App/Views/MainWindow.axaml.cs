@@ -23,6 +23,9 @@ public partial class MainWindow : Window
             _viewModel.AddStationRequested -= OnAddStationRequested;
             _viewModel.NewPatientRequested -= OnNewPatientRequested;
             _viewModel.PatientSwapConfirmationRequested -= OnPatientSwapConfirmationRequested;
+            _viewModel.DischargeRequested -= OnDischargeRequested;
+            _viewModel.AppSettingsRequested -= OnAppSettingsRequested;
+            _viewModel.SessionSwitchRequested -= OnSessionSwitchRequested;
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         }
 
@@ -32,6 +35,9 @@ public partial class MainWindow : Window
             _viewModel.AddStationRequested += OnAddStationRequested;
             _viewModel.NewPatientRequested += OnNewPatientRequested;
             _viewModel.PatientSwapConfirmationRequested += OnPatientSwapConfirmationRequested;
+            _viewModel.DischargeRequested += OnDischargeRequested;
+            _viewModel.AppSettingsRequested += OnAppSettingsRequested;
+            _viewModel.SessionSwitchRequested += OnSessionSwitchRequested;
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
     }
@@ -85,6 +91,23 @@ public partial class MainWindow : Window
             await _viewModel.ConfirmPatientSwapAsync(source, destination);
         }
     }
+
+    private async void OnDischargeRequested(StationViewModel station)
+    {
+        if (_viewModel is null) return;
+        var route = await new DischargePatientDialog(station.Name, _viewModel.DischargeRoutes).ShowDialog<string?>(this);
+        if (route is not null) await _viewModel.CompleteDischargeAsync(station, route);
+    }
+
+    private async void OnAppSettingsRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel is null) return;
+        var settings = await _viewModel.GetAppSettingsAsync();
+        var result = await new AppSettingsWindow(settings.DischargeRoutes).ShowDialog<AppSettingsDraft?>(this);
+        if (result is not null) await _viewModel.SaveAppSettingsAsync(result.DischargeRoutes);
+    }
+
+    private void OnSessionSwitchRequested(object? sender, EventArgs e) => App.ShowRecentSessions(this);
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {

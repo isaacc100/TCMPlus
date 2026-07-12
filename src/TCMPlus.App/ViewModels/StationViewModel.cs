@@ -6,12 +6,11 @@ namespace TCMPlus.App.ViewModels;
 
 public partial class StationViewModel : ViewModelBase
 {
-    public const double GridSizePixels = 24d;
 
     private readonly Func<StationViewModel, Task> _saveStation;
     private readonly Func<StationViewModel, Task> _deleteStation;
     private readonly Action<StationViewModel> _requestPatient;
-    private readonly Func<StationViewModel, Task> _dischargePatient;
+    private readonly Action<StationViewModel> _requestDischarge;
     private readonly Func<StationViewModel, StationGeometry, Task> _commitGeometry;
     private readonly Func<StationViewModel, Guid, Task> _dropPatient;
 
@@ -21,7 +20,7 @@ public partial class StationViewModel : ViewModelBase
         Func<StationViewModel, Task> saveStation,
         Func<StationViewModel, Task> deleteStation,
         Action<StationViewModel> requestPatient,
-        Func<StationViewModel, Task> dischargePatient,
+        Action<StationViewModel> requestDischarge,
         Func<StationViewModel, StationGeometry, Task> commitGeometry,
         Func<StationViewModel, Guid, Task> dropPatient)
     {
@@ -36,7 +35,7 @@ public partial class StationViewModel : ViewModelBase
         _saveStation = saveStation;
         _deleteStation = deleteStation;
         _requestPatient = requestPatient;
-        _dischargePatient = dischargePatient;
+        _requestDischarge = requestDischarge;
         _commitGeometry = commitGeometry;
         _dropPatient = dropPatient;
     }
@@ -60,6 +59,9 @@ public partial class StationViewModel : ViewModelBase
 
     [ObservableProperty]
     private double _gridHeight;
+
+    [ObservableProperty]
+    private double _gridSizePixels = 24d;
 
     [ObservableProperty]
     private Patient? _currentPatient;
@@ -109,7 +111,7 @@ public partial class StationViewModel : ViewModelBase
     private void AddPatient() => _requestPatient(this);
 
     [RelayCommand]
-    private Task DischargePatientAsync() => _dischargePatient(this);
+    private void DischargePatient() => _requestDischarge(this);
 
     public Task DropPatientAsync(Guid sourceStationId) => _dropPatient(this, sourceStationId);
 
@@ -135,6 +137,7 @@ public partial class StationViewModel : ViewModelBase
     partial void OnGridYChanged(double value) => OnPropertyChanged(nameof(CanvasY));
     partial void OnGridWidthChanged(double value) => OnPropertyChanged(nameof(CanvasWidth));
     partial void OnGridHeightChanged(double value) => OnPropertyChanged(nameof(CanvasHeight));
+    partial void OnGridSizePixelsChanged(double value) { OnPropertyChanged(nameof(CanvasX)); OnPropertyChanged(nameof(CanvasY)); OnPropertyChanged(nameof(CanvasWidth)); OnPropertyChanged(nameof(CanvasHeight)); }
 
     private static string FormatRelativeTime(DateTimeOffset addedAt)
     {

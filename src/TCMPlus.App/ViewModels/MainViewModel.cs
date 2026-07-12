@@ -13,14 +13,16 @@ public partial class MainViewModel : ViewModelBase
     private readonly ITreatmentCentreService _treatmentCentreService;
     private readonly ITcSettingsRepository _settingsRepository;
     private readonly IShiftPinService _shiftPinService;
+    private readonly IAppSettingsRepository _appSettingsRepository;
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _bannerTimer;
 
-    public MainViewModel(ITreatmentCentreService treatmentCentreService, ITcSettingsRepository settingsRepository, IShiftPinService shiftPinService, SessionDescriptor session)
+    public MainViewModel(ITreatmentCentreService treatmentCentreService, ITcSettingsRepository settingsRepository, IShiftPinService shiftPinService, IAppSettingsRepository appSettingsRepository, SessionDescriptor session)
     {
         _treatmentCentreService = treatmentCentreService;
         _settingsRepository = settingsRepository;
         _shiftPinService = shiftPinService;
+        _appSettingsRepository = appSettingsRepository;
         Session = session;
         _shiftName = session.ShiftName;
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -34,6 +36,9 @@ public partial class MainViewModel : ViewModelBase
     public event EventHandler? AddStationRequested;
     public event Action<StationViewModel>? NewPatientRequested;
     public event Action<StationViewModel, StationViewModel>? PatientSwapConfirmationRequested;
+    public event Action<StationViewModel>? DischargeRequested;
+    public event EventHandler? AppSettingsRequested;
+    public event EventHandler? SessionSwitchRequested;
 
     public SessionDescriptor Session { get; }
     public ObservableCollection<StationViewModel> Stations { get; } = [];
@@ -41,10 +46,13 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<DashboardChartSlice> ComplaintBreakdown { get; } = [];
     public ObservableCollection<DashboardChartPoint> ThroughputPoints { get; } = [];
     public ObservableCollection<DashboardChartPoint> DischargeDurationPoints { get; } = [];
+    public ObservableCollection<string> DischargeRoutes { get; } = [];
 
     [ObservableProperty] private TcArea _selectedArea = TcArea.Manager;
     [ObservableProperty] private TcPage _selectedPage = TcPage.Map;
     [ObservableProperty] private bool _isEditMode;
+    [ObservableProperty] private bool _quickEntry;
+    [ObservableProperty] private GridDensity _gridDensity = GridDensity.Compact;
     [ObservableProperty] private string _newPin = "";
     [ObservableProperty] private string _shiftName = "";
     [ObservableProperty] private string _pinStatusText = "No shift PIN set.";
@@ -81,6 +89,7 @@ public partial class MainViewModel : ViewModelBase
     public bool HasNoRecentActivity => RecentActivity.Count == 0;
     public string EditModeText => IsEditMode ? "Finish editing" : "Edit Treatment Centre";
     public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize." : "Click an available station to add a patient. Drag a patient counter to transfer.";
+    public double GridPixelSize => GridDensity switch { GridDensity.Standard => 20d, GridDensity.Dense => 16d, _ => 24d };
 
     public async Task InitializeAsync()
     {
@@ -90,6 +99,9 @@ public partial class MainViewModel : ViewModelBase
             var settings = await _settingsRepository.GetAsync();
             ShiftName = string.IsNullOrWhiteSpace(settings.ShiftName) ? Session.ShiftName : settings.ShiftName;
             PinStatusText = settings.HasShiftPin ? "A shift PIN is stored for this session." : "No shift PIN set.";
+            QuickEntry = settings.QuickEntry;
+            GridDensity = settings.GridDensity;
+            foreach (var route in (await _appSettingsRepository.GetAsync()).DischargeRoutes) DischargeRoutes.Add(route);
             await RefreshSummaryAsync();
             await RefreshDashboardAsync();
             if (Stations.Count == 0) Notify("Edit the treatment centre to add the first station.");
@@ -104,7 +116,9 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand] private void ShowSetup() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Setup; }
     [RelayCommand] private void ToggleEditMode() => IsEditMode = !IsEditMode;
     [RelayCommand] private void RequestAddStation() => AddStationRequested?.Invoke(this, EventArgs.Empty);
-    [RelayCommand] private void ShowSettingsPlaceholder() => Notify("Application settings are coming in a future update.");
+    [RelayCommand] private void ShowSettings() => AppSettingsRequested?.Invoke(this, EventArgs.Empty);
+    [RelayCommand] private void RequestSessionSwitch() => SessionSwitchRequested?.Invoke(this, EventArgs.Empty);
+    [RelayCommand] private async Task SaveQuickEntryAsync() => await SaveSessionOptionsAsync();
 
     [RelayCommand]
     private void Lock() { ClearUnlockPin(); LockMessage = "Enter the shift PIN to continue."; IsLocked = true; }
@@ -157,6 +171,9 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(EditModeText)); OnPropertyChanged(nameof(MapStatusText));
     }
 
+    partial void OnQuickEntryChanged(bool value) => _ = SaveSessionOptionsAsync();
+    partial void OnGridDensityChanged(GridDensity value) { foreach (var station in Stations) station.GridSizePixels = GridPixelSize; OnPropertyChanged(nameof(GridPixelSize)); _ = SaveSessionOptionsAsync(); }
+
     private void RefreshAreaProperties()
     {
         OnPropertyChanged(nameof(IsDashboard)); OnPropertyChanged(nameof(IsManager)); OnPropertyChanged(nameof(IsMapPage)); OnPropertyChanged(nameof(IsTablesPage)); OnPropertyChanged(nameof(IsSetupPage));
@@ -164,12 +181,17 @@ public partial class MainViewModel : ViewModelBase
 
     private void AddViewModel(Station station, Patient? patient)
     {
-        var viewModel = new StationViewModel(station, patient, SaveStationAsync, DeleteStationAsync, RequestNewPatient, DischargePatientAsync, CommitGeometryAsync, RequestPatientDropAsync) { IsEditMode = IsEditMode };
+        var viewModel = new StationViewModel(station, patient, SaveStationAsync, DeleteStationAsync, RequestNewPatient, RequestDischarge, CommitGeometryAsync, RequestPatientDropAsync) { IsEditMode = IsEditMode, GridSizePixels = GridPixelSize };
         viewModel.PropertyChanged += async (_, args) => { if (args.PropertyName is nameof(StationViewModel.CurrentPatient)) await RefreshSummaryAsync(); };
         Stations.Add(viewModel); OnPropertyChanged(nameof(HasNoStations));
     }
 
     private void RequestNewPatient(StationViewModel station) => NewPatientRequested?.Invoke(station);
+    private void RequestDischarge(StationViewModel station)
+    {
+        if (QuickEntry) { _ = CompleteDischargeAsync(station, null); return; }
+        DischargeRequested?.Invoke(station);
+    }
     private async Task RequestPatientDropAsync(StationViewModel destination, Guid sourceStationId)
     {
         var source = Stations.FirstOrDefault(station => station.Id == sourceStationId);
@@ -199,10 +221,27 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
-    private async Task DischargePatientAsync(StationViewModel station)
+    public async Task CompleteDischargeAsync(StationViewModel station, string? route)
     {
-        try { await _treatmentCentreService.DischargePatientAsync(station.Id); station.CurrentPatient = null; await RefreshOperationalDataAsync(); Notify($"{station.Name} is now available."); }
+        try { await _treatmentCentreService.DischargePatientAsync(station.Id, route); station.CurrentPatient = null; await RefreshOperationalDataAsync(); Notify($"{station.Name} is now available."); }
         catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public Task<AppSettings> GetAppSettingsAsync() => _appSettingsRepository.GetAsync();
+
+    public async Task SaveAppSettingsAsync(IEnumerable<string> dischargeRoutes)
+    {
+        var settings = new AppSettings(dischargeRoutes.ToList());
+        await _appSettingsRepository.SaveAsync(settings);
+        DischargeRoutes.Clear();
+        foreach (var route in (await _appSettingsRepository.GetAsync()).DischargeRoutes) DischargeRoutes.Add(route);
+        Notify("Application settings saved.");
+    }
+
+    private async Task SaveSessionOptionsAsync()
+    {
+        var settings = await _settingsRepository.GetAsync();
+        await _settingsRepository.SaveAsync(settings with { QuickEntry = QuickEntry, GridDensity = GridDensity });
     }
 
     private async Task CommitGeometryAsync(StationViewModel station, StationGeometry originalGeometry)

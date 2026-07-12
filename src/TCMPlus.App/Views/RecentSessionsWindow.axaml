@@ -1,0 +1,8 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="TCMPlus.App.Views.RecentSessionsWindow" x:CompileBindings="False" Width="650" Height="510" WindowStartupLocation="CenterOwner" Title="Recent shifts" Background="#F5F8F4">
+  <Border Margin="20" Padding="22" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="12"><Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12">
+    <TextBlock Text="Recent shifts" FontSize="22" FontWeight="Bold" Foreground="#364958" />
+    <ListBox Name="SessionsList" Grid.Row="1" DisplayMemberBinding="{Binding ShiftName}" SelectionChanged="OnSelectionChanged" />
+    <StackPanel Grid.Row="2" Spacing="6"><TextBlock Name="SessionDetails" Foreground="#60737A" TextWrapping="Wrap"/><TextBox Name="PasswordInput" PasswordChar="*" PlaceholderText="Session password"/><TextBlock Name="ValidationMessage" Foreground="#963D3D"/></StackPanel>
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto"><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Rename" Click="OnRename"/><Button Content="Delete" Click="OnDelete"/><Button Content="Export .tcm" Click="OnExport"/></StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"><Button Content="Cancel" Click="OnCancel"/><Button Content="Load shift" Background="#3B6064" Foreground="White" Click="OnLoad"/></StackPanel></Grid>
+  </Grid></Border>
+</Window>

@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="TCMPlus.App.Views.ShiftSetupWindow"
         Width="540"
-        Height="510"
+        Height="620"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
         Title="Start shift"
@@ -38,6 +38,11 @@
                 <TextBox Name="PinDigitBox5" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown" />
                 <TextBox Name="PinDigitBox6" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown" />
             </StackPanel>
+            <TextBlock Text="Session password" FontWeight="SemiBold" Foreground="#364958" />
+            <TextBox Name="SessionPasswordInput" PasswordChar="*" PlaceholderText="At least 8 characters" />
+            <TextBox Name="ConfirmSessionPasswordInput" PasswordChar="*" PlaceholderText="Confirm session password" />
+            <TextBlock Text="Map density" FontWeight="SemiBold" Foreground="#364958" />
+            <ComboBox Name="GridDensityInput" SelectedIndex="0"><ComboBoxItem Content="Compact (50 × 30)" /><ComboBoxItem Content="Standard (60 × 36)" /><ComboBoxItem Content="Dense (75 × 45)" /></ComboBox>
             <TextBlock Name="ValidationMessage" Foreground="#963D3D" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,5,0,0">
                 <Button Classes="secondary" Content="Load existing shift" Click="OnLoadExistingShift" />

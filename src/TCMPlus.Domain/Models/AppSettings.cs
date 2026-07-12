@@ -1,0 +1,6 @@
+namespace TCMPlus.Domain.Models;
+
+public sealed record AppSettings(IReadOnlyList<string> DischargeRoutes)
+{
+    public static AppSettings Default { get; } = new(["Non-Conveyed", "Conveyed"]);
+}

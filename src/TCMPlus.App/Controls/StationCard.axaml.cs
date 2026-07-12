@@ -150,8 +150,8 @@ public partial class StationCard : UserControl
         var deltaX = SnapToGridUnits(position.X - _pointerStart.X);
         var deltaY = SnapToGridUnits(position.Y - _pointerStart.Y);
         var original = _originalGeometry;
-        var canvasColumns = _canvas.Bounds.Width / StationViewModel.GridSizePixels;
-        var canvasRows = _canvas.Bounds.Height / StationViewModel.GridSizePixels;
+        var canvasColumns = _canvas.Bounds.Width / ViewModel.GridSizePixels;
+        var canvasRows = _canvas.Bounds.Height / ViewModel.GridSizePixels;
 
         if (_interactionMode == InteractionMode.Move)
         {
@@ -221,7 +221,7 @@ public partial class StationCard : UserControl
         pointer?.Capture(null);
     }
 
-    private static double SnapToGridUnits(double pixels) => Math.Round(pixels / StationViewModel.GridSizePixels);
+    private double SnapToGridUnits(double pixels) => Math.Round(pixels / (ViewModel?.GridSizePixels ?? 24d));
     private static double Clamp(double value, double min, double max) => Math.Min(Math.Max(value, min), Math.Max(min, max));
 
     private enum InteractionMode

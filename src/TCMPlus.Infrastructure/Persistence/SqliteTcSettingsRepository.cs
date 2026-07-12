@@ -10,7 +10,7 @@ public sealed class SqliteTcSettingsRepository(SqliteConnectionFactory connectio
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         await using var connection = connectionFactory.OpenConnection();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT key, value FROM session_settings WHERE key IN ('shift_name', 'pin_salt', 'pin_hash');";
+        command.CommandText = "SELECT key, value FROM session_settings WHERE key IN ('shift_name', 'pin_salt', 'pin_hash', 'quick_entry', 'grid_density');";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         while (await reader.ReadAsync(cancellationToken))
@@ -21,7 +21,9 @@ public sealed class SqliteTcSettingsRepository(SqliteConnectionFactory connectio
         return new TcSessionSettings(
             values.GetValueOrDefault("shift_name"),
             values.GetValueOrDefault("pin_salt"),
-            values.GetValueOrDefault("pin_hash"));
+            values.GetValueOrDefault("pin_hash"),
+            bool.TryParse(values.GetValueOrDefault("quick_entry"), out var quickEntry) && quickEntry,
+            Enum.TryParse<GridDensity>(values.GetValueOrDefault("grid_density"), out var density) ? density : GridDensity.Compact);
     }
 
     public async Task SaveAsync(TcSessionSettings settings, CancellationToken cancellationToken = default)
@@ -31,6 +33,8 @@ public sealed class SqliteTcSettingsRepository(SqliteConnectionFactory connectio
         await UpsertAsync(connection, "shift_name", settings.ShiftName ?? string.Empty, cancellationToken);
         await UpsertAsync(connection, "pin_salt", settings.PinSalt ?? string.Empty, cancellationToken);
         await UpsertAsync(connection, "pin_hash", settings.PinHash ?? string.Empty, cancellationToken);
+        await UpsertAsync(connection, "quick_entry", settings.QuickEntry.ToString(), cancellationToken);
+        await UpsertAsync(connection, "grid_density", settings.GridDensity.ToString(), cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 

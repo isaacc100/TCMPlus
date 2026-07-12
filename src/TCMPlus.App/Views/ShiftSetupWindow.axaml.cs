@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using TCMPlus.Domain.Models;
 
 namespace TCMPlus.App.Views;
 
@@ -13,11 +14,13 @@ public partial class ShiftSetupWindow : Window
     }
 
     public event EventHandler<ShiftSetupDraft>? ShiftStarted;
+    public event EventHandler? LoadExistingRequested;
 
     private void OnStartShift(object? sender, RoutedEventArgs e)
     {
         var shiftName = ShiftNameInput.Text?.Trim() ?? string.Empty;
         var pin = string.Concat(PinDigitBox1.Text, PinDigitBox2.Text, PinDigitBox3.Text, PinDigitBox4.Text, PinDigitBox5.Text, PinDigitBox6.Text);
+        var password = SessionPasswordInput.Text ?? string.Empty;
         if (string.IsNullOrWhiteSpace(shiftName))
         {
             ValidationMessage.Text = "Enter a shift name.";
@@ -29,12 +32,12 @@ public partial class ShiftSetupWindow : Window
             ValidationMessage.Text = "Enter a six-digit PIN.";
             return;
         }
+        if (password.Length < 8 || password != (ConfirmSessionPasswordInput.Text ?? string.Empty)) { ValidationMessage.Text = "Use and confirm a session password of at least eight characters."; return; }
 
-        ShiftStarted?.Invoke(this, new ShiftSetupDraft(shiftName, pin));
+        ShiftStarted?.Invoke(this, new ShiftSetupDraft(shiftName, pin, password, (GridDensity)Math.Clamp(GridDensityInput.SelectedIndex, 0, 2)));
     }
 
-    private void OnLoadExistingShift(object? sender, RoutedEventArgs e) =>
-        ValidationMessage.Text = "Loading an existing shift will be available in a future update.";
+    private void OnLoadExistingShift(object? sender, RoutedEventArgs e) => LoadExistingRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnPinDigitChanged(object? sender, TextChangedEventArgs e)
     {
@@ -85,4 +88,4 @@ public partial class ShiftSetupWindow : Window
     private TextBox[] PinInputs => [PinDigitBox1, PinDigitBox2, PinDigitBox3, PinDigitBox4, PinDigitBox5, PinDigitBox6];
 }
 
-public sealed record ShiftSetupDraft(string ShiftName, string Pin);
+public sealed record ShiftSetupDraft(string ShiftName, string Pin, string SessionPassword, GridDensity GridDensity);

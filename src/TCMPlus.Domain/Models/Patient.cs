@@ -6,4 +6,5 @@ public sealed record Patient(
     DateTimeOffset AddedAt,
     Guid? CurrentStationId,
     string? PresentingComplaint,
-    DateTimeOffset? DischargedAt);
+    DateTimeOffset? DischargedAt,
+    string? DischargeRoute);

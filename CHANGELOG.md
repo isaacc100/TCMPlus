@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.2.0-DEV
+## 0.3.0-DEV
+
+- Added encrypted `.tcm` session containers using AES-GCM and PBKDF2-derived session-password keys, with a non-sensitive recent-session catalogue.
+- Added recent-shift loading from startup and the lock screen, with rename, delete confirmation, and encrypted export actions.
+- Added persisted application discharge-route settings and a normal discharge-route picker; Quick entry now bypasses dialogs and records a null discharge route.
+- Added per-shift grid-density settings and persisted compact, standard, and dense map rendering.
+- Added nullable persisted discharge routes to patient records and lifecycle handling.
+- Corrected top-bar icon content alignment and connected the Settings menu.
+
+## 0.2.0
 
 - Added optional presenting complaints, sequential non-identifying patient counters, discharge timestamps, and persistent patient lifecycle events.
 - Added New patient dialogs, map-card patient creation, patient transfers, confirmed occupied-station swaps, and seven-by-seven minimum station geometry.

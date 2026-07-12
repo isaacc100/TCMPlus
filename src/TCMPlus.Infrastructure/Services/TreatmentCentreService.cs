@@ -43,16 +43,16 @@ public sealed class TreatmentCentreService(
     {
         if (await patientRepository.GetByStationAsync(stationId, cancellationToken) is not null) throw new InvalidOperationException("This station is already occupied.");
         var station = await FindStationAsync(stationId, cancellationToken);
-        var patient = new Patient(Guid.NewGuid(), await patientRepository.GetNextPatientNumberAsync(cancellationToken), DateTimeOffset.UtcNow, stationId, string.IsNullOrWhiteSpace(presentingComplaint) ? null : presentingComplaint.Trim(), null);
+        var patient = new Patient(Guid.NewGuid(), await patientRepository.GetNextPatientNumberAsync(cancellationToken), DateTimeOffset.UtcNow, stationId, string.IsNullOrWhiteSpace(presentingComplaint) ? null : presentingComplaint.Trim(), null, null);
         await patientRepository.AddAsync(patient, cancellationToken);
         await AddEventAsync(patient, PatientEventType.Added, null, station.Name, cancellationToken);
         return patient;
     }
 
-    public async Task DischargePatientAsync(Guid stationId, CancellationToken cancellationToken = default)
+    public async Task DischargePatientAsync(Guid stationId, string? dischargeRoute, CancellationToken cancellationToken = default)
     {
         var station = await FindStationAsync(stationId, cancellationToken);
-        var discharged = await patientRepository.DischargeFromStationAsync(stationId, DateTimeOffset.UtcNow, cancellationToken)
+        var discharged = await patientRepository.DischargeFromStationAsync(stationId, DateTimeOffset.UtcNow, dischargeRoute, cancellationToken)
             ?? throw new InvalidOperationException("This station is already available.");
         await AddEventAsync(discharged, PatientEventType.Discharged, station.Name, null, cancellationToken);
     }

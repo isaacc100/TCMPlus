@@ -21,7 +21,7 @@ public sealed class TreatmentCentreServiceTests
         Assert.Equal("Minor injury", patient.PresentingComplaint);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddPatientAsync(station.Id, null));
 
-        await service.DischargePatientAsync(station.Id);
+        await service.DischargePatientAsync(station.Id, "Conveyed");
         Assert.Null(await patients.GetByStationAsync(station.Id));
         Assert.Equal(1, await service.GetPatientsSeenThisShiftAsync());
     }
@@ -65,13 +65,13 @@ public sealed class TreatmentCentreServiceTests
         public Task<int> GetNextPatientNumberAsync(CancellationToken cancellationToken = default) => Task.FromResult(_patients.Count + 1);
         public Task<Patient?> GetByStationAsync(Guid stationId, CancellationToken cancellationToken = default) => Task.FromResult(_patients.FirstOrDefault(patient => patient.CurrentStationId == stationId));
         public Task AddAsync(Patient patient, CancellationToken cancellationToken = default) { _patients.Add(patient); return Task.CompletedTask; }
-        public Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, CancellationToken cancellationToken = default)
+        public Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, CancellationToken cancellationToken = default)
         {
             for (var index = 0; index < _patients.Count; index++)
             {
                 if (_patients[index].CurrentStationId == stationId)
                 {
-                    _patients[index] = _patients[index] with { CurrentStationId = null, DischargedAt = dischargedAt };
+                    _patients[index] = _patients[index] with { CurrentStationId = null, DischargedAt = dischargedAt, DischargeRoute = dischargeRoute };
                     return Task.FromResult<Patient?>(_patients[index]);
                 }
             }

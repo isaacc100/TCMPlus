@@ -24,6 +24,7 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
                 current_station_id TEXT NULL,
                 presenting_complaint TEXT NULL,
                 discharged_at_utc TEXT NULL,
+                discharge_route TEXT NULL,
                 FOREIGN KEY(current_station_id) REFERENCES stations(id) ON DELETE RESTRICT
             );
 
@@ -53,6 +54,7 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
         await EnsurePatientColumnAsync(connection, "patient_number", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
         await EnsurePatientColumnAsync(connection, "presenting_complaint", "TEXT NULL", cancellationToken);
         await EnsurePatientColumnAsync(connection, "discharged_at_utc", "TEXT NULL", cancellationToken);
+        await EnsurePatientColumnAsync(connection, "discharge_route", "TEXT NULL", cancellationToken);
 
         await using var backfill = connection.CreateCommand();
         backfill.CommandText = """
