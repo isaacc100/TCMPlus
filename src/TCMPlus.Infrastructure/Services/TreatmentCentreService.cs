@@ -109,7 +109,8 @@ public sealed class TreatmentCentreService(
             .Select(group => new ThroughputPoint(group.Key, group.Count())).OrderBy(point => point.BucketStart).ToList();
         var occupied = patients.Count(patient => patient.CurrentStationId is not null);
         TimeSpan? average = durations.Count == 0 ? null : TimeSpan.FromTicks((long)durations.Average(point => point.Duration.Ticks));
-        return new DashboardSnapshot(stations.Count - occupied, occupied, patients.Count, average, events.Take(12).ToList(), complaintBreakdown, throughput, durations);
+        var (occupancy, cumulativeArrivals) = BuildFifteenMinuteSeries(patients, DateTimeOffset.UtcNow);
+        return new DashboardSnapshot(stations.Count - occupied, occupied, patients.Count, average, events.Take(12).ToList(), complaintBreakdown, throughput, durations, occupancy, cumulativeArrivals);
     }
 
     private async Task<Station> FindStationAsync(Guid stationId, CancellationToken cancellationToken) =>
@@ -120,4 +121,26 @@ public sealed class TreatmentCentreService(
         patientRepository.AddEventAsync(new PatientEvent(Guid.NewGuid(), patient.Uid, patient.PatientNumber, type, DateTimeOffset.UtcNow, from, to), cancellationToken);
 
     private static string? NormalizeOptionalText(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static (IReadOnlyList<OccupancyPoint> Occupancy, IReadOnlyList<CumulativeArrivalPoint> CumulativeArrivals) BuildFifteenMinuteSeries(IReadOnlyList<Patient> patients, DateTimeOffset now)
+    {
+        var observedAt = now.ToUniversalTime();
+        var start = FloorToQuarterHour(patients.Count == 0 ? observedAt : patients.Min(patient => patient.AddedAt));
+        var occupancy = new List<OccupancyPoint>();
+        var cumulativeArrivals = new List<CumulativeArrivalPoint>();
+        for (var intervalStart = start; intervalStart <= observedAt; intervalStart = intervalStart.AddMinutes(15))
+        {
+            var intervalEnd = intervalStart.AddMinutes(15) > observedAt ? observedAt : intervalStart.AddMinutes(15);
+            occupancy.Add(new OccupancyPoint(intervalEnd, patients.Count(patient => patient.AddedAt <= intervalEnd && (patient.DischargedAt is null || patient.DischargedAt > intervalEnd))));
+            cumulativeArrivals.Add(new CumulativeArrivalPoint(intervalEnd, patients.Count(patient => patient.AddedAt <= intervalEnd)));
+        }
+
+        return (occupancy, cumulativeArrivals);
+    }
+
+    private static DateTimeOffset FloorToQuarterHour(DateTimeOffset value)
+    {
+        var utc = value.ToUniversalTime();
+        return new DateTimeOffset(utc.Year, utc.Month, utc.Day, utc.Hour, utc.Minute / 15 * 15, 0, TimeSpan.Zero);
+    }
 }

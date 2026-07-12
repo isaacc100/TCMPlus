@@ -50,6 +50,8 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<DashboardChartSlice> ComplaintBreakdown { get; } = [];
     public ObservableCollection<DashboardChartPoint> ThroughputPoints { get; } = [];
     public ObservableCollection<DashboardChartPoint> DischargeDurationPoints { get; } = [];
+    public ObservableCollection<DashboardChartPoint> OccupancyPoints { get; } = [];
+    public ObservableCollection<DashboardChartPoint> CumulativeArrivalPoints { get; } = [];
     public ObservableCollection<string> DischargeRoutes { get; } = [];
     public ObservableCollection<PatientViewModel> Patients { get; } = [];
 
@@ -110,6 +112,7 @@ public partial class MainViewModel : ViewModelBase
     public string EditModeText => IsEditMode ? "Finish editing" : "Edit Treatment Centre";
     public string PatientEditModeText => IsPatientEditMode ? "Finish editing" : "Edit patients";
     public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize." : "Click an available station to add a patient. Drag a patient counter to transfer.";
+    public int TotalStations => AvailableStations + OccupiedStations;
     public double GridPixelSize => GridDensity switch { GridDensity.Standard => 20d, GridDensity.Dense => 16d, _ => 24d };
 
     public async Task InitializeAsync()
@@ -386,6 +389,7 @@ public partial class MainViewModel : ViewModelBase
     {
         var dashboard = await _treatmentCentreService.GetDashboardAsync();
         AvailableStations = dashboard.AvailableStations; OccupiedStations = dashboard.OccupiedStations; PatientsSeenThisShift = dashboard.PatientsSeen;
+        OnPropertyChanged(nameof(TotalStations));
         AverageDischargeText = dashboard.AverageDischargeDuration is null ? "No discharges yet" : FormatDuration(dashboard.AverageDischargeDuration.Value);
         AverageThroughputText = dashboard.Throughput.Count == 0 ? "No discharges yet" : $"{dashboard.Throughput.Average(point => point.Discharges):0.0} per hour";
         RecentActivity.Clear(); foreach (var item in dashboard.RecentEvents) RecentActivity.Add(DashboardEventViewModel.FromEvent(item));
@@ -396,6 +400,8 @@ public partial class MainViewModel : ViewModelBase
         ComplaintBreakdown.Clear(); foreach (var item in dashboard.ComplaintBreakdown.Select((item, index) => new DashboardChartSlice(item.Complaint, item.Count, ChartColors[index % ChartColors.Length]))) ComplaintBreakdown.Add(item);
         ThroughputPoints.Clear(); foreach (var item in dashboard.Throughput) ThroughputPoints.Add(new DashboardChartPoint(item.BucketStart.LocalDateTime.ToString("HH:mm"), item.Discharges));
         DischargeDurationPoints.Clear(); foreach (var item in dashboard.DischargeDurations) DischargeDurationPoints.Add(new DashboardChartPoint(item.DischargedAt.LocalDateTime.ToString("HH:mm"), item.Duration.TotalMinutes));
+        OccupancyPoints.Clear(); foreach (var item in dashboard.Occupancy) OccupancyPoints.Add(new DashboardChartPoint(item.ObservedAt.LocalDateTime.ToString("HH:mm"), item.OccupiedStations));
+        CumulativeArrivalPoints.Clear(); foreach (var item in dashboard.CumulativeArrivals) CumulativeArrivalPoints.Add(new DashboardChartPoint(item.ObservedAt.LocalDateTime.ToString("HH:mm"), item.PatientsSeen));
     }
 
     private async Task RefreshPatientsAsync()

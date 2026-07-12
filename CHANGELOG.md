@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.5.0-DEV
+## 0.6.0-DEV
 
+- Added external-dashboard occupancy and 15-minute cumulative-arrival charts, plus primary-window fullscreen and safe-exit controls.
 - Added a Manager Patients table with every patient record and row-level corrections for presenting complaints and discharged patient routes.
 - Added a persisted 4–20px lock-screen blur slider in Settings → General; the default blur is now 10px.
 

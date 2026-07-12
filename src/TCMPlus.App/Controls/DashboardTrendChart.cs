@@ -11,9 +11,12 @@ public sealed class DashboardTrendChart : Control
         AvaloniaProperty.Register<DashboardTrendChart, IEnumerable<DashboardChartPoint>?>(nameof(Points));
     public static readonly StyledProperty<IBrush?> LineBrushProperty =
         AvaloniaProperty.Register<DashboardTrendChart, IBrush?>(nameof(LineBrush), new SolidColorBrush(Color.Parse("#3B6064")));
+    public static readonly StyledProperty<double?> MaximumValueProperty =
+        AvaloniaProperty.Register<DashboardTrendChart, double?>(nameof(MaximumValue));
 
     public IEnumerable<DashboardChartPoint>? Points { get => GetValue(PointsProperty); set => SetValue(PointsProperty, value); }
     public IBrush? LineBrush { get => GetValue(LineBrushProperty); set => SetValue(LineBrushProperty, value); }
+    public double? MaximumValue { get => GetValue(MaximumValueProperty); set => SetValue(MaximumValueProperty, value); }
 
     public override void Render(DrawingContext context)
     {
@@ -23,7 +26,7 @@ public sealed class DashboardTrendChart : Control
         const double padding = 18;
         var width = Math.Max(1, Bounds.Width - 2 * padding);
         var height = Math.Max(1, Bounds.Height - 2 * padding);
-        var max = Math.Max(1, points.Max(point => point.Value));
+        var max = Math.Max(1, MaximumValue ?? points.Max(point => point.Value));
         var pen = new Pen(LineBrush, 2.5);
         context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#D5E2DA"))), new Point(padding, padding + height), new Point(padding + width, padding + height));
         Point? previous = null;

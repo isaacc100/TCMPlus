@@ -117,12 +117,16 @@
                     <TextBlock Text="{Binding CurrentTimeText}" Foreground="White" FontFamily="Consolas" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Button Classes="primary-nav" Classes.active="{Binding IsDashboard}" Content="Dashboard" Command="{Binding ShowDashboardCommand}" />
                     <Button Classes="primary-nav" Classes.active="{Binding IsManager}" Content="Manager" Command="{Binding ShowManagerCommand}" />
+                    <Button Classes="icon" Click="OnFullScreenClicked" ToolTip.Tip="Toggle fullscreen">
+                        <TextBlock Text="&#xE740;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
+                    </Button>
                     <Button Classes="icon" Command="{Binding LockCommand}" ToolTip.Tip="Lock application">
                         <TextBlock Text="&#xE72E;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
                     </Button>
                     <Button Classes="icon" Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Application settings">
                         <TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
                     </Button>
+                    <Button Classes="primary-nav" Content="Safe exit" Click="OnSafeExitClicked" ToolTip.Tip="Seal this shift and exit TCM+" />
                 </StackPanel>
             </Grid>
         </Border>

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using TCMPlus.App.ViewModels;
 using TCMPlus.Domain.Models;
@@ -123,6 +124,15 @@ public partial class MainWindow : Window
     private async void OnExternalDisplayRequested(ExternalDisplayMode mode) => await OpenExternalDisplayAsync(mode);
     private async void OnSessionLockRequested(object? sender, EventArgs e) { _externalDisplay?.Close(); await App.SealActiveSessionAsync(); _viewModel?.CompleteLock(); }
     private async void OnSessionUnlockRequested(object? sender, EventArgs e) { try { await App.UnsealActiveSessionAsync(); _viewModel?.CompleteUnlock(); } catch { _viewModel?.CompleteLock(); } }
+    private void OnFullScreenClicked(object? sender, RoutedEventArgs e) => ToggleFullScreen();
+
+    private async void OnSafeExitClicked(object? sender, RoutedEventArgs e)
+    {
+        var confirmed = await new MessageWindow("Exit TCM+", "The active shift will be sealed before TCM+ closes.", true, "Exit").ShowDialog<bool>(this);
+        if (!confirmed) return;
+        _externalDisplay?.Close();
+        Close();
+    }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
@@ -131,6 +141,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        ToggleFullScreen();
+        e.Handled = true;
+    }
+
+    private void ToggleFullScreen()
+    {
         if (WindowState == WindowState.FullScreen)
         {
             WindowState = _windowStateBeforeFullScreen;
@@ -140,8 +156,6 @@ public partial class MainWindow : Window
             _windowStateBeforeFullScreen = WindowState;
             WindowState = WindowState.FullScreen;
         }
-
-        e.Handled = true;
     }
 
     private void OnUnlockDigitChanged(object? sender, TextChangedEventArgs e)

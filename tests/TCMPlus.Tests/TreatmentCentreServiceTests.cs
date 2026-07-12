@@ -68,6 +68,28 @@ public sealed class TreatmentCentreServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdatePatientDetailsAsync(Guid.NewGuid(), null, null));
     }
 
+    [Fact]
+    public async Task Dashboard_exposes_occupancy_and_cumulative_arrivals_in_fifteen_minute_intervals()
+    {
+        var station = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var patients = new InMemoryPatientRepository();
+        var now = DateTimeOffset.UtcNow;
+        var start = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero).AddMinutes(-30);
+        await patients.AddAsync(new Patient(Guid.NewGuid(), 1, start.AddMinutes(1), station.Id, null, null, null));
+        await patients.AddAsync(new Patient(Guid.NewGuid(), 2, start.AddMinutes(16), station.Id, null, start.AddMinutes(26), "Conveyed"));
+        var service = new TreatmentCentreService(new InMemoryStationRepository(station), patients);
+
+        var dashboard = await service.GetDashboardAsync();
+
+        Assert.NotEmpty(dashboard.Occupancy);
+        Assert.NotEmpty(dashboard.CumulativeArrivals);
+        Assert.Equal(2, dashboard.CumulativeArrivals[^1].PatientsSeen);
+        Assert.Equal(1, dashboard.Occupancy[^1].OccupiedStations);
+        var intervals = dashboard.CumulativeArrivals.Zip(dashboard.CumulativeArrivals.Skip(1)).Select(pair => pair.Second.ObservedAt - pair.First.ObservedAt).ToList();
+        Assert.All(intervals, interval => Assert.InRange(interval, TimeSpan.FromTicks(1), TimeSpan.FromMinutes(15)));
+        Assert.Contains(TimeSpan.FromMinutes(15), intervals);
+    }
+
     private sealed class InMemoryStationRepository(params Station[] stations) : IStationRepository
     {
         private readonly List<Station> _stations = [.. stations];

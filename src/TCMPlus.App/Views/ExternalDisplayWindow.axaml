@@ -15,7 +15,14 @@
         <Border Grid.Column="2" Background="White" Padding="18" CornerRadius="10"><StackPanel><TextBlock Text="{Binding PatientsSeenThisShift}" FontSize="38" FontWeight="Bold" Foreground="#3B6064"/><TextBlock Text="Patients seen this shift"/></StackPanel></Border>
         <Border Grid.Column="3" Background="White" Padding="18" CornerRadius="10"><StackPanel><TextBlock Text="{Binding AverageDischargeText}" FontSize="26" FontWeight="Bold" Foreground="#55828B"/><TextBlock Text="Average discharge time"/></StackPanel></Border>
       </Grid>
-      <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="22" Margin="0,14,0,0"><StackPanel Spacing="8"><TextBlock Text="Recent patient activity" FontSize="20" FontWeight="Bold" Foreground="#364958"/><ItemsControl ItemsSource="{Binding RecentActivity}"><ItemsControl.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,Auto" Margin="0,4"><StackPanel><TextBlock Text="{Binding Title}" FontWeight="SemiBold"/><TextBlock Text="{Binding Detail}" Foreground="#60737A"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding Time}" Foreground="#60737A"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></Border>
+      <Grid Grid.Row="1" Margin="0,14,0,0" ColumnDefinitions="1.35*,*" ColumnSpacing="14">
+        <Border Background="White" CornerRadius="10" Padding="24">
+          <StackPanel Spacing="10"><TextBlock Text="Treatment centre occupancy" FontSize="22" FontWeight="Bold" Foreground="#364958"/><TextBlock Text="Occupied stations over time, scaled to the treatment centre capacity." Foreground="#60737A"/><controls:DashboardTrendChart Points="{Binding OccupancyPoints}" MaximumValue="{Binding TotalStations}" Height="400" LineBrush="#B94B4B"/></StackPanel>
+        </Border>
+        <Border Grid.Column="1" Background="White" CornerRadius="10" Padding="24">
+          <StackPanel Spacing="10"><TextBlock Text="Patients received" FontSize="22" FontWeight="Bold" Foreground="#364958"/><TextBlock Text="Cumulative arrivals, updated in 15-minute intervals." Foreground="#60737A"/><controls:DashboardTrendChart Points="{Binding CumulativeArrivalPoints}" Height="400" LineBrush="#3B6064"/></StackPanel>
+        </Border>
+      </Grid>
     </Grid>
     <Viewbox Grid.Row="1" Name="MapPanel" IsVisible="False" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"><Grid Width="1200" Height="720"><ItemsControl ItemsSource="{Binding Stations}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas Width="1200" Height="720"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemContainerTheme><ControlTheme x:DataType="vm:StationViewModel" TargetType="ContentPresenter"><Setter Property="Canvas.Left" Value="{Binding CanvasX}"/><Setter Property="Canvas.Top" Value="{Binding CanvasY}"/></ControlTheme></ItemsControl.ItemContainerTheme><ItemsControl.ItemTemplate><DataTemplate><controls:StationMirrorCard Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></Grid></Viewbox>
   </Grid>
