@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using TCMPlus.Domain.Models;
 
 namespace TCMPlus.Infrastructure.Sessions;
@@ -46,7 +47,11 @@ public sealed class EncryptedSessionStore
         File.Move(temporary, destination, true);
         var catalog = await ReadCatalogAsync(ct); var index = catalog.FindIndex(item => item.Id == session.Id);
         if (index >= 0) { catalog[index] = catalog[index] with { IsLegacy = false }; await WriteCatalogAsync(catalog, ct); }
-        if (Path.GetFullPath(session.DirectoryPath).StartsWith(Path.GetFullPath(_working), StringComparison.OrdinalIgnoreCase)) Directory.Delete(session.DirectoryPath, true);
+        if (Path.GetFullPath(session.DirectoryPath).StartsWith(Path.GetFullPath(_working), StringComparison.OrdinalIgnoreCase))
+        {
+            SqliteConnection.ClearAllPools();
+            await DeleteWorkspaceAsync(session.DirectoryPath, ct);
+        }
     }
 
     public async Task RenameAsync(SessionCatalogEntry entry, string name, CancellationToken ct = default) { var catalog = await ReadCatalogAsync(ct); var index = catalog.FindIndex(item => item.Id == entry.Id); if (index >= 0) { catalog[index] = catalog[index] with { ShiftName = name.Trim() }; await WriteCatalogAsync(catalog, ct); } }
@@ -74,6 +79,18 @@ public sealed class EncryptedSessionStore
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory, ct);
         return memory.ToArray();
+    }
+    private static async Task DeleteWorkspaceAsync(string directory, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try { if (Directory.Exists(directory)) Directory.Delete(directory, true); return; }
+            catch (IOException) when (attempt < 2)
+            {
+                SqliteConnection.ClearAllPools();
+                await Task.Delay(150, ct);
+            }
+        }
     }
     private string GetFilePath(Guid id) => Path.Combine(_sessions, $"{id:N}.tcm");
     private static void ValidatePassword(string password) { if (password.Length < 8) throw new InvalidOperationException("Session passwords must have at least eight characters."); }

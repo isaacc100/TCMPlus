@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.4.2-DEV
+## 0.4.3-DEV
+
+- Fixed shift start failing after encryption when SQLite connection pooling prevented removal of the decrypted workspace.
+
+## 0.4.2
 
 - Added startup detection for other running TCM+ instances, with explicit options to terminate them and continue or exit the newly started instance.
 
