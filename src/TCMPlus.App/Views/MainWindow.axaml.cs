@@ -21,6 +21,8 @@ public partial class MainWindow : Window
         if (_viewModel is not null)
         {
             _viewModel.AddStationRequested -= OnAddStationRequested;
+            _viewModel.NewPatientRequested -= OnNewPatientRequested;
+            _viewModel.PatientSwapConfirmationRequested -= OnPatientSwapConfirmationRequested;
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         }
 
@@ -28,6 +30,8 @@ public partial class MainWindow : Window
         if (_viewModel is not null)
         {
             _viewModel.AddStationRequested += OnAddStationRequested;
+            _viewModel.NewPatientRequested += OnNewPatientRequested;
+            _viewModel.PatientSwapConfirmationRequested += OnPatientSwapConfirmationRequested;
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
     }
@@ -51,6 +55,34 @@ public partial class MainWindow : Window
         if (draft is not null)
         {
             await _viewModel.CreateStationAsync(draft);
+        }
+    }
+
+    private async void OnNewPatientRequested(StationViewModel station)
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        var draft = await new NewPatientDialog(station.Name).ShowDialog<NewPatientDraft?>(this);
+        if (draft is not null)
+        {
+            await _viewModel.SubmitNewPatientAsync(station, draft);
+        }
+    }
+
+    private async void OnPatientSwapConfirmationRequested(StationViewModel source, StationViewModel destination)
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        var confirmed = await new ConfirmPatientSwapDialog(source.Name, destination.Name).ShowDialog<bool>(this);
+        if (confirmed)
+        {
+            await _viewModel.ConfirmPatientSwapAsync(source, destination);
         }
     }
 

@@ -2,5 +2,8 @@ namespace TCMPlus.Domain.Models;
 
 public sealed record Patient(
     Guid Uid,
+    int PatientNumber,
     DateTimeOffset AddedAt,
-    Guid? CurrentStationId);
+    Guid? CurrentStationId,
+    string? PresentingComplaint,
+    DateTimeOffset? DischargedAt);

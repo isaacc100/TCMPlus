@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using TCMPlus.App.ViewModels;
 using TCMPlus.Domain.Models;
@@ -9,8 +10,9 @@ namespace TCMPlus.App.Controls;
 
 public partial class StationCard : UserControl
 {
-    private const double MinimumGridWidth = 5d;
-    private const double MinimumGridHeight = 5d;
+    private static readonly DataFormat<string> PatientSourceStationFormat = DataFormat.CreateStringApplicationFormat("TCMPlus.PatientSourceStation");
+    private const double MinimumGridWidth = 7d;
+    private const double MinimumGridHeight = 7d;
     private Canvas? _canvas;
     private Point _pointerStart;
     private StationGeometry? _originalGeometry;
@@ -58,7 +60,58 @@ public partial class StationCard : UserControl
             return;
         }
 
+        if (ViewModel is { IsOperationalMode: true, IsOccupied: false } viewModel && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            viewModel.AddPatientCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         StartInteraction(InteractionMode.Move, e);
+    }
+
+    private async void OnCounterPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (ViewModel is not { IsOperationalMode: true, IsOccupied: true } viewModel || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(PatientSourceStationFormat, viewModel.Id.ToString("N")));
+        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+        e.Handled = true;
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        var sourceId = e.DataTransfer.TryGetValue(PatientSourceStationFormat);
+        if (ViewModel is { IsOperationalMode: true } viewModel && sourceId is not null && sourceId != viewModel.Id.ToString("N"))
+        {
+            viewModel.IsDropTarget = true;
+            e.DragEffects = DragDropEffects.Move;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.None;
+    }
+
+    private void OnDragLeave(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not null) ViewModel.IsDropTarget = false;
+    }
+
+    private async void OnDrop(object? sender, DragEventArgs e)
+    {
+        if (ViewModel is not null) ViewModel.IsDropTarget = false;
+        var sourceId = e.DataTransfer.TryGetValue(PatientSourceStationFormat);
+        if (ViewModel is not { IsOperationalMode: true } viewModel || sourceId is null || !Guid.TryParse(sourceId, out var sourceStationId))
+        {
+            return;
+        }
+
+        await viewModel.DropPatientAsync(sourceStationId);
+        e.Handled = true;
     }
 
     private void OnTopLeftResizePointerPressed(object? sender, PointerPressedEventArgs e) => StartInteraction(InteractionMode.ResizeTopLeft, e);

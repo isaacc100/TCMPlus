@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:TCMPlus.App.ViewModels"
+             xmlns:dnd="clr-namespace:Avalonia.Input;assembly=Avalonia.Base"
              x:Class="TCMPlus.App.Controls.StationCard"
              x:DataType="vm:StationViewModel"
              PointerMoved="OnPointerMoved"
@@ -17,6 +18,9 @@
             <Setter Property="Background" Value="#FCEAEA" />
             <Setter Property="BorderBrush" Value="#B94B4B" />
         </Style>
+        <Style Selector="Border.station.drop-target">
+            <Setter Property="BoxShadow" Value="0 0 0 3 #55828B" />
+        </Style>
         <Style Selector="Border.station-header">
             <Setter Property="Background" Value="#2F8F61" />
         </Style>
@@ -32,7 +36,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Border Classes="station" Classes.occupied="{Binding IsOccupied}" ClipToBounds="True" PointerPressed="OnDragSurfacePointerPressed">
+    <Border Classes="station" Classes.occupied="{Binding IsOccupied}" Classes.drop-target="{Binding IsDropTarget}" ClipToBounds="True" dnd:DragDrop.AllowDrop="True" PointerPressed="OnDragSurfacePointerPressed" dnd:DragDrop.DragOver="OnDragOver" dnd:DragDrop.DragLeave="OnDragLeave" dnd:DragDrop.Drop="OnDrop">
         <Grid RowDefinitions="28,*">
             <Border Grid.Row="0" Classes="station-header" Classes.occupied="{Binding IsOccupied}">
                 <Grid ColumnDefinitions="Auto,*" Margin="9,0">
@@ -43,10 +47,12 @@
             <Grid Grid.Row="1" Margin="11,9">
                 <StackPanel IsVisible="{Binding IsOperationalMode}" Spacing="4">
                     <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="#364958" TextTrimming="CharacterEllipsis" />
+                    <Border IsVisible="{Binding IsOccupied}" Background="#364958" CornerRadius="9" HorizontalAlignment="Left" Padding="7,3" PointerPressed="OnCounterPointerPressed" Cursor="Hand">
+                        <TextBlock Text="{Binding PatientCounterText}" Foreground="White" FontSize="10" FontWeight="Bold" />
+                    </Border>
                     <TextBlock Text="{Binding StatusText}" Foreground="#364958" FontSize="11" />
                     <TextBlock Text="{Binding PatientArrivalText}" IsVisible="{Binding IsOccupied}" Foreground="#50636B" FontSize="10" />
                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
-                        <Button Classes="station-action" Background="#D8EFE0" Foreground="#245A42" Content="Add Patient" Command="{Binding AddPatientCommand}" IsVisible="{Binding CanAddPatient}" />
                         <Button Classes="station-action" Background="#F5D5D5" Foreground="#843434" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding CanDischargePatient}" />
                     </StackPanel>
                 </StackPanel>

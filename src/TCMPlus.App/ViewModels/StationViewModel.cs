@@ -10,18 +10,20 @@ public partial class StationViewModel : ViewModelBase
 
     private readonly Func<StationViewModel, Task> _saveStation;
     private readonly Func<StationViewModel, Task> _deleteStation;
-    private readonly Func<StationViewModel, Task> _addPatient;
+    private readonly Action<StationViewModel> _requestPatient;
     private readonly Func<StationViewModel, Task> _dischargePatient;
     private readonly Func<StationViewModel, StationGeometry, Task> _commitGeometry;
+    private readonly Func<StationViewModel, Guid, Task> _dropPatient;
 
     public StationViewModel(
         Station station,
         Patient? currentPatient,
         Func<StationViewModel, Task> saveStation,
         Func<StationViewModel, Task> deleteStation,
-        Func<StationViewModel, Task> addPatient,
+        Action<StationViewModel> requestPatient,
         Func<StationViewModel, Task> dischargePatient,
-        Func<StationViewModel, StationGeometry, Task> commitGeometry)
+        Func<StationViewModel, StationGeometry, Task> commitGeometry,
+        Func<StationViewModel, Guid, Task> dropPatient)
     {
         Id = station.Id;
         _name = station.Name;
@@ -33,9 +35,10 @@ public partial class StationViewModel : ViewModelBase
         _currentPatient = currentPatient;
         _saveStation = saveStation;
         _deleteStation = deleteStation;
-        _addPatient = addPatient;
+        _requestPatient = requestPatient;
         _dischargePatient = dischargePatient;
         _commitGeometry = commitGeometry;
+        _dropPatient = dropPatient;
     }
 
     public Guid Id { get; }
@@ -64,6 +67,9 @@ public partial class StationViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isEditMode;
 
+    [ObservableProperty]
+    private bool _isDropTarget;
+
     public double CanvasX => GridX * GridSizePixels;
     public double CanvasY => GridY * GridSizePixels;
     public double CanvasWidth => GridWidth * GridSizePixels;
@@ -75,6 +81,7 @@ public partial class StationViewModel : ViewModelBase
     public bool CanDelete => !IsOccupied;
     public string StatusText => IsOccupied ? "Occupied" : "Available";
     public string PatientArrivalText => CurrentPatient is null ? "" : FormatRelativeTime(CurrentPatient.AddedAt);
+    public string PatientCounterText => CurrentPatient is null ? "" : $"Patient {CurrentPatient.PatientNumber}";
 
     public StationGeometry Geometry => new(GridX, GridY, GridWidth, GridHeight);
 
@@ -99,10 +106,12 @@ public partial class StationViewModel : ViewModelBase
     private Task DeleteStationAsync() => _deleteStation(this);
 
     [RelayCommand]
-    private Task AddPatientAsync() => _addPatient(this);
+    private void AddPatient() => _requestPatient(this);
 
     [RelayCommand]
     private Task DischargePatientAsync() => _dischargePatient(this);
+
+    public Task DropPatientAsync(Guid sourceStationId) => _dropPatient(this, sourceStationId);
 
     partial void OnCurrentPatientChanged(Patient? value)
     {
@@ -112,6 +121,7 @@ public partial class StationViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(PatientArrivalText));
+        OnPropertyChanged(nameof(PatientCounterText));
     }
 
     partial void OnIsEditModeChanged(bool value)

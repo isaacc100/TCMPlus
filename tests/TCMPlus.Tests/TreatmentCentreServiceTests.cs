@@ -14,14 +14,34 @@ public sealed class TreatmentCentreServiceTests
         var patients = new InMemoryPatientRepository();
         var service = new TreatmentCentreService(stations, patients);
 
-        var patient = await service.AddPatientAsync(station.Id);
+        var patient = await service.AddPatientAsync(station.Id, "Minor injury");
 
         Assert.Equal(station.Id, patient.CurrentStationId);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddPatientAsync(station.Id));
+        Assert.Equal(1, patient.PatientNumber);
+        Assert.Equal("Minor injury", patient.PresentingComplaint);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddPatientAsync(station.Id, null));
 
         await service.DischargePatientAsync(station.Id);
         Assert.Null(await patients.GetByStationAsync(station.Id));
         Assert.Equal(1, await service.GetPatientsSeenThisShiftAsync());
+    }
+
+    [Fact]
+    public async Task Transfers_and_swaps_patients_with_lifecycle_events()
+    {
+        var first = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var second = new Station(Guid.NewGuid(), "Bay 2", "Bed", 10, 1, 8, 7);
+        var patients = new InMemoryPatientRepository();
+        var service = new TreatmentCentreService(new InMemoryStationRepository(first, second), patients);
+        var patientOne = await service.AddPatientAsync(first.Id, null);
+        await service.MovePatientAsync(first.Id, second.Id, false);
+        Assert.Equal(second.Id, (await patients.GetByStationAsync(second.Id))!.CurrentStationId);
+
+        var patientTwo = await service.AddPatientAsync(first.Id, "Resus");
+        await service.MovePatientAsync(first.Id, second.Id, true);
+        Assert.Equal(patientOne.Uid, (await patients.GetByStationAsync(first.Id))!.Uid);
+        Assert.Equal(patientTwo.Uid, (await patients.GetByStationAsync(second.Id))!.Uid);
+        Assert.Equal(5, (await patients.GetAllEventsAsync()).Count);
     }
 
     private sealed class InMemoryStationRepository(params Station[] stations) : IStationRepository
@@ -39,20 +59,44 @@ public sealed class TreatmentCentreServiceTests
         private readonly List<Patient> _patients = [];
 
         public Task<IReadOnlyList<Patient>> GetAllActiveAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Patient>>(_patients.Where(patient => patient.CurrentStationId is not null).ToList());
-        public Task<int> GetDischargedCountAsync(CancellationToken cancellationToken = default) => Task.FromResult(_patients.Count(patient => patient.CurrentStationId is null));
+        private readonly List<PatientEvent> _events = [];
+
+        public Task<IReadOnlyList<Patient>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Patient>>(_patients.ToList());
+        public Task<int> GetNextPatientNumberAsync(CancellationToken cancellationToken = default) => Task.FromResult(_patients.Count + 1);
         public Task<Patient?> GetByStationAsync(Guid stationId, CancellationToken cancellationToken = default) => Task.FromResult(_patients.FirstOrDefault(patient => patient.CurrentStationId == stationId));
         public Task AddAsync(Patient patient, CancellationToken cancellationToken = default) { _patients.Add(patient); return Task.CompletedTask; }
-        public Task DischargeFromStationAsync(Guid stationId, CancellationToken cancellationToken = default)
+        public Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, CancellationToken cancellationToken = default)
         {
             for (var index = 0; index < _patients.Count; index++)
             {
                 if (_patients[index].CurrentStationId == stationId)
                 {
-                    _patients[index] = _patients[index] with { CurrentStationId = null };
+                    _patients[index] = _patients[index] with { CurrentStationId = null, DischargedAt = dischargedAt };
+                    return Task.FromResult<Patient?>(_patients[index]);
                 }
             }
 
-            return Task.CompletedTask;
+            return Task.FromResult<Patient?>(null);
         }
+
+        public Task<PatientTransferResult> MoveAsync(Guid sourceStationId, Guid destinationStationId, bool swap, CancellationToken cancellationToken = default)
+        {
+            var sourceIndex = _patients.FindIndex(patient => patient.CurrentStationId == sourceStationId);
+            var destinationIndex = _patients.FindIndex(patient => patient.CurrentStationId == destinationStationId);
+            if (sourceIndex < 0) throw new InvalidOperationException();
+            if (destinationIndex >= 0 && !swap) throw new InvalidOperationException();
+            var source = _patients[sourceIndex] with { CurrentStationId = destinationStationId };
+            _patients[sourceIndex] = source;
+            Patient? destination = null;
+            if (destinationIndex >= 0)
+            {
+                destination = _patients[destinationIndex] with { CurrentStationId = sourceStationId };
+                _patients[destinationIndex] = destination;
+            }
+            return Task.FromResult(new PatientTransferResult(source, destination));
+        }
+
+        public Task AddEventAsync(PatientEvent patientEvent, CancellationToken cancellationToken = default) { _events.Add(patientEvent); return Task.CompletedTask; }
+        public Task<IReadOnlyList<PatientEvent>> GetAllEventsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<PatientEvent>>(_events.ToList());
     }
 }

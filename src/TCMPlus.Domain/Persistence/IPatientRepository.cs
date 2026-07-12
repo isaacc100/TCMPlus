@@ -5,8 +5,12 @@ namespace TCMPlus.Domain.Persistence;
 public interface IPatientRepository
 {
     Task<IReadOnlyList<Patient>> GetAllActiveAsync(CancellationToken cancellationToken = default);
-    Task<int> GetDischargedCountAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Patient>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<int> GetNextPatientNumberAsync(CancellationToken cancellationToken = default);
     Task<Patient?> GetByStationAsync(Guid stationId, CancellationToken cancellationToken = default);
     Task AddAsync(Patient patient, CancellationToken cancellationToken = default);
-    Task DischargeFromStationAsync(Guid stationId, CancellationToken cancellationToken = default);
+    Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, CancellationToken cancellationToken = default);
+    Task<PatientTransferResult> MoveAsync(Guid sourceStationId, Guid destinationStationId, bool swap, CancellationToken cancellationToken = default);
+    Task AddEventAsync(PatientEvent patientEvent, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PatientEvent>> GetAllEventsAsync(CancellationToken cancellationToken = default);
 }
