@@ -14,6 +14,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly ITcSettingsRepository _settingsRepository;
     private readonly IShiftPinService _shiftPinService;
     private readonly IAppSettingsRepository _appSettingsRepository;
+    private AppSettings? _appSettings;
     private TcSessionSettings? _sessionSettings;
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _bannerTimer;
@@ -67,6 +68,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private int _patientsSeenThisShift;
     [ObservableProperty] private string _currentTimeText = "";
     [ObservableProperty] private bool _isLocked;
+    [ObservableProperty] private double _lockBlurRadius = 10d;
     [ObservableProperty] private string _unlockDigit1 = "";
     [ObservableProperty] private string _unlockDigit2 = "";
     [ObservableProperty] private string _unlockDigit3 = "";
@@ -93,6 +95,7 @@ public partial class MainViewModel : ViewModelBase
     public bool IsNotificationInfo => NotificationKind == NotificationKind.Info;
     public bool IsNotificationWarning => NotificationKind == NotificationKind.Warning;
     public bool IsNotificationError => NotificationKind == NotificationKind.Error;
+    public double ActiveBlurRadius => IsLocked ? LockBlurRadius : 0d;
     public bool IsMapPage => IsManager && SelectedPage == TcPage.Map;
     public bool IsTablesPage => IsManager && SelectedPage == TcPage.Tables;
     public bool IsSetupPage => IsManager && SelectedPage == TcPage.Setup;
@@ -115,7 +118,9 @@ public partial class MainViewModel : ViewModelBase
             PinStatusText = settings.HasShiftPin ? "A shift PIN is stored for this session." : "No shift PIN set.";
             QuickEntry = settings.QuickEntry;
             GridDensity = settings.GridDensity;
-            foreach (var route in (await _appSettingsRepository.GetAsync()).DischargeRoutes) DischargeRoutes.Add(route);
+            _appSettings = await _appSettingsRepository.GetAsync();
+            LockBlurRadius = Math.Clamp(_appSettings.LockBlurRadius, 4d, 20d);
+            foreach (var route in _appSettings.DischargeRoutes) DischargeRoutes.Add(route);
             await RefreshSummaryAsync();
             await RefreshDashboardAsync();
             if (Stations.Count == 0) Notify("Edit the treatment centre to add the first station.");
@@ -206,6 +211,12 @@ public partial class MainViewModel : ViewModelBase
     }
 
     partial void OnSelectedAreaChanged(TcArea value) => RefreshAreaProperties();
+    partial void OnIsLockedChanged(bool value) => OnPropertyChanged(nameof(ActiveBlurRadius));
+    partial void OnLockBlurRadiusChanged(double value)
+    {
+        OnPropertyChanged(nameof(ActiveBlurRadius));
+        if (_appSettings is not null) _ = SaveLockBlurAsync(value);
+    }
     partial void OnSettingsPageChanged(SettingsPage value) { OnPropertyChanged(nameof(IsSettingsGeneral)); OnPropertyChanged(nameof(IsSettingsOperations)); OnPropertyChanged(nameof(IsSettingsDisplays)); }
     partial void OnNotificationKindChanged(NotificationKind value) { OnPropertyChanged(nameof(IsNotificationInfo)); OnPropertyChanged(nameof(IsNotificationWarning)); OnPropertyChanged(nameof(IsNotificationError)); }
     partial void OnSelectedPageChanged(TcPage value) => RefreshAreaProperties();
@@ -287,11 +298,23 @@ public partial class MainViewModel : ViewModelBase
 
     public async Task SaveAppSettingsAsync(IEnumerable<string> dischargeRoutes, ExternalDisplayMode displayMode)
     {
-        var settings = new AppSettings(dischargeRoutes.ToList(), displayMode);
+        var settings = new AppSettings(dischargeRoutes.ToList(), displayMode, LockBlurRadius);
         await _appSettingsRepository.SaveAsync(settings);
+        _appSettings = settings;
         DischargeRoutes.Clear();
         foreach (var route in (await _appSettingsRepository.GetAsync()).DischargeRoutes) DischargeRoutes.Add(route);
         Notify("Application settings saved.");
+    }
+
+    private async Task SaveLockBlurAsync(double value)
+    {
+        try
+        {
+            var settings = _appSettings! with { LockBlurRadius = Math.Clamp(value, 4d, 20d) };
+            await _appSettingsRepository.SaveAsync(settings);
+            _appSettings = settings;
+        }
+        catch { }
     }
 
     public void CompleteLock() => IsLocked = true;

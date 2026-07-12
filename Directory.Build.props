@@ -1,9 +1,9 @@
 <Project>
   <PropertyGroup>
-    <TCMVersion>0.4.4-DEV</TCMVersion>
+    <TCMVersion>0.4.5-DEV</TCMVersion>
     <Version>$(TCMVersion)</Version>
-    <AssemblyVersion>0.4.4.0</AssemblyVersion>
-    <FileVersion>0.4.4.0</FileVersion>
+    <AssemblyVersion>0.4.5.0</AssemblyVersion>
+    <FileVersion>0.4.5.0</FileVersion>
     <InformationalVersion>$(TCMVersion)</InformationalVersion>
   </PropertyGroup>
 

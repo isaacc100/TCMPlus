@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.4.4-DEV
+## 0.4.5-DEV
+
+- Added a persisted 4–20px lock-screen blur slider in Settings → General; the default blur is now 10px.
+
+## 0.4.4
 
 - Fixed a lock-screen PIN crash by verifying against the cached active-shift PIN settings before decrypting the sealed database.
 
