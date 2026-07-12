@@ -28,7 +28,7 @@ public partial class App : Application
         {
             _desktop = desktop;
             var shiftSetup = new ShiftSetupWindow();
-            shiftSetup.ShiftStarted += (_, draft) => OpenShift(desktop, shiftSetup, draft);
+            shiftSetup.ShiftStarted += async (_, draft) => await OpenShiftAsync(desktop, shiftSetup, draft);
             shiftSetup.LoadExistingRequested += (_, _) => ShowRecentSessions(shiftSetup);
             desktop.MainWindow = shiftSetup;
         }
@@ -36,10 +36,10 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static void OpenShift(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
+    private static async Task OpenShiftAsync(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
     {
-        var session = SessionStore.CreateAsync(draft.ShiftName, draft.SessionPassword).GetAwaiter().GetResult();
-        var services = ConfigureServices(session, draft);
+        var session = await SessionStore.CreateAsync(draft.ShiftName, draft.SessionPassword);
+        var services = await ConfigureServicesAsync(session, draft);
         ShowSessionWindow(desktop, session, draft.SessionPassword, services);
         shiftSetup.Close();
     }
@@ -56,7 +56,7 @@ public partial class App : Application
                 _activeSession.Window.Close();
             }
             var session = await SessionStore.OpenAsync(request.Entry, request.Password);
-            var services = ConfigureServices(session, null);
+            var services = await ConfigureServicesAsync(session, null);
             var settings = services.GetRequiredService<ITcSettingsRepository>();
             var current = await settings.GetAsync();
             await settings.SaveAsync(current with { ShiftName = request.Entry.ShiftName });
@@ -74,16 +74,16 @@ public partial class App : Application
         var window = new MainWindow { DataContext = viewModel };
         _activeSession = new ActiveSession(session, password, window);
         window.Opened += async (_, _) => await viewModel.InitializeAsync();
-        window.Closing += (_, _) => SessionStore.SealAsync(session, password).GetAwaiter().GetResult();
+        window.Closing += async (_, _) => await SessionStore.SealAsync(session, password);
         desktop.MainWindow = window;
         window.Show();
     }
 
-    private static ServiceProvider ConfigureServices(TCMPlus.Domain.Models.SessionDescriptor session, ShiftSetupDraft? draft)
+    private static async Task<ServiceProvider> ConfigureServicesAsync(TCMPlus.Domain.Models.SessionDescriptor session, ShiftSetupDraft? draft)
     {
         var services = new ServiceCollection();
         var connectionFactory = new SqliteConnectionFactory(session.DatabasePath);
-        new DatabaseInitializer(connectionFactory).InitializeAsync().GetAwaiter().GetResult();
+        await new DatabaseInitializer(connectionFactory).InitializeAsync();
 
         services.AddSingleton(session);
         services.AddSingleton(connectionFactory);
@@ -99,7 +99,7 @@ public partial class App : Application
         {
             var pinService = provider.GetRequiredService<IShiftPinService>();
             var settings = pinService.CreateSettings(draft.Pin) with { ShiftName = draft.ShiftName.Trim(), GridDensity = draft.GridDensity };
-            provider.GetRequiredService<ITcSettingsRepository>().SaveAsync(settings).GetAwaiter().GetResult();
+            await provider.GetRequiredService<ITcSettingsRepository>().SaveAsync(settings);
         }
         return provider;
     }

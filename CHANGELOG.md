@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.3.0-DEV
+## 0.3.1-DEV
+
+- Fixed a UI-thread deadlock when creating a new shift or initializing its database.
+
+## 0.3.0
 
 - Added encrypted `.tcm` session containers using AES-GCM and PBKDF2-derived session-password keys, with a non-sensitive recent-session catalogue.
 - Added recent-shift loading from startup and the lock screen, with rename, delete confirmation, and encrypted export actions.
