@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.3.2-DEV
+## 0.4.0-DEV
+
+- Replaced modal application settings with a top-level Settings area containing General, Operations, and Displays navigation.
+- Added editable persistent discharge routes in Settings and Quick entry patient creation without a presenting-complaint dialog.
+- Rebuilt the external Map mode as a live, read-only 5:3 positioned treatment-centre mirror with the same station cards, grid geometry, counter, timing, and occupied state.
+- Made encrypted session sealing atomic and ensured new shifts produce a loadable `.tcm` file before appearing in recents; active workspaces seal when locked.
+- Moved notifications into the top navigation with blue information, yellow warning, and red error status beans.
+- Improved Shift setup hierarchy, PIN-change affordance, map-size warning, and Enter/backspace keyboard flows.
+
+## 0.3.2
 
 - Added a persisted external-display mode setting and an action to open a fullscreen Dashboard or read-only treatment-centre mirror on a connected second monitor.
 - Added increase-only Compact, Standard, and Dense map-density controls to Shift setup.

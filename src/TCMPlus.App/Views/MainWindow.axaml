@@ -8,6 +8,7 @@
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="820"
         x:Class="TCMPlus.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
+        x:CompileBindings="False"
         Icon="/Assets/avalonia-logo.ico"
         Title="TCM+"
         Width="1280"
@@ -96,13 +97,13 @@
             <Setter Property="Foreground" Value="#364958" />
         </Style>
         <Style Selector="Border.banner">
-            <Setter Property="Background" Value="#3B6064" />
+            <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="BoxShadow" Value="0 6 20 0 #00000033" />
         </Style>
-        <Style Selector="Border.banner.error">
-            <Setter Property="Background" Value="#963D3D" />
-        </Style>
+        <Style Selector="Ellipse.notification-info"><Setter Property="Fill" Value="#55828B" /></Style>
+        <Style Selector="Ellipse.notification-warning"><Setter Property="Fill" Value="#D39B28" /></Style>
+        <Style Selector="Ellipse.notification-error"><Setter Property="Fill" Value="#B94B4B" /></Style>
     </Window.Styles>
 
     <Grid>
@@ -281,17 +282,25 @@
             <Border Classes="card" Padding="20" Width="520" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <StackPanel Spacing="16">
                     <TextBlock Text="Shift setup" Classes="section-title" />
-                    <TextBlock Text="The shift name identifies this session and is used in its save folder name." Classes="muted" TextWrapping="Wrap" />
+                    <TextBlock Text="Shift details" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                    <TextBlock Text="Used to identify this shift and name its save folder." Classes="muted" TextWrapping="Wrap" />
                     <TextBox Text="{Binding ShiftName}" PlaceholderText="Shift name" />
-                    <TextBlock Text="Enter a new six-digit PIN only when changing it." Classes="muted" TextWrapping="Wrap" />
-                    <TextBox Text="{Binding NewPin}" PasswordChar="*" MaxLength="6" PlaceholderText="New six-digit PIN" />
-                    <Button Classes="primary" Content="Save shift details" Command="{Binding SaveShiftPinCommand}" />
-                    <TextBlock Text="Map density" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
-                    <TextBlock Text="You can increase density after stations are placed; it cannot be reduced for this shift." Classes="muted" TextWrapping="Wrap" />
+                    <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Shift PIN set" Foreground="#2F8F61" VerticalAlignment="Center"/><Button Grid.Column="1" Classes="secondary" Content="Change PIN" Command="{Binding BeginPinChangeCommand}"/></Grid>
+                    <TextBox Text="{Binding NewPin}" PasswordChar="*" MaxLength="6" PlaceholderText="New six-digit PIN" IsVisible="{Binding IsChangingPin}" />
+                    <Separator Margin="0,4" />
+                    <TextBlock Text="Treatment-centre map" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                    <TextBlock Text="Map size" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
+                    <Border Background="#FFF7D9" BorderBrush="#D39B28" BorderThickness="1" CornerRadius="6" Padding="10"><TextBlock Text="The map can be enlarged later, but cannot be reduced after stations have been placed." Foreground="#765617" TextWrapping="Wrap"/></Border>
                     <StackPanel Orientation="Horizontal" Spacing="8"><Button Classes="secondary" Content="Compact 50 × 30" Command="{Binding SetCompactDensityCommand}" /><Button Classes="secondary" Content="Standard 60 × 36" Command="{Binding SetStandardDensityCommand}" /><Button Classes="secondary" Content="Dense 75 × 45" Command="{Binding SetDenseDensityCommand}" /></StackPanel>
+                    <Button Classes="primary" Content="Save changes" Command="{Binding SaveShiftPinCommand}" />
                     <TextBlock Text="{Binding PinStatusText}" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSettings}" ColumnDefinitions="210,18,*">
+            <Border Classes="card" Padding="12"><StackPanel Spacing="5"><TextBlock Text="Settings" Classes="section-title" Margin="8,4,0,10"/><Button Classes="sub-nav" Content="General" Command="{Binding ShowSettingsGeneralCommand}"/><Button Classes="sub-nav" Content="Operations" Command="{Binding ShowSettingsOperationsCommand}"/><Button Classes="sub-nav" Content="Displays" Command="{Binding ShowSettingsDisplaysCommand}"/></StackPanel></Border>
+            <Border Grid.Column="2" Classes="card" Padding="24"><Grid><StackPanel IsVisible="{Binding IsSettingsGeneral}" Spacing="12"><TextBlock Text="General" Classes="section-title"/><TextBlock Text="Application settings will expand here as TCM+ grows." Classes="muted"/><TextBlock Text="TCM+ 0.4.0-DEV" Foreground="{StaticResource DeepSeaBrush}"/></StackPanel><StackPanel IsVisible="{Binding IsSettingsOperations}" Spacing="12"><TextBlock Text="Operations" Classes="section-title"/><TextBlock Text="Discharge routes" Classes="muted"/><ListBox ItemsSource="{Binding DischargeRoutes}"><ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,Auto" Margin="0,4"><TextBlock Text="{Binding}" VerticalAlignment="Center"/><Button Grid.Column="1" Classes="danger" Content="Remove" Command="{Binding DataContext.RemoveDischargeRouteCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/></Grid></DataTemplate></ListBox.ItemTemplate></ListBox><StackPanel Orientation="Horizontal" Spacing="8"><TextBox Text="{Binding NewDischargeRoute}" Width="260" PlaceholderText="New discharge route"/><Button Classes="primary" Content="Add route" Command="{Binding AddDischargeRouteCommand}"/></StackPanel><TextBlock Text="Keep at least one route." Classes="muted"/></StackPanel><StackPanel IsVisible="{Binding IsSettingsDisplays}" Spacing="14"><TextBlock Text="Displays" Classes="section-title"/><TextBlock Text="Open a fullscreen read-only display on the next connected monitor." Classes="muted" TextWrapping="Wrap"/><Button Classes="primary" Content="Open Dashboard display" Command="{Binding OpenExternalDisplayCommand}" CommandParameter="Dashboard"/><Button Classes="secondary" Content="Open Map mirror" Command="{Binding OpenExternalDisplayCommand}" CommandParameter="Map"/></StackPanel></Grid></Border>
         </Grid>
 
         <ScrollViewer Grid.Row="2" Margin="28" IsVisible="{Binding IsDashboard}" VerticalScrollBarVisibility="Auto">
@@ -320,8 +329,8 @@
             </Grid>
         </Border>
 
-        <Border Classes="banner" Classes.error="{Binding IsBannerError}" IsVisible="{Binding IsBannerVisible}" ZIndex="90" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,78,0,0" Padding="18,10">
-            <TextBlock Text="{Binding BannerText}" Foreground="White" FontWeight="SemiBold" />
+        <Border Classes="banner" IsVisible="{Binding IsBannerVisible}" ZIndex="90" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Padding="16,8">
+            <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="{Binding BannerText}" Foreground="#364958" FontWeight="SemiBold" VerticalAlignment="Center" /><Ellipse Classes="notification-info" Classes.notification-info="{Binding IsNotificationInfo}" Classes.notification-warning="{Binding IsNotificationWarning}" Classes.notification-error="{Binding IsNotificationError}" Width="10" Height="10" VerticalAlignment="Center" /></StackPanel>
         </Border>
 
         <Border IsVisible="{Binding IsLocked}" ZIndex="100" Background="#364958B8">

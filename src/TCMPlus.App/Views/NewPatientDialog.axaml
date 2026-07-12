@@ -12,7 +12,7 @@
             <TextBlock Text="New patient" FontSize="19" FontWeight="Bold" Foreground="#364958" />
             <TextBlock Name="StationText" Foreground="#60737A" />
             <TextBlock Text="Presenting complaint" FontWeight="SemiBold" Foreground="#364958" />
-            <TextBox Name="ComplaintInput" PlaceholderText="Optional" />
+            <TextBox Name="ComplaintInput" PlaceholderText="Optional" KeyDown="OnComplaintKeyDown" />
             <TextBlock Text="No details are required to add the patient." Foreground="#60737A" FontSize="11" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
                 <Button Classes="secondary" Content="Cancel" Click="OnCancel" />

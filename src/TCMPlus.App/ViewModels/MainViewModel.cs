@@ -37,8 +37,10 @@ public partial class MainViewModel : ViewModelBase
     public event Action<StationViewModel>? NewPatientRequested;
     public event Action<StationViewModel, StationViewModel>? PatientSwapConfirmationRequested;
     public event Action<StationViewModel>? DischargeRequested;
-    public event EventHandler? AppSettingsRequested;
     public event EventHandler? SessionSwitchRequested;
+    public event Action<ExternalDisplayMode>? ExternalDisplayRequested;
+    public event EventHandler? SessionLockRequested;
+    public event EventHandler? SessionUnlockRequested;
 
     public SessionDescriptor Session { get; }
     public ObservableCollection<StationViewModel> Stations { get; } = [];
@@ -53,7 +55,10 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private bool _isEditMode;
     [ObservableProperty] private bool _quickEntry;
     [ObservableProperty] private GridDensity _gridDensity = GridDensity.Compact;
+    [ObservableProperty] private SettingsPage _settingsPage = SettingsPage.General;
+    [ObservableProperty] private string _newDischargeRoute = "";
     [ObservableProperty] private string _newPin = "";
+    [ObservableProperty] private bool _isChangingPin;
     [ObservableProperty] private string _shiftName = "";
     [ObservableProperty] private string _pinStatusText = "No shift PIN set.";
     [ObservableProperty] private int _availableStations;
@@ -70,7 +75,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private string _lockMessage = "Enter the shift PIN to continue.";
     [ObservableProperty] private bool _isBannerVisible;
     [ObservableProperty] private string _bannerText = "";
-    [ObservableProperty] private bool _isBannerError;
+    [ObservableProperty] private NotificationKind _notificationKind = NotificationKind.Info;
     [ObservableProperty] private string _averageDischargeText = "No discharges yet";
     [ObservableProperty] private string _averageThroughputText = "No discharges yet";
     [ObservableProperty] private bool _hasComplaintBreakdown;
@@ -80,6 +85,13 @@ public partial class MainViewModel : ViewModelBase
     public bool HasNoStations => Stations.Count == 0;
     public bool IsDashboard => SelectedArea == TcArea.Dashboard;
     public bool IsManager => SelectedArea == TcArea.Manager;
+    public bool IsSettings => SelectedArea == TcArea.Settings;
+    public bool IsSettingsGeneral => SettingsPage == SettingsPage.General;
+    public bool IsSettingsOperations => SettingsPage == SettingsPage.Operations;
+    public bool IsSettingsDisplays => SettingsPage == SettingsPage.Displays;
+    public bool IsNotificationInfo => NotificationKind == NotificationKind.Info;
+    public bool IsNotificationWarning => NotificationKind == NotificationKind.Warning;
+    public bool IsNotificationError => NotificationKind == NotificationKind.Error;
     public bool IsMapPage => IsManager && SelectedPage == TcPage.Map;
     public bool IsTablesPage => IsManager && SelectedPage == TcPage.Tables;
     public bool IsSetupPage => IsManager && SelectedPage == TcPage.Setup;
@@ -116,21 +128,37 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand] private void ShowSetup() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Setup; }
     [RelayCommand] private void ToggleEditMode() => IsEditMode = !IsEditMode;
     [RelayCommand] private void RequestAddStation() => AddStationRequested?.Invoke(this, EventArgs.Empty);
-    [RelayCommand] private void ShowSettings() => AppSettingsRequested?.Invoke(this, EventArgs.Empty);
+    [RelayCommand] private void ShowSettings() => SelectedArea = TcArea.Settings;
+    [RelayCommand] private void ShowSettingsGeneral() => SettingsPage = SettingsPage.General;
+    [RelayCommand] private void ShowSettingsOperations() => SettingsPage = SettingsPage.Operations;
+    [RelayCommand] private void ShowSettingsDisplays() => SettingsPage = SettingsPage.Displays;
+    [RelayCommand] private async Task AddDischargeRouteAsync()
+    {
+        var route = NewDischargeRoute.Trim();
+        if (string.IsNullOrWhiteSpace(route) || DischargeRoutes.Contains(route, StringComparer.OrdinalIgnoreCase)) return;
+        DischargeRoutes.Add(route); NewDischargeRoute = ""; await SaveAppSettingsAsync(DischargeRoutes, (await _appSettingsRepository.GetAsync()).ExternalDisplayMode);
+    }
+    [RelayCommand] private async Task RemoveDischargeRouteAsync(string? route)
+    {
+        if (string.IsNullOrWhiteSpace(route) || DischargeRoutes.Count <= 1) return;
+        DischargeRoutes.Remove(route); await SaveAppSettingsAsync(DischargeRoutes, (await _appSettingsRepository.GetAsync()).ExternalDisplayMode);
+    }
+    [RelayCommand] private void OpenExternalDisplay(string mode) => ExternalDisplayRequested?.Invoke(string.Equals(mode, "Map", StringComparison.OrdinalIgnoreCase) ? ExternalDisplayMode.Map : ExternalDisplayMode.Dashboard);
     [RelayCommand] private void RequestSessionSwitch() => SessionSwitchRequested?.Invoke(this, EventArgs.Empty);
     [RelayCommand] private async Task SaveQuickEntryAsync() => await SaveSessionOptionsAsync();
     [RelayCommand] private void SetCompactDensity() => SetGridDensity(GridDensity.Compact);
     [RelayCommand] private void SetStandardDensity() => SetGridDensity(GridDensity.Standard);
     [RelayCommand] private void SetDenseDensity() => SetGridDensity(GridDensity.Dense);
+    [RelayCommand] private void BeginPinChange() => IsChangingPin = true;
 
     [RelayCommand]
-    private void Lock() { ClearUnlockPin(); LockMessage = "Enter the shift PIN to continue."; IsLocked = true; }
+    private void Lock() { ClearUnlockPin(); LockMessage = "Enter the shift PIN to continue."; SessionLockRequested?.Invoke(this, EventArgs.Empty); }
 
     [RelayCommand]
     private async Task UnlockAsync()
     {
         var settings = await _settingsRepository.GetAsync();
-        if (_shiftPinService.Verify(UnlockPin, settings)) { IsLocked = false; ClearUnlockPin(); return; }
+        if (_shiftPinService.Verify(UnlockPin, settings)) { SessionUnlockRequested?.Invoke(this, EventArgs.Empty); return; }
         LockMessage = "That PIN does not match this shift."; ClearUnlockPin();
     }
 
@@ -162,11 +190,13 @@ public partial class MainViewModel : ViewModelBase
             if (!_shiftPinService.IsValidFormat(NewPin)) { PinStatusText = "Enter exactly six digits when changing the PIN."; return; }
             settings = _shiftPinService.CreateSettings(NewPin);
         }
-        await _settingsRepository.SaveAsync(settings with { ShiftName = ShiftName.Trim() });
-        NewPin = ""; PinStatusText = "Shift details saved for this session.";
+        await _settingsRepository.SaveAsync(settings with { ShiftName = ShiftName.Trim(), GridDensity = GridDensity });
+        NewPin = ""; IsChangingPin = false; PinStatusText = "Shift details saved for this session.";
     }
 
     partial void OnSelectedAreaChanged(TcArea value) => RefreshAreaProperties();
+    partial void OnSettingsPageChanged(SettingsPage value) { OnPropertyChanged(nameof(IsSettingsGeneral)); OnPropertyChanged(nameof(IsSettingsOperations)); OnPropertyChanged(nameof(IsSettingsDisplays)); }
+    partial void OnNotificationKindChanged(NotificationKind value) { OnPropertyChanged(nameof(IsNotificationInfo)); OnPropertyChanged(nameof(IsNotificationWarning)); OnPropertyChanged(nameof(IsNotificationError)); }
     partial void OnSelectedPageChanged(TcPage value) => RefreshAreaProperties();
     partial void OnIsEditModeChanged(bool value)
     {
@@ -175,18 +205,18 @@ public partial class MainViewModel : ViewModelBase
     }
 
     partial void OnQuickEntryChanged(bool value) => _ = SaveSessionOptionsAsync();
-    partial void OnGridDensityChanged(GridDensity value) { foreach (var station in Stations) station.GridSizePixels = GridPixelSize; OnPropertyChanged(nameof(GridPixelSize)); _ = SaveSessionOptionsAsync(); }
+    partial void OnGridDensityChanged(GridDensity value) { foreach (var station in Stations) station.GridSizePixels = GridPixelSize; OnPropertyChanged(nameof(GridPixelSize)); }
 
     private void RefreshAreaProperties()
     {
-        OnPropertyChanged(nameof(IsDashboard)); OnPropertyChanged(nameof(IsManager)); OnPropertyChanged(nameof(IsMapPage)); OnPropertyChanged(nameof(IsTablesPage)); OnPropertyChanged(nameof(IsSetupPage));
+        OnPropertyChanged(nameof(IsDashboard)); OnPropertyChanged(nameof(IsManager)); OnPropertyChanged(nameof(IsSettings)); OnPropertyChanged(nameof(IsMapPage)); OnPropertyChanged(nameof(IsTablesPage)); OnPropertyChanged(nameof(IsSetupPage));
     }
 
     private void SetGridDensity(GridDensity density)
     {
         if (density < GridDensity)
         {
-            Notify("Map density can only be increased after stations have been placed.", true);
+            NotifyWarning("Map density can only be increased after stations have been placed.");
             return;
         }
         GridDensity = density;
@@ -199,7 +229,11 @@ public partial class MainViewModel : ViewModelBase
         Stations.Add(viewModel); OnPropertyChanged(nameof(HasNoStations));
     }
 
-    private void RequestNewPatient(StationViewModel station) => NewPatientRequested?.Invoke(station);
+    private void RequestNewPatient(StationViewModel station)
+    {
+        if (QuickEntry) { _ = SubmitNewPatientAsync(station, new NewPatientDraft(null)); return; }
+        NewPatientRequested?.Invoke(station);
+    }
     private void RequestDischarge(StationViewModel station)
     {
         if (QuickEntry) { _ = CompleteDischargeAsync(station, null); return; }
@@ -240,8 +274,6 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
-    public Task<AppSettings> GetAppSettingsAsync() => _appSettingsRepository.GetAsync();
-
     public async Task SaveAppSettingsAsync(IEnumerable<string> dischargeRoutes, ExternalDisplayMode displayMode)
     {
         var settings = new AppSettings(dischargeRoutes.ToList(), displayMode);
@@ -250,6 +282,9 @@ public partial class MainViewModel : ViewModelBase
         foreach (var route in (await _appSettingsRepository.GetAsync()).DischargeRoutes) DischargeRoutes.Add(route);
         Notify("Application settings saved.");
     }
+
+    public void CompleteLock() => IsLocked = true;
+    public void CompleteUnlock() { IsLocked = false; ClearUnlockPin(); }
 
     private async Task SaveSessionOptionsAsync()
     {
@@ -290,8 +325,14 @@ public partial class MainViewModel : ViewModelBase
 
     private void Notify(string message, bool error = false)
     {
-        BannerText = message; IsBannerError = error; IsBannerVisible = true;
+        BannerText = message; NotificationKind = error ? NotificationKind.Error : NotificationKind.Info; IsBannerVisible = true;
         _bannerTimer.Stop(); _bannerTimer.Interval = error ? TimeSpan.FromSeconds(8) : TimeSpan.FromSeconds(4); _bannerTimer.Start();
+    }
+
+    private void NotifyWarning(string message)
+    {
+        BannerText = message; NotificationKind = NotificationKind.Warning; IsBannerVisible = true;
+        _bannerTimer.Stop(); _bannerTimer.Interval = TimeSpan.FromSeconds(4); _bannerTimer.Start();
     }
 
     private void RefreshClock() { CurrentTimeText = DateTimeOffset.Now.ToString("HH:mm:ss"); foreach (var station in Stations) station.RefreshPatientArrivalText(); }
@@ -304,5 +345,7 @@ public partial class MainViewModel : ViewModelBase
 
 public sealed record StationDraft(string Name, string Type);
 public sealed record NewPatientDraft(string? PresentingComplaint);
-public enum TcArea { Dashboard, Manager }
+public enum TcArea { Dashboard, Manager, Settings }
 public enum TcPage { Map, Tables, Setup }
+public enum SettingsPage { General, Operations, Displays }
+public enum NotificationKind { Info, Warning, Error }

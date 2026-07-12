@@ -39,7 +39,10 @@ public partial class App : Application
     private static async Task OpenShiftAsync(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
     {
         var session = await SessionStore.CreateAsync(draft.ShiftName, draft.SessionPassword);
-        var services = await ConfigureServicesAsync(session, draft);
+        await ConfigureServicesAsync(session, draft);
+        await SessionStore.SealAsync(session, draft.SessionPassword);
+        session = await SessionStore.OpenAsync((await SessionStore.GetRecentAsync()).Single(item => item.Id == session.Id), draft.SessionPassword);
+        var services = await ConfigureServicesAsync(session, null);
         ShowSessionWindow(desktop, session, draft.SessionPassword, services);
         shiftSetup.Close();
     }
@@ -68,13 +71,33 @@ public partial class App : Application
         }
     }
 
+    public static async Task SealActiveSessionAsync()
+    {
+        if (_activeSession is not null) await SessionStore.SealAsync(_activeSession.Session, _activeSession.Password);
+    }
+
+    public static async Task UnsealActiveSessionAsync()
+    {
+        if (_activeSession is null) return;
+        var entry = (await SessionStore.GetRecentAsync()).Single(item => item.Id == _activeSession.Session.Id);
+        await SessionStore.OpenAsync(entry, _activeSession.Password);
+    }
+
     private static void ShowSessionWindow(IClassicDesktopStyleApplicationLifetime desktop, TCMPlus.Domain.Models.SessionDescriptor session, string password, ServiceProvider services)
     {
         var viewModel = services.GetRequiredService<MainViewModel>();
         var window = new MainWindow { DataContext = viewModel };
         _activeSession = new ActiveSession(session, password, window);
         window.Opened += async (_, _) => await viewModel.InitializeAsync();
-        window.Closing += async (_, _) => await SessionStore.SealAsync(session, password);
+        var closeAllowed = false;
+        window.Closing += async (_, args) =>
+        {
+            if (closeAllowed) return;
+            args.Cancel = true;
+            await SessionStore.SealAsync(session, password);
+            closeAllowed = true;
+            window.Close();
+        };
         desktop.MainWindow = window;
         window.Show();
     }

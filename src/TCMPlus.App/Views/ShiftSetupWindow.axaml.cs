@@ -65,9 +65,15 @@ public partial class ShiftSetupWindow : Window
         {
             PreviousPinInput(textBox)?.Focus();
         }
+        else if (e.Key == Key.Enter && NextPinInput(textBox) is { } next)
+        {
+            next.Focus();
+            e.Handled = true;
+        }
         else if (e.Key == Key.Enter)
         {
-            OnStartShift(this, e);
+            SessionPasswordInput.Focus();
+            e.Handled = true;
         }
     }
 

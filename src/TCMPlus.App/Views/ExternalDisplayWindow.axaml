@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:TCMPlus.App.ViewModels"
+        xmlns:vm="using:TCMPlus.App.ViewModels" xmlns:controls="using:TCMPlus.App.Controls"
         x:Class="TCMPlus.App.Views.ExternalDisplayWindow"
         x:DataType="vm:MainViewModel"
         Title="TCM+ external display" Background="#F5F8F4">
@@ -17,6 +17,6 @@
       </Grid>
       <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="22" Margin="0,14,0,0"><StackPanel Spacing="8"><TextBlock Text="Recent patient activity" FontSize="20" FontWeight="Bold" Foreground="#364958"/><ItemsControl ItemsSource="{Binding RecentActivity}"><ItemsControl.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,Auto" Margin="0,4"><StackPanel><TextBlock Text="{Binding Title}" FontWeight="SemiBold"/><TextBlock Text="{Binding Detail}" Foreground="#60737A"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding Time}" Foreground="#60737A"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></Border>
     </Grid>
-    <ScrollViewer Grid.Row="1" Name="MapPanel" IsVisible="False" Margin="28"><ItemsControl ItemsSource="{Binding Stations}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemWidth="230" ItemHeight="135"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Margin="7" Padding="16" CornerRadius="10" Background="#E7F5EC" BorderBrush="#87BBA2" BorderThickness="2"><StackPanel><TextBlock Text="{Binding Name}" FontSize="19" FontWeight="Bold"/><TextBlock Text="{Binding Type}" Foreground="#60737A"/><TextBlock Text="{Binding StatusText}" FontWeight="Bold" Margin="0,12,0,0"/><TextBlock Text="{Binding PatientCounterText}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+    <Viewbox Grid.Row="1" Name="MapPanel" IsVisible="False" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"><Grid Width="1200" Height="720"><ItemsControl ItemsSource="{Binding Stations}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas Width="1200" Height="720"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemContainerTheme><ControlTheme x:DataType="vm:StationViewModel" TargetType="ContentPresenter"><Setter Property="Canvas.Left" Value="{Binding CanvasX}"/><Setter Property="Canvas.Top" Value="{Binding CanvasY}"/></ControlTheme></ItemsControl.ItemContainerTheme><ItemsControl.ItemTemplate><DataTemplate><controls:StationMirrorCard Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></Grid></Viewbox>
   </Grid>
 </Window>

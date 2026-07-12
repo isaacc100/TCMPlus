@@ -40,7 +40,10 @@ public sealed class EncryptedSessionStore
     public async Task SealAsync(SessionDescriptor session, string password, CancellationToken ct = default)
     {
         ValidatePassword(password); if (!File.Exists(session.DatabasePath)) return;
-        await EncryptAsync(session.DatabasePath, GetFilePath(session.Id), password, ct);
+        var destination = GetFilePath(session.Id);
+        var temporary = destination + ".tmp";
+        await EncryptAsync(session.DatabasePath, temporary, password, ct);
+        File.Move(temporary, destination, true);
         var catalog = await ReadCatalogAsync(ct); var index = catalog.FindIndex(item => item.Id == session.Id);
         if (index >= 0) { catalog[index] = catalog[index] with { IsLegacy = false }; await WriteCatalogAsync(catalog, ct); }
         if (Path.GetFullPath(session.DirectoryPath).StartsWith(Path.GetFullPath(_working), StringComparison.OrdinalIgnoreCase)) Directory.Delete(session.DirectoryPath, true);

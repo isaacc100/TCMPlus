@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using TCMPlus.App.ViewModels;
 
 namespace TCMPlus.App.Views;
@@ -25,4 +26,6 @@ public partial class AddStationDialog : Window
     }
 
     private void OnCancel(object? sender, RoutedEventArgs e) => Close(null);
+    private void OnNameKeyDown(object? sender, KeyEventArgs e) { if (e.Key == Key.Enter) { StationTypeInput.Focus(); e.Handled = true; } }
+    private void OnSubmitKeyDown(object? sender, KeyEventArgs e) { if (e.Key == Key.Enter) { OnAddStation(sender, e); e.Handled = true; } }
 }

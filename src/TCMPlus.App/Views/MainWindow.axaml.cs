@@ -26,8 +26,10 @@ public partial class MainWindow : Window
             _viewModel.NewPatientRequested -= OnNewPatientRequested;
             _viewModel.PatientSwapConfirmationRequested -= OnPatientSwapConfirmationRequested;
             _viewModel.DischargeRequested -= OnDischargeRequested;
-            _viewModel.AppSettingsRequested -= OnAppSettingsRequested;
             _viewModel.SessionSwitchRequested -= OnSessionSwitchRequested;
+            _viewModel.ExternalDisplayRequested -= OnExternalDisplayRequested;
+            _viewModel.SessionLockRequested -= OnSessionLockRequested;
+            _viewModel.SessionUnlockRequested -= OnSessionUnlockRequested;
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         }
 
@@ -38,8 +40,10 @@ public partial class MainWindow : Window
             _viewModel.NewPatientRequested += OnNewPatientRequested;
             _viewModel.PatientSwapConfirmationRequested += OnPatientSwapConfirmationRequested;
             _viewModel.DischargeRequested += OnDischargeRequested;
-            _viewModel.AppSettingsRequested += OnAppSettingsRequested;
             _viewModel.SessionSwitchRequested += OnSessionSwitchRequested;
+            _viewModel.ExternalDisplayRequested += OnExternalDisplayRequested;
+            _viewModel.SessionLockRequested += OnSessionLockRequested;
+            _viewModel.SessionUnlockRequested += OnSessionUnlockRequested;
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
     }
@@ -101,18 +105,6 @@ public partial class MainWindow : Window
         if (route is not null) await _viewModel.CompleteDischargeAsync(station, route);
     }
 
-    private async void OnAppSettingsRequested(object? sender, EventArgs e)
-    {
-        if (_viewModel is null) return;
-        var settings = await _viewModel.GetAppSettingsAsync();
-        var result = await new AppSettingsWindow(settings.DischargeRoutes, settings.ExternalDisplayMode).ShowDialog<AppSettingsDraft?>(this);
-        if (result is not null)
-        {
-            await _viewModel.SaveAppSettingsAsync(result.DischargeRoutes, result.DisplayMode);
-            if (result.OpenExternalDisplay) await OpenExternalDisplayAsync(result.DisplayMode);
-        }
-    }
-
     private async Task OpenExternalDisplayAsync(ExternalDisplayMode mode)
     {
         var current = Screens.ScreenFromWindow(this);
@@ -128,6 +120,9 @@ public partial class MainWindow : Window
     }
 
     private void OnSessionSwitchRequested(object? sender, EventArgs e) => App.ShowRecentSessions(this);
+    private async void OnExternalDisplayRequested(ExternalDisplayMode mode) => await OpenExternalDisplayAsync(mode);
+    private async void OnSessionLockRequested(object? sender, EventArgs e) { _externalDisplay?.Close(); await App.SealActiveSessionAsync(); _viewModel?.CompleteLock(); }
+    private async void OnSessionUnlockRequested(object? sender, EventArgs e) { try { await App.UnsealActiveSessionAsync(); _viewModel?.CompleteUnlock(); } catch { _viewModel?.CompleteLock(); } }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
@@ -175,9 +170,10 @@ public partial class MainWindow : Window
         {
             PreviousUnlockInput(textBox)?.Focus();
         }
-        else if (e.Key == Key.Enter && _viewModel?.UnlockCommand.CanExecute(null) == true)
+        else if (e.Key == Key.Enter)
         {
-            _viewModel.UnlockCommand.Execute(null);
+            if (NextUnlockInput(textBox) is { } next) next.Focus();
+            else if (_viewModel?.UnlockCommand.CanExecute(null) == true) _viewModel.UnlockCommand.Execute(null);
             e.Handled = true;
         }
     }
