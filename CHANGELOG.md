@@ -2,6 +2,8 @@
 
 ## 0.1.0-DEV
 
+- Fixed the Add station and application-lock dialogs so their controls remain within their windows.
+- Replaced coloured top-bar emoji controls with white Fluent lock and settings symbols.
 - Replaced the browser prototype with the initial Avalonia 12 TCM desktop application.
 - Added per-launch SQLite sessions, station map editing, station tables, setup PIN hashing, and version rules.
 - Moved station management from Setup into Map and Tables edit modes.

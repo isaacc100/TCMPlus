@@ -111,8 +111,12 @@
                     <TextBlock Text="{Binding CurrentTimeText}" Foreground="White" FontFamily="Consolas" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Button Classes="primary-nav" Content="Dashboard" Command="{Binding ShowDashboardPlaceholderCommand}" />
                     <Button Classes="primary-nav active" Content="Manager" />
-                    <Button Classes="icon" Content="🔒" Command="{Binding LockCommand}" ToolTip.Tip="Lock application" />
-                    <Button Classes="icon" Content="⚙" Command="{Binding ShowSettingsPlaceholderCommand}" ToolTip.Tip="Application settings (coming soon)" />
+                    <Button Classes="icon" Command="{Binding LockCommand}" ToolTip.Tip="Lock application">
+                        <TextBlock Text="&#xE72E;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
+                    </Button>
+                    <Button Classes="icon" Command="{Binding ShowSettingsPlaceholderCommand}" ToolTip.Tip="Application settings (coming soon)">
+                        <TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -277,17 +281,17 @@
         </Border>
 
         <Border IsVisible="{Binding IsLocked}" ZIndex="100" Background="#364958B8">
-            <Border Width="460" HorizontalAlignment="Center" VerticalAlignment="Center" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="14" Padding="30" BoxShadow="0 16 48 0 #00000055">
+            <Border Width="520" HorizontalAlignment="Center" VerticalAlignment="Center" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="14" Padding="30" BoxShadow="0 16 48 0 #00000055">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Secure PIN verification" FontSize="21" FontWeight="Bold" Foreground="#364958" HorizontalAlignment="Center" />
                     <TextBlock Text="Enter this shift's six-digit security code." Classes="muted" HorizontalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="9">
-                        <TextBox Name="UnlockDigitBox1" Text="{Binding UnlockDigit1, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
-                        <TextBox Name="UnlockDigitBox2" Text="{Binding UnlockDigit2, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
-                        <TextBox Name="UnlockDigitBox3" Text="{Binding UnlockDigit3, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
-                        <TextBox Name="UnlockDigitBox4" Text="{Binding UnlockDigit4, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
-                        <TextBox Name="UnlockDigitBox5" Text="{Binding UnlockDigit5, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
-                        <TextBox Name="UnlockDigitBox6" Text="{Binding UnlockDigit6, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox1" Text="{Binding UnlockDigit1, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" MinWidth="0" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox2" Text="{Binding UnlockDigit2, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" MinWidth="0" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox3" Text="{Binding UnlockDigit3, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" MinWidth="0" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox4" Text="{Binding UnlockDigit4, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" MinWidth="0" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox5" Text="{Binding UnlockDigit5, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" MinWidth="0" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
+                        <TextBox Name="UnlockDigitBox6" Text="{Binding UnlockDigit6, Mode=TwoWay}" MaxLength="1" PasswordChar="*" Width="42" MinWidth="0" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnUnlockDigitChanged" KeyDown="OnUnlockDigitKeyDown" />
                     </StackPanel>
                     <TextBlock Text="{Binding LockMessage}" Foreground="#963D3D" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
                     <Button Classes="primary" Content="Unlock" Command="{Binding UnlockCommand}" HorizontalAlignment="Center" />
