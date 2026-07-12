@@ -15,6 +15,7 @@ public partial class ShiftSetupWindow : Window
 
     public event EventHandler<ShiftSetupDraft>? ShiftStarted;
     public event EventHandler? LoadExistingRequested;
+    public void ShowError(string message) => ValidationMessage.Text = message;
 
     private void OnStartShift(object? sender, RoutedEventArgs e)
     {

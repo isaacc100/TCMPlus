@@ -38,13 +38,20 @@ public partial class App : Application
 
     private static async Task OpenShiftAsync(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
     {
-        var session = await SessionStore.CreateAsync(draft.ShiftName, draft.SessionPassword);
-        await ConfigureServicesAsync(session, draft);
-        await SessionStore.SealAsync(session, draft.SessionPassword);
-        session = await SessionStore.OpenAsync((await SessionStore.GetRecentAsync()).Single(item => item.Id == session.Id), draft.SessionPassword);
-        var services = await ConfigureServicesAsync(session, null);
-        ShowSessionWindow(desktop, session, draft.SessionPassword, services);
-        shiftSetup.Close();
+        try
+        {
+            var session = await SessionStore.CreateAsync(draft.ShiftName, draft.SessionPassword);
+            await ConfigureServicesAsync(session, draft);
+            await SessionStore.SealAsync(session, draft.SessionPassword);
+            session = await SessionStore.OpenAsync((await SessionStore.GetRecentAsync()).Single(item => item.Id == session.Id), draft.SessionPassword);
+            var services = await ConfigureServicesAsync(session, null);
+            ShowSessionWindow(desktop, session, draft.SessionPassword, services);
+            shiftSetup.Close();
+        }
+        catch (Exception exception)
+        {
+            shiftSetup.ShowError($"Unable to start this shift: {exception.Message}");
+        }
     }
 
     public static async void ShowRecentSessions(Avalonia.Controls.Window owner)

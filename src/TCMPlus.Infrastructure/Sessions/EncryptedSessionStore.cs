@@ -55,7 +55,7 @@ public sealed class EncryptedSessionStore
 
     private async Task EncryptAsync(string source, string destination, string password, CancellationToken ct)
     {
-        var plain = await File.ReadAllBytesAsync(source, ct); var salt = RandomNumberGenerator.GetBytes(SaltLength); var nonce = RandomNumberGenerator.GetBytes(NonceLength); var cipher = new byte[plain.Length]; var tag = new byte[TagLength]; var key = Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA256, KeyLength);
+        var plain = await ReadDatabaseBytesAsync(source, ct); var salt = RandomNumberGenerator.GetBytes(SaltLength); var nonce = RandomNumberGenerator.GetBytes(NonceLength); var cipher = new byte[plain.Length]; var tag = new byte[TagLength]; var key = Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA256, KeyLength);
         using (var aes = new AesGcm(key, TagLength)) aes.Encrypt(nonce, plain, cipher, tag);
         await File.WriteAllBytesAsync(destination, [.. "TCM1"u8, .. salt, .. nonce, .. tag, .. cipher], ct); CryptographicOperations.ZeroMemory(key);
     }
@@ -68,6 +68,13 @@ public sealed class EncryptedSessionStore
     }
     private async Task<List<SessionCatalogEntry>> ReadCatalogAsync(CancellationToken ct) { if (!File.Exists(_catalogPath)) return []; await using var stream = File.OpenRead(_catalogPath); return await JsonSerializer.DeserializeAsync<List<SessionCatalogEntry>>(stream, cancellationToken: ct) ?? []; }
     private async Task WriteCatalogAsync(List<SessionCatalogEntry> entries, CancellationToken ct) { await using var stream = File.Create(_catalogPath); await JsonSerializer.SerializeAsync(stream, entries, cancellationToken: ct); }
+    private static async Task<byte[]> ReadDatabaseBytesAsync(string path, CancellationToken ct)
+    {
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, ct);
+        return memory.ToArray();
+    }
     private string GetFilePath(Guid id) => Path.Combine(_sessions, $"{id:N}.tcm");
     private static void ValidatePassword(string password) { if (password.Length < 8) throw new InvalidOperationException("Session passwords must have at least eight characters."); }
 }

@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.4.0-DEV
+## 0.4.1-DEV
+
+- Fixed the shift-start crash caused by encryption reading a database file held by SQLite's connection pool; startup errors now remain visible in the setup window.
+
+## 0.4.0
 
 - Replaced modal application settings with a top-level Settings area containing General, Operations, and Displays navigation.
 - Added editable persistent discharge routes in Settings and Quick entry patient creation without a presenting-complaint dialog.
