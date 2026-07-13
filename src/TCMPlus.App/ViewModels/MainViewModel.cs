@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TCMPlus.App.LanDisplay;
 using TCMPlus.Domain.Models;
 using TCMPlus.Domain.Persistence;
 using TCMPlus.Domain.Services;
@@ -14,17 +15,19 @@ public partial class MainViewModel : ViewModelBase
     private readonly ITcSettingsRepository _settingsRepository;
     private readonly IShiftPinService _shiftPinService;
     private readonly IAppSettingsRepository _appSettingsRepository;
+    private readonly LanDisplayServer _lanDisplayServer;
     private AppSettings? _appSettings;
     private TcSessionSettings? _sessionSettings;
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _bannerTimer;
 
-    public MainViewModel(ITreatmentCentreService treatmentCentreService, ITcSettingsRepository settingsRepository, IShiftPinService shiftPinService, IAppSettingsRepository appSettingsRepository, SessionDescriptor session)
+    public MainViewModel(ITreatmentCentreService treatmentCentreService, ITcSettingsRepository settingsRepository, IShiftPinService shiftPinService, IAppSettingsRepository appSettingsRepository, LanDisplayServer lanDisplayServer, SessionDescriptor session)
     {
         _treatmentCentreService = treatmentCentreService;
         _settingsRepository = settingsRepository;
         _shiftPinService = shiftPinService;
         _appSettingsRepository = appSettingsRepository;
+        _lanDisplayServer = lanDisplayServer;
         Session = session;
         _shiftName = session.ShiftName;
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -54,6 +57,7 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<DashboardChartPoint> CumulativeArrivalPoints { get; } = [];
     public ObservableCollection<string> DischargeRoutes { get; } = [];
     public ObservableCollection<PatientViewModel> Patients { get; } = [];
+    public ObservableCollection<LanDisplayAddress> LanDisplayAddresses { get; } = [];
 
     [ObservableProperty] private TcArea _selectedArea = TcArea.Manager;
     [ObservableProperty] private TcPage _selectedPage = TcPage.Map;
@@ -89,6 +93,9 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private bool _hasDischargeRouteBreakdown;
     [ObservableProperty] private bool _hasThroughput;
     [ObservableProperty] private bool _hasDischargeDurations;
+    [ObservableProperty] private bool _isLanDisplayRunning;
+    [ObservableProperty] private string _lanDisplayPin = "";
+    [ObservableProperty] private string _lanDisplayStatus = "The LAN web display is off.";
 
     public bool HasNoStations => Stations.Count == 0;
     public bool IsDashboard => SelectedArea == TcArea.Dashboard;
@@ -110,6 +117,10 @@ public partial class MainViewModel : ViewModelBase
     public bool HasNoDischargeRouteBreakdown => !HasDischargeRouteBreakdown;
     public bool HasNoThroughput => !HasThroughput;
     public bool HasNoDischargeDurations => !HasDischargeDurations;
+    public bool HasLanDisplayAddresses => LanDisplayAddresses.Count > 0;
+    public bool IsLanDisplayStopped => !IsLanDisplayRunning;
+    public string ApplicationVersion => typeof(MainViewModel).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().SingleOrDefault()?.InformationalVersion ?? "";
     public string EditModeText => IsEditMode ? "Finish editing" : "Edit Treatment Centre";
     public string PatientEditModeText => IsPatientEditMode ? "Finish editing" : "Edit patients";
     public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize." : "Click an available station to add a patient. Drag a patient counter to transfer.";
@@ -169,6 +180,27 @@ public partial class MainViewModel : ViewModelBase
         DischargeRoutes.Remove(route); await SaveAppSettingsAsync(DischargeRoutes, (await _appSettingsRepository.GetAsync()).ExternalDisplayMode);
     }
     [RelayCommand] private void OpenExternalDisplay(string mode) => ExternalDisplayRequested?.Invoke(string.Equals(mode, "Map", StringComparison.OrdinalIgnoreCase) ? ExternalDisplayMode.Map : ExternalDisplayMode.Dashboard);
+    [RelayCommand]
+    private async Task StartLanDisplayAsync()
+    {
+        try
+        {
+            var access = await _lanDisplayServer.StartAsync();
+            LanDisplayAddresses.Clear();
+            foreach (var address in access.Addresses) LanDisplayAddresses.Add(address);
+            LanDisplayPin = access.ViewerPin;
+            IsLanDisplayRunning = true;
+            LanDisplayStatus = "LAN web display is running. Enter the viewer PIN in each browser.";
+            OnPropertyChanged(nameof(HasLanDisplayAddresses));
+            Notify("LAN web display started.");
+        }
+        catch (Exception exception)
+        {
+            LanDisplayStatus = $"Could not start the LAN web display: {exception.Message}";
+            Notify(LanDisplayStatus, true);
+        }
+    }
+    [RelayCommand] private async Task StopLanDisplayAsync() => await StopLanDisplayForSessionAsync();
     [RelayCommand] private void RequestSessionSwitch() => SessionSwitchRequested?.Invoke(this, EventArgs.Empty);
     [RelayCommand] private async Task SaveQuickEntryAsync() => await SaveSessionOptionsAsync();
     [RelayCommand] private void SetCompactDensity() => SetGridDensity(GridDensity.Compact);
@@ -201,6 +233,16 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
+    public async Task StopLanDisplayForSessionAsync()
+    {
+        await _lanDisplayServer.StopAsync();
+        LanDisplayAddresses.Clear();
+        LanDisplayPin = "";
+        IsLanDisplayRunning = false;
+        LanDisplayStatus = "The LAN web display is off.";
+        OnPropertyChanged(nameof(HasLanDisplayAddresses));
+    }
+
     public async Task SubmitNewPatientAsync(StationViewModel station, NewPatientDraft draft)
     {
         try { station.CurrentPatient = await _treatmentCentreService.AddPatientAsync(station.Id, draft.PresentingComplaint); await RefreshOperationalDataAsync(); Notify($"{station.PatientCounterText} added to {station.Name}."); }
@@ -229,6 +271,7 @@ public partial class MainViewModel : ViewModelBase
     }
 
     partial void OnSelectedAreaChanged(TcArea value) => RefreshAreaProperties();
+    partial void OnIsLanDisplayRunningChanged(bool value) => OnPropertyChanged(nameof(IsLanDisplayStopped));
     partial void OnIsLockedChanged(bool value) => OnPropertyChanged(nameof(ActiveBlurRadius));
     partial void OnLockBlurRadiusChanged(double value)
     {

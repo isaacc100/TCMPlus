@@ -10,6 +10,7 @@ using TCMPlus.Infrastructure.Services;
 using TCMPlus.Infrastructure.Sessions;
 using TCMPlus.App.ViewModels;
 using TCMPlus.App.Views;
+using TCMPlus.App.LanDisplay;
 
 namespace TCMPlus.App;
 
@@ -112,6 +113,7 @@ public partial class App : Application
         {
             if (_activeSession is not null)
             {
+                await _activeSession.ViewModel.StopLanDisplayForSessionAsync();
                 await SessionStore.SealAsync(_activeSession.Session, _activeSession.Password);
                 _activeSession.Window.Close();
             }
@@ -131,7 +133,11 @@ public partial class App : Application
 
     public static async Task SealActiveSessionAsync()
     {
-        if (_activeSession is not null) await SessionStore.SealAsync(_activeSession.Session, _activeSession.Password);
+        if (_activeSession is not null)
+        {
+            await _activeSession.ViewModel.StopLanDisplayForSessionAsync();
+            await SessionStore.SealAsync(_activeSession.Session, _activeSession.Password);
+        }
     }
 
     public static async Task UnsealActiveSessionAsync()
@@ -145,13 +151,14 @@ public partial class App : Application
     {
         var viewModel = services.GetRequiredService<MainViewModel>();
         var window = new MainWindow { DataContext = viewModel };
-        _activeSession = new ActiveSession(session, password, window);
+        _activeSession = new ActiveSession(session, password, window, viewModel);
         window.Opened += async (_, _) => await viewModel.InitializeAsync();
         var closeAllowed = false;
         window.Closing += async (_, args) =>
         {
             if (closeAllowed) return;
             args.Cancel = true;
+            await viewModel.StopLanDisplayForSessionAsync();
             await SessionStore.SealAsync(session, password);
             closeAllowed = true;
             window.Close();
@@ -174,6 +181,8 @@ public partial class App : Application
         services.AddSingleton<IAppSettingsRepository, JsonAppSettingsRepository>();
         services.AddSingleton<IShiftPinService, ShiftPinService>();
         services.AddSingleton<ITreatmentCentreService, TreatmentCentreService>();
+        services.AddSingleton<LanDisplaySnapshotProvider>();
+        services.AddSingleton<LanDisplayServer>();
         services.AddSingleton<MainViewModel>();
         var provider = services.BuildServiceProvider();
         if (draft is not null)
@@ -185,5 +194,5 @@ public partial class App : Application
         return provider;
     }
 
-    private sealed record ActiveSession(TCMPlus.Domain.Models.SessionDescriptor Session, string Password, MainWindow Window);
+    private sealed record ActiveSession(TCMPlus.Domain.Models.SessionDescriptor Session, string Password, MainWindow Window, MainViewModel ViewModel);
 }

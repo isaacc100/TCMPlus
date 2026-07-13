@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.7.2-DEV
+## 0.8.0-DEV
 
+- Added a PIN-protected, read-only LAN web display with live Dashboard and positioned Map mirror views.
 - Replaced the primary navigation Safe exit text button with a sign-out icon.
 - Excluded blank discharge routes from the dashboard chart and closed the launch window after opening a saved session.
 - Removed the Dashboard activity log, added a responsive discharge-route pie chart, and made both dashboard pie charts scale with the window.

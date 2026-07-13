@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TCM+ display</title>
+  <link rel="stylesheet" href="/assets/display.css">
+</head>
+<body data-view="{{VIEW}}">
+  <header class="display-header"><strong id="heading">TCM+</strong><time id="clock"></time></header>
+  <main id="dashboard" class="dashboard" hidden>
+    <section class="summary-grid">
+      <article class="summary available"><strong id="available">–</strong><span>Available stations</span></article>
+      <article class="summary occupied"><strong id="occupied">–</strong><span>Occupied stations</span></article>
+      <article class="summary seen"><strong id="seen">–</strong><span>Patients seen this shift</span></article>
+      <article class="summary duration"><strong id="average">–</strong><span>Average discharge time</span></article>
+    </section>
+    <section class="chart-grid">
+      <article class="panel"><h1>Treatment centre occupancy</h1><p>Occupied stations over time, scaled to the treatment centre capacity.</p><svg id="occupancy-chart" class="trend" role="img" aria-label="Treatment centre occupancy trend"></svg></article>
+      <article class="panel"><h1>Patients received</h1><p>Cumulative arrivals, updated in 15-minute intervals.</p><svg id="arrivals-chart" class="trend" role="img" aria-label="Patients received trend"></svg></article>
+    </section>
+  </main>
+  <main id="map" class="map-page" hidden>
+    <div class="map-frame"><div id="station-map" class="station-map" aria-label="Treatment centre station map"></div></div>
+  </main>
+  <div id="connection-error" class="connection-error" hidden>Waiting for TCM+ to refresh this display.</div>
+  <script src="/assets/display.js"></script>
+</body>
+</html>

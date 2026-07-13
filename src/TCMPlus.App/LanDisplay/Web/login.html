@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TCM+ viewer access</title>
+  <link rel="stylesheet" href="/assets/display.css">
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <h1>TCM+ display</h1>
+    <p>Enter the viewer PIN shown in TCM+ to open this read-only display.</p>
+    {{ERROR}}
+    <form method="post" action="/login">
+      <input type="hidden" name="returnUrl" value="{{RETURN_URL}}">
+      <label for="pin">Viewer PIN</label>
+      <input id="pin" name="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{8}" required autofocus>
+      <button type="submit">Open display</button>
+    </form>
+  </main>
+</body>
+</html>

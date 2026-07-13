@@ -15,10 +15,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\TCMPlus.App\TCMPlus.App.csproj" />
     <ProjectReference Include="..\..\src\TCMPlus.Domain\TCMPlus.Domain.csproj" />
     <ProjectReference Include="..\..\src\TCMPlus.Infrastructure\TCMPlus.Infrastructure.csproj" />
   </ItemGroup>

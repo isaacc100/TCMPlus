@@ -1,0 +1,22 @@
+:root { color-scheme: light; font-family: Inter, Arial, sans-serif; color: #364958; background: #f5f8f4; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #f5f8f4; }
+.display-header { min-height: 64px; display: flex; justify-content: space-between; align-items: center; padding: 14px 28px; background: #364958; color: white; font-size: clamp(1.1rem, 2vw, 1.5rem); }
+.display-header time { font-size: .9em; font-weight: 500; }
+.dashboard { padding: 28px; }
+.summary-grid, .chart-grid { display: grid; gap: 14px; }
+.summary-grid { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+.summary, .panel { background: white; border-radius: 10px; box-shadow: 0 1px 4px #36495819; }
+.summary { display: grid; gap: 7px; padding: 18px; }
+.summary strong { font-size: clamp(1.8rem, 4vw, 2.4rem); line-height: 1; }
+.summary span { font-size: .95rem; }
+.summary.available strong { color: #2f8f61; }.summary.occupied strong { color: #b94b4b; }.summary.seen strong { color: #3b6064; }.summary.duration strong { color: #55828b; font-size: clamp(1.45rem, 3vw, 1.7rem); }
+.chart-grid { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); margin-top: 14px; }
+.panel { padding: 24px; min-height: 440px; }.panel h1 { margin: 0; font-size: 1.35rem; }.panel p { margin: 7px 0 20px; color: #60737a; }.trend { display: block; width: 100%; height: 340px; overflow: visible; }
+.chart-axis { stroke: #c7d4d2; stroke-width: 1; }.chart-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }.chart-label { fill: #60737a; font-size: 11px; }
+.map-page { display: grid; min-height: calc(100vh - 64px); padding: 28px; place-items: center; }.map-frame { width: min(100%, 1200px); aspect-ratio: 5 / 3; overflow: hidden; }.station-map { position: relative; width: 1200px; height: 720px; transform-origin: top left; background-color: #fbfdf9; background-image: radial-gradient(circle, #87bba275 1.1px, transparent 1.2px); border: 1px solid #d5e0da; }
+.station { position: absolute; overflow: hidden; border: 2px solid #2f8f61; border-radius: 8px; background: #e7f5ec; }.station.occupied { border-color: #b94b4b; background: #fceaea; }.station-header { height: 28px; padding: 7px 10px; background: #2f8f61; color: white; font-size: 10px; font-weight: 700; }.station.occupied .station-header { background: #b94b4b; }.station-body { padding: 9px 11px; }.station-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }.patient-counter { display: inline-block; margin-top: 5px; padding: 3px 7px; border-radius: 9px; background: #364958; color: white; font-size: 10px; font-weight: 700; }.station-status { margin-top: 5px; font-size: 11px; }.arrival { margin-top: 4px; color: #50636b; font-size: 10px; }
+.connection-error { position: fixed; right: 18px; bottom: 18px; padding: 10px 14px; border-radius: 7px; background: #fff7d9; border: 1px solid #d39b28; color: #765617; }
+.login-page { display: grid; min-height: 100vh; place-items: center; padding: 24px; }.login-card { width: min(100%, 420px); padding: 30px; border-radius: 12px; background: white; box-shadow: 0 3px 16px #36495824; }.login-card h1 { margin: 0 0 8px; }.login-card p { color: #60737a; line-height: 1.45; }.login-card form { display: grid; gap: 9px; margin-top: 20px; }.login-card input { padding: 12px; border: 1px solid #aebfc1; border-radius: 7px; font: inherit; letter-spacing: .12em; }.login-card button { padding: 11px 14px; border: 0; border-radius: 7px; background: #3b6064; color: white; font: inherit; font-weight: 700; cursor: pointer; }.login-error { color: #a12d2d !important; }
+@media (max-width: 780px) { .display-header, .dashboard { padding: 14px; }.summary-grid, .chart-grid { grid-template-columns: 1fr 1fr; }.panel { min-height: 330px; padding: 18px; }.trend { height: 230px; }.map-page { padding: 12px; } }
+@media (max-width: 460px) { .summary-grid, .chart-grid { grid-template-columns: 1fr; } }
