@@ -126,7 +126,9 @@
                     <Button Classes="icon" Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Application settings">
                         <TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
                     </Button>
-                    <Button Classes="primary-nav" Content="Safe exit" Click="OnSafeExitClicked" ToolTip.Tip="Seal this shift and exit TCM+" />
+                    <Button Classes="icon" Click="OnSafeExitClicked" ToolTip.Tip="Seal this shift and exit TCM+">
+                        <TextBlock Text="&#xE7E8;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
