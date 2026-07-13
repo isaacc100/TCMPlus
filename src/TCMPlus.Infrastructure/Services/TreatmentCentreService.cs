@@ -104,8 +104,8 @@ public sealed class TreatmentCentreService(
         var complaintBreakdown = patients.Where(patient => !string.IsNullOrWhiteSpace(patient.PresentingComplaint))
             .GroupBy(patient => patient.PresentingComplaint!.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(group => new ComplaintBreakdown(group.First().PresentingComplaint!.Trim(), group.Count())).OrderByDescending(item => item.Count).ToList();
-        var dischargeRouteBreakdown = completed
-            .GroupBy(patient => string.IsNullOrWhiteSpace(patient.DischargeRoute) ? "Not recorded" : patient.DischargeRoute!.Trim(), StringComparer.OrdinalIgnoreCase)
+        var dischargeRouteBreakdown = completed.Where(patient => !string.IsNullOrWhiteSpace(patient.DischargeRoute))
+            .GroupBy(patient => patient.DischargeRoute!.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(group => new DischargeRouteBreakdown(group.Key, group.Count())).OrderByDescending(item => item.Count).ToList();
         var throughput = completed.GroupBy(patient => new DateTimeOffset(patient.DischargedAt!.Value.Year, patient.DischargedAt!.Value.Month, patient.DischargedAt!.Value.Day, patient.DischargedAt!.Value.Hour, 0, 0, TimeSpan.Zero))
             .Select(group => new ThroughputPoint(group.Key, group.Count())).OrderBy(point => point.BucketStart).ToList();

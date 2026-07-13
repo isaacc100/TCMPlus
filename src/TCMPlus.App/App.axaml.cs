@@ -121,6 +121,7 @@ public partial class App : Application
             var current = await settings.GetAsync();
             await settings.SaveAsync(current with { ShiftName = request.Entry.ShiftName });
             ShowSessionWindow(_desktop, session, request.Password, services);
+            if (owner is ShiftSetupWindow) owner.Close();
         }
         catch (Exception exception)
         {

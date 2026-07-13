@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.7.0-DEV
+## 0.7.1-DEV
 
+- Excluded blank discharge routes from the dashboard chart and closed the launch window after opening a saved session.
 - Removed the Dashboard activity log, added a responsive discharge-route pie chart, and made both dashboard pie charts scale with the window.
 - Added external-dashboard occupancy and 15-minute cumulative-arrival charts, plus primary-window fullscreen and safe-exit controls.
 - Added a Manager Patients table with every patient record and row-level corrections for presenting complaints and discharged patient routes.

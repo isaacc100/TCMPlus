@@ -77,6 +77,7 @@ public sealed class TreatmentCentreServiceTests
         var start = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero).AddMinutes(-30);
         await patients.AddAsync(new Patient(Guid.NewGuid(), 1, start.AddMinutes(1), station.Id, null, null, null));
         await patients.AddAsync(new Patient(Guid.NewGuid(), 2, start.AddMinutes(16), station.Id, null, start.AddMinutes(26), "Conveyed"));
+        await patients.AddAsync(new Patient(Guid.NewGuid(), 3, start.AddMinutes(2), station.Id, null, start.AddMinutes(5), null));
         var service = new TreatmentCentreService(new InMemoryStationRepository(station), patients);
 
         var dashboard = await service.GetDashboardAsync();
@@ -86,7 +87,7 @@ public sealed class TreatmentCentreServiceTests
         var route = Assert.Single(dashboard.DischargeRouteBreakdown);
         Assert.Equal("Conveyed", route.Route);
         Assert.Equal(1, route.Count);
-        Assert.Equal(2, dashboard.CumulativeArrivals[^1].PatientsSeen);
+        Assert.Equal(3, dashboard.CumulativeArrivals[^1].PatientsSeen);
         Assert.Equal(1, dashboard.Occupancy[^1].OccupiedStations);
         var intervals = dashboard.CumulativeArrivals.Zip(dashboard.CumulativeArrivals.Skip(1)).Select(pair => pair.Second.ObservedAt - pair.First.ObservedAt).ToList();
         Assert.All(intervals, interval => Assert.InRange(interval, TimeSpan.FromTicks(1), TimeSpan.FromMinutes(15)));
