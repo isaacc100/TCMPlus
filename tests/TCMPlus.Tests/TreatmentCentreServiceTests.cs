@@ -83,6 +83,9 @@ public sealed class TreatmentCentreServiceTests
 
         Assert.NotEmpty(dashboard.Occupancy);
         Assert.NotEmpty(dashboard.CumulativeArrivals);
+        var route = Assert.Single(dashboard.DischargeRouteBreakdown);
+        Assert.Equal("Conveyed", route.Route);
+        Assert.Equal(1, route.Count);
         Assert.Equal(2, dashboard.CumulativeArrivals[^1].PatientsSeen);
         Assert.Equal(1, dashboard.Occupancy[^1].OccupiedStations);
         var intervals = dashboard.CumulativeArrivals.Zip(dashboard.CumulativeArrivals.Skip(1)).Select(pair => pair.Second.ObservedAt - pair.First.ObservedAt).ToList();

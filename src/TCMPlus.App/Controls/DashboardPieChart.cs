@@ -16,6 +16,14 @@ public sealed class DashboardPieChart : Control
         set => SetValue(SlicesProperty, value);
     }
 
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var side = double.IsInfinity(availableSize.Width) ? 220d : availableSize.Width;
+        if (!double.IsInfinity(availableSize.Height)) side = Math.Min(side, availableSize.Height);
+        side = Math.Max(0, side);
+        return new Size(side, side);
+    }
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);

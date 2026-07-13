@@ -46,8 +46,8 @@ public partial class MainViewModel : ViewModelBase
 
     public SessionDescriptor Session { get; }
     public ObservableCollection<StationViewModel> Stations { get; } = [];
-    public ObservableCollection<DashboardEventViewModel> RecentActivity { get; } = [];
     public ObservableCollection<DashboardChartSlice> ComplaintBreakdown { get; } = [];
+    public ObservableCollection<DashboardChartSlice> DischargeRouteBreakdown { get; } = [];
     public ObservableCollection<DashboardChartPoint> ThroughputPoints { get; } = [];
     public ObservableCollection<DashboardChartPoint> DischargeDurationPoints { get; } = [];
     public ObservableCollection<DashboardChartPoint> OccupancyPoints { get; } = [];
@@ -86,6 +86,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private string _averageDischargeText = "No discharges yet";
     [ObservableProperty] private string _averageThroughputText = "No discharges yet";
     [ObservableProperty] private bool _hasComplaintBreakdown;
+    [ObservableProperty] private bool _hasDischargeRouteBreakdown;
     [ObservableProperty] private bool _hasThroughput;
     [ObservableProperty] private bool _hasDischargeDurations;
 
@@ -106,9 +107,9 @@ public partial class MainViewModel : ViewModelBase
     public bool IsSetupPage => IsManager && SelectedPage == TcPage.Setup;
     public bool HasNoPatients => Patients.Count == 0;
     public bool HasNoComplaintBreakdown => !HasComplaintBreakdown;
+    public bool HasNoDischargeRouteBreakdown => !HasDischargeRouteBreakdown;
     public bool HasNoThroughput => !HasThroughput;
     public bool HasNoDischargeDurations => !HasDischargeDurations;
-    public bool HasNoRecentActivity => RecentActivity.Count == 0;
     public string EditModeText => IsEditMode ? "Finish editing" : "Edit Treatment Centre";
     public string PatientEditModeText => IsPatientEditMode ? "Finish editing" : "Edit patients";
     public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize." : "Click an available station to add a patient. Drag a patient counter to transfer.";
@@ -392,12 +393,13 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(TotalStations));
         AverageDischargeText = dashboard.AverageDischargeDuration is null ? "No discharges yet" : FormatDuration(dashboard.AverageDischargeDuration.Value);
         AverageThroughputText = dashboard.Throughput.Count == 0 ? "No discharges yet" : $"{dashboard.Throughput.Average(point => point.Discharges):0.0} per hour";
-        RecentActivity.Clear(); foreach (var item in dashboard.RecentEvents) RecentActivity.Add(DashboardEventViewModel.FromEvent(item));
         HasComplaintBreakdown = dashboard.ComplaintBreakdown.Count > 0;
+        HasDischargeRouteBreakdown = dashboard.DischargeRouteBreakdown.Count > 0;
         HasThroughput = dashboard.Throughput.Count > 0;
         HasDischargeDurations = dashboard.DischargeDurations.Count > 0;
-        OnPropertyChanged(nameof(HasNoComplaintBreakdown)); OnPropertyChanged(nameof(HasNoThroughput)); OnPropertyChanged(nameof(HasNoDischargeDurations)); OnPropertyChanged(nameof(HasNoRecentActivity));
+        OnPropertyChanged(nameof(HasNoComplaintBreakdown)); OnPropertyChanged(nameof(HasNoDischargeRouteBreakdown)); OnPropertyChanged(nameof(HasNoThroughput)); OnPropertyChanged(nameof(HasNoDischargeDurations));
         ComplaintBreakdown.Clear(); foreach (var item in dashboard.ComplaintBreakdown.Select((item, index) => new DashboardChartSlice(item.Complaint, item.Count, ChartColors[index % ChartColors.Length]))) ComplaintBreakdown.Add(item);
+        DischargeRouteBreakdown.Clear(); foreach (var item in dashboard.DischargeRouteBreakdown.Select((item, index) => new DashboardChartSlice(item.Route, item.Count, ChartColors[index % ChartColors.Length]))) DischargeRouteBreakdown.Add(item);
         ThroughputPoints.Clear(); foreach (var item in dashboard.Throughput) ThroughputPoints.Add(new DashboardChartPoint(item.BucketStart.LocalDateTime.ToString("HH:mm"), item.Discharges));
         DischargeDurationPoints.Clear(); foreach (var item in dashboard.DischargeDurations) DischargeDurationPoints.Add(new DashboardChartPoint(item.DischargedAt.LocalDateTime.ToString("HH:mm"), item.Duration.TotalMinutes));
         OccupancyPoints.Clear(); foreach (var item in dashboard.Occupancy) OccupancyPoints.Add(new DashboardChartPoint(item.ObservedAt.LocalDateTime.ToString("HH:mm"), item.OccupiedStations));
