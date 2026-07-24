@@ -401,6 +401,7 @@ public partial class MainViewModel : ViewModelBase
 
     public void CompleteLock() => IsLocked = true;
     public void CompleteUnlock() { IsLocked = false; ClearUnlockPin(); }
+    public void ReportPersistenceFailure(string message) => Notify(message, true);
 
     private async Task SaveSessionOptionsAsync()
     {

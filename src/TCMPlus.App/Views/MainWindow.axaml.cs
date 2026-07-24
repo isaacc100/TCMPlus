@@ -122,7 +122,19 @@ public partial class MainWindow : Window
 
     private void OnSessionSwitchRequested(object? sender, EventArgs e) => App.ShowRecentSessions(this);
     private async void OnExternalDisplayRequested(ExternalDisplayMode mode) => await OpenExternalDisplayAsync(mode);
-    private async void OnSessionLockRequested(object? sender, EventArgs e) { _externalDisplay?.Close(); await App.SealActiveSessionAsync(); _viewModel?.CompleteLock(); }
+    private async void OnSessionLockRequested(object? sender, EventArgs e)
+    {
+        _externalDisplay?.Close();
+        try
+        {
+            await App.SealActiveSessionAsync();
+            _viewModel?.CompleteLock();
+        }
+        catch (Exception exception)
+        {
+            _viewModel?.ReportPersistenceFailure($"Unable to secure the shift: {exception.Message}");
+        }
+    }
     private async void OnSessionUnlockRequested(object? sender, EventArgs e) { try { await App.UnsealActiveSessionAsync(); _viewModel?.CompleteUnlock(); } catch { _viewModel?.CompleteLock(); } }
     private void OnFullScreenClicked(object? sender, RoutedEventArgs e) => ToggleFullScreen();
 
