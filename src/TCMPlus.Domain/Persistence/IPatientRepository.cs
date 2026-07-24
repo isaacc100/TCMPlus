@@ -10,8 +10,9 @@ public interface IPatientRepository
     Task<Patient?> GetByStationAsync(Guid stationId, CancellationToken cancellationToken = default);
     Task AddAsync(Patient patient, CancellationToken cancellationToken = default);
     Task UpdateDetailsAsync(Patient patient, CancellationToken cancellationToken = default);
+    Task UpdatePresentingComplaintAsync(IReadOnlyCollection<Guid> patientUids, string presentingComplaint, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid patientUid, CancellationToken cancellationToken = default);
-    Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, CancellationToken cancellationToken = default);
+    Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default);
     Task<PatientTransferResult> MoveAsync(Guid sourceStationId, Guid destinationStationId, bool swap, CancellationToken cancellationToken = default);
     Task AddEventAsync(PatientEvent patientEvent, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PatientEvent>> GetAllEventsAsync(CancellationToken cancellationToken = default);

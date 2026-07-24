@@ -47,6 +47,44 @@ public sealed class PersistenceDeletionTests : IDisposable
     }
 
     [Fact]
+    public async Task Patient_time_outcome_and_bulk_complaint_updates_are_persisted()
+    {
+        var factory = await CreateInitializedFactoryAsync();
+        var stations = new SqliteStationRepository(factory);
+        var patients = new SqlitePatientRepository(factory);
+        var station = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var addedAt = DateTimeOffset.UtcNow.AddHours(-1);
+        var patient = new Patient(Guid.NewGuid(), 1, addedAt, station.Id, "Initial", null, null);
+        await stations.AddAsync(station);
+        await patients.AddAsync(patient);
+        await patients.AddEventAsync(new PatientEvent(Guid.NewGuid(), patient.Uid, patient.PatientNumber, PatientEventType.Added, addedAt, null, station.Name));
+
+        var dischargedAt = DateTimeOffset.UtcNow;
+        var discharged = await patients.DischargeFromStationAsync(station.Id, dischargedAt, "Home", "See, Treat, Discharge");
+        Assert.NotNull(discharged);
+        await patients.AddEventAsync(new PatientEvent(Guid.NewGuid(), patient.Uid, patient.PatientNumber, PatientEventType.Discharged, dischargedAt, station.Name, null));
+
+        var correctedAddedAt = addedAt.AddMinutes(-10);
+        var correctedDischargedAt = dischargedAt.AddMinutes(5);
+        await patients.UpdateDetailsAsync(discharged! with
+        {
+            AddedAt = correctedAddedAt,
+            DischargedAt = correctedDischargedAt,
+            DischargeOutcome = "See, Advice-only, Discharge"
+        });
+        await patients.UpdatePresentingComplaintAsync([patient.Uid], "Shared complaint");
+
+        var persisted = Assert.Single(await patients.GetAllAsync());
+        Assert.Equal(correctedAddedAt, persisted.AddedAt);
+        Assert.Equal(correctedDischargedAt, persisted.DischargedAt);
+        Assert.Equal("See, Advice-only, Discharge", persisted.DischargeOutcome);
+        Assert.Equal("Shared complaint", persisted.PresentingComplaint);
+        var events = await patients.GetAllEventsAsync();
+        Assert.Equal(correctedAddedAt, events.Single(item => item.Type == PatientEventType.Added).OccurredAt);
+        Assert.Equal(correctedDischargedAt, events.Single(item => item.Type == PatientEventType.Discharged).OccurredAt);
+    }
+
+    [Fact]
     public async Task Initializer_adds_soft_delete_support_to_existing_station_tables()
     {
         Directory.CreateDirectory(_directory);
@@ -73,6 +111,36 @@ public sealed class PersistenceDeletionTests : IDisposable
         await using var migrated = factory.OpenConnection();
         await using var columns = migrated.CreateCommand();
         columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('stations') WHERE name = 'deleted_at_utc';";
+        Assert.Equal(1L, await columns.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task Initializer_adds_discharge_outcome_to_existing_patient_tables()
+    {
+        Directory.CreateDirectory(_directory);
+        var factory = new SqliteConnectionFactory(DatabasePath);
+        await using (var connection = factory.OpenConnection())
+        {
+            await using var create = connection.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE patients (
+                    uid TEXT PRIMARY KEY NOT NULL,
+                    patient_number INTEGER NOT NULL DEFAULT 0,
+                    added_at_utc TEXT NOT NULL,
+                    current_station_id TEXT NULL,
+                    presenting_complaint TEXT NULL,
+                    discharged_at_utc TEXT NULL,
+                    discharge_route TEXT NULL
+                );
+                """;
+            await create.ExecuteNonQueryAsync();
+        }
+
+        await new DatabaseInitializer(factory).InitializeAsync();
+
+        await using var migrated = factory.OpenConnection();
+        await using var columns = migrated.CreateCommand();
+        columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('patients') WHERE name = 'discharge_outcome';";
         Assert.Equal(1L, await columns.ExecuteScalarAsync());
     }
 

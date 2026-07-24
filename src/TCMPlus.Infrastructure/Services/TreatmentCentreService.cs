@@ -53,23 +53,60 @@ public sealed class TreatmentCentreService(
     public Task<IReadOnlyList<Patient>> GetPatientsAsync(CancellationToken cancellationToken = default) =>
         patientRepository.GetAllAsync(cancellationToken);
 
-    public async Task<Patient> UpdatePatientDetailsAsync(Guid patientUid, string? presentingComplaint, string? dischargeRoute, CancellationToken cancellationToken = default)
+    public async Task<Patient> UpdatePatientDetailsAsync(Guid patientUid, DateTimeOffset addedAt, DateTimeOffset? dischargedAt, string? presentingComplaint, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default)
     {
         var patient = (await patientRepository.GetAllAsync(cancellationToken)).FirstOrDefault(item => item.Uid == patientUid)
             ?? throw new InvalidOperationException("The requested patient no longer exists.");
         var normalizedRoute = NormalizeOptionalText(dischargeRoute);
-        if (patient.DischargedAt is null && normalizedRoute is not null)
+        var normalizedOutcome = NormalizeOptionalText(dischargeOutcome);
+        if (dischargedAt is not null && dischargedAt <= addedAt)
         {
-            throw new InvalidOperationException("Only discharged patients can have a discharge route.");
+            throw new InvalidOperationException("Discharge time must be after the patient's new time.");
+        }
+
+        if (patient.DischargedAt is null && dischargedAt is not null)
+        {
+            throw new InvalidOperationException("Discharge active patients from their station.");
+        }
+
+        if (patient.DischargedAt is not null && dischargedAt is null)
+        {
+            throw new InvalidOperationException("Discharged patients require a discharge time.");
+        }
+
+        if (dischargedAt is null && (normalizedRoute is not null || normalizedOutcome is not null))
+        {
+            throw new InvalidOperationException("Only discharged patients can have a discharge route or outcome.");
         }
 
         var updated = patient with
         {
+            AddedAt = addedAt,
+            DischargedAt = dischargedAt,
             PresentingComplaint = NormalizeOptionalText(presentingComplaint),
-            DischargeRoute = patient.DischargedAt is null ? null : normalizedRoute
+            DischargeRoute = dischargedAt is null ? null : normalizedRoute,
+            DischargeOutcome = dischargedAt is null ? null : normalizedOutcome
         };
         await patientRepository.UpdateDetailsAsync(updated, cancellationToken);
         return updated;
+    }
+
+    public async Task UpdatePresentingComplaintAsync(IReadOnlyCollection<Guid> patientUids, string presentingComplaint, CancellationToken cancellationToken = default)
+    {
+        if (patientUids.Count == 0)
+        {
+            throw new InvalidOperationException("Select at least one patient.");
+        }
+
+        var normalizedComplaint = NormalizeOptionalText(presentingComplaint)
+            ?? throw new InvalidOperationException("Enter a presenting complaint.");
+        var existingUids = (await patientRepository.GetAllAsync(cancellationToken)).Select(patient => patient.Uid).ToHashSet();
+        if (patientUids.Any(uid => !existingUids.Contains(uid)))
+        {
+            throw new InvalidOperationException("One or more selected patients no longer exist.");
+        }
+
+        await patientRepository.UpdatePresentingComplaintAsync(patientUids, normalizedComplaint, cancellationToken);
     }
 
     public async Task DeletePatientAsync(Guid patientUid, CancellationToken cancellationToken = default)
@@ -82,10 +119,18 @@ public sealed class TreatmentCentreService(
         await patientRepository.DeleteAsync(patientUid, cancellationToken);
     }
 
-    public async Task DischargePatientAsync(Guid stationId, string? dischargeRoute, CancellationToken cancellationToken = default)
+    public async Task DischargePatientAsync(Guid stationId, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default)
     {
         var station = await FindStationAsync(stationId, cancellationToken);
-        var discharged = await patientRepository.DischargeFromStationAsync(stationId, DateTimeOffset.UtcNow, dischargeRoute, cancellationToken)
+        var dischargedAt = DateTimeOffset.UtcNow;
+        var currentPatient = await patientRepository.GetByStationAsync(stationId, cancellationToken)
+            ?? throw new InvalidOperationException("This station is already available.");
+        if (dischargedAt <= currentPatient.AddedAt)
+        {
+            throw new InvalidOperationException("Discharge time must be after the patient's new time.");
+        }
+
+        var discharged = await patientRepository.DischargeFromStationAsync(stationId, dischargedAt, NormalizeOptionalText(dischargeRoute), NormalizeOptionalText(dischargeOutcome), cancellationToken)
             ?? throw new InvalidOperationException("This station is already available.");
         await AddEventAsync(discharged, PatientEventType.Discharged, station.Name, null, cancellationToken);
     }

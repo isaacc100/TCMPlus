@@ -88,9 +88,10 @@ public sealed class LanDisplayTests
         public Task SaveStationAsync(Station value, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeleteStationAsync(Guid stationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Patient> AddPatientAsync(Guid stationId, string? presentingComplaint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<Patient> UpdatePatientDetailsAsync(Guid patientUid, string? presentingComplaint, string? dischargeRoute, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Patient> UpdatePatientDetailsAsync(Guid patientUid, DateTimeOffset addedAt, DateTimeOffset? dischargedAt, string? presentingComplaint, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task UpdatePresentingComplaintAsync(IReadOnlyCollection<Guid> patientUids, string presentingComplaint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeletePatientAsync(Guid patientUid, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task DischargePatientAsync(Guid stationId, string? dischargeRoute, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DischargePatientAsync(Guid stationId, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<PatientTransferResult> MovePatientAsync(Guid sourceStationId, Guid destinationStationId, bool swap, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

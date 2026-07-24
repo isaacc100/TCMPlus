@@ -35,8 +35,8 @@ public sealed class SqlitePatientRepository(SqliteConnectionFactory connectionFa
         await using var connection = connectionFactory.OpenConnection();
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO patients (uid, patient_number, added_at_utc, current_station_id, presenting_complaint, discharged_at_utc, discharge_route)
-            VALUES (@uid, @number, @addedAt, @stationId, @complaint, @dischargedAt, @route);
+            INSERT INTO patients (uid, patient_number, added_at_utc, current_station_id, presenting_complaint, discharged_at_utc, discharge_route, discharge_outcome)
+            VALUES (@uid, @number, @addedAt, @stationId, @complaint, @dischargedAt, @route, @outcome);
             """;
         BindPatient(command, patient);
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -45,12 +45,48 @@ public sealed class SqlitePatientRepository(SqliteConnectionFactory connectionFa
     public async Task UpdateDetailsAsync(Patient patient, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.OpenConnection();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE patients SET presenting_complaint = @complaint, discharge_route = @route WHERE uid = @uid;";
-        command.Parameters.AddWithValue("@uid", patient.Uid.ToString("N"));
-        command.Parameters.AddWithValue("@complaint", string.IsNullOrWhiteSpace(patient.PresentingComplaint) ? DBNull.Value : patient.PresentingComplaint.Trim());
-        command.Parameters.AddWithValue("@route", string.IsNullOrWhiteSpace(patient.DischargeRoute) ? DBNull.Value : patient.DischargeRoute.Trim());
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                UPDATE patients
+                SET added_at_utc = @addedAt,
+                    discharged_at_utc = @dischargedAt,
+                    presenting_complaint = @complaint,
+                    discharge_route = @route,
+                    discharge_outcome = @outcome
+                WHERE uid = @uid;
+                """;
+            BindPatient(command, patient);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await UpdateEventTimeAsync(connection, transaction, patient.Uid, PatientEventType.Added, patient.AddedAt, cancellationToken);
+        if (patient.DischargedAt is not null)
+        {
+            await UpdateEventTimeAsync(connection, transaction, patient.Uid, PatientEventType.Discharged, patient.DischargedAt.Value, cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task UpdatePresentingComplaintAsync(IReadOnlyCollection<Guid> patientUids, string presentingComplaint, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        foreach (var patientUid in patientUids)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "UPDATE patients SET presenting_complaint = @complaint WHERE uid = @uid;";
+            command.Parameters.AddWithValue("@complaint", presentingComplaint);
+            command.Parameters.AddWithValue("@uid", patientUid.ToString("N"));
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid patientUid, CancellationToken cancellationToken = default)
@@ -77,7 +113,7 @@ public sealed class SqlitePatientRepository(SqliteConnectionFactory connectionFa
         await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, CancellationToken cancellationToken = default)
+    public async Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.OpenConnection();
         using var transaction = connection.BeginTransaction();
@@ -90,13 +126,14 @@ public sealed class SqlitePatientRepository(SqliteConnectionFactory connectionFa
 
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = "UPDATE patients SET current_station_id = NULL, discharged_at_utc = @dischargedAt, discharge_route = @route WHERE uid = @uid;";
+        command.CommandText = "UPDATE patients SET current_station_id = NULL, discharged_at_utc = @dischargedAt, discharge_route = @route, discharge_outcome = @outcome WHERE uid = @uid;";
         command.Parameters.AddWithValue("@dischargedAt", dischargedAt.UtcDateTime.ToString("O"));
         command.Parameters.AddWithValue("@uid", patient.Uid.ToString("N"));
         command.Parameters.AddWithValue("@route", string.IsNullOrWhiteSpace(dischargeRoute) ? DBNull.Value : dischargeRoute.Trim());
+        command.Parameters.AddWithValue("@outcome", string.IsNullOrWhiteSpace(dischargeOutcome) ? DBNull.Value : dischargeOutcome.Trim());
         await command.ExecuteNonQueryAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return patient with { CurrentStationId = null, DischargedAt = dischargedAt, DischargeRoute = dischargeRoute };
+        return patient with { CurrentStationId = null, DischargedAt = dischargedAt, DischargeRoute = dischargeRoute, DischargeOutcome = dischargeOutcome };
     }
 
     public async Task<PatientTransferResult> MoveAsync(Guid sourceStationId, Guid destinationStationId, bool swap, CancellationToken cancellationToken = default)
@@ -184,6 +221,17 @@ public sealed class SqlitePatientRepository(SqliteConnectionFactory connectionFa
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private static async Task UpdateEventTimeAsync(SqliteConnection connection, SqliteTransaction transaction, Guid patientUid, PatientEventType type, DateTimeOffset occurredAt, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "UPDATE patient_events SET occurred_at_utc = @occurredAt WHERE patient_uid = @uid AND event_type = @type;";
+        command.Parameters.AddWithValue("@occurredAt", occurredAt.UtcDateTime.ToString("O"));
+        command.Parameters.AddWithValue("@uid", patientUid.ToString("N"));
+        command.Parameters.AddWithValue("@type", type.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private static void BindPatient(SqliteCommand command, Patient patient)
     {
         command.Parameters.AddWithValue("@uid", patient.Uid.ToString("N"));
@@ -193,9 +241,10 @@ public sealed class SqlitePatientRepository(SqliteConnectionFactory connectionFa
         command.Parameters.AddWithValue("@complaint", string.IsNullOrWhiteSpace(patient.PresentingComplaint) ? DBNull.Value : patient.PresentingComplaint.Trim());
         command.Parameters.AddWithValue("@dischargedAt", patient.DischargedAt?.UtcDateTime.ToString("O") ?? (object)DBNull.Value);
         command.Parameters.AddWithValue("@route", string.IsNullOrWhiteSpace(patient.DischargeRoute) ? DBNull.Value : patient.DischargeRoute.Trim());
+        command.Parameters.AddWithValue("@outcome", string.IsNullOrWhiteSpace(patient.DischargeOutcome) ? DBNull.Value : patient.DischargeOutcome.Trim());
     }
 
-    private static Patient ReadPatient(SqliteDataReader reader) => new(Guid.Parse(reader.GetString(0)), reader.GetInt32(1), ParseTime(reader.GetString(2)), reader.IsDBNull(3) ? null : Guid.Parse(reader.GetString(3)), reader.IsDBNull(4) ? null : reader.GetString(4), reader.IsDBNull(5) ? null : ParseTime(reader.GetString(5)), reader.IsDBNull(6) ? null : reader.GetString(6));
+    private static Patient ReadPatient(SqliteDataReader reader) => new(Guid.Parse(reader.GetString(0)), reader.GetInt32(1), ParseTime(reader.GetString(2)), reader.IsDBNull(3) ? null : Guid.Parse(reader.GetString(3)), reader.IsDBNull(4) ? null : reader.GetString(4), reader.IsDBNull(5) ? null : ParseTime(reader.GetString(5)), reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7));
     private static DateTimeOffset ParseTime(string value) => DateTimeOffset.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);
-    private const string SelectPatients = "SELECT uid, patient_number, added_at_utc, current_station_id, presenting_complaint, discharged_at_utc, discharge_route FROM patients";
+    private const string SelectPatients = "SELECT uid, patient_number, added_at_utc, current_station_id, presenting_complaint, discharged_at_utc, discharge_route, discharge_outcome FROM patients";
 }

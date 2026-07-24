@@ -21,7 +21,7 @@ public sealed class TreatmentCentreServiceTests
         Assert.Equal("Minor injury", patient.PresentingComplaint);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddPatientAsync(station.Id, null));
 
-        await service.DischargePatientAsync(station.Id, "Conveyed");
+        await service.DischargePatientAsync(station.Id, "Conveyed", null);
         Assert.Null(await patients.GetByStationAsync(station.Id));
         Assert.Equal(1, await service.GetPatientsSeenThisShiftAsync());
     }
@@ -51,21 +51,32 @@ public sealed class TreatmentCentreServiceTests
         var patients = new InMemoryPatientRepository();
         var service = new TreatmentCentreService(new InMemoryStationRepository(station), patients);
         var discharged = await service.AddPatientAsync(station.Id, "Initial complaint");
-        await service.DischargePatientAsync(station.Id, "Conveyed");
+        await service.DischargePatientAsync(station.Id, "Conveyed", "See, Treat, Discharge");
         var active = await service.AddPatientAsync(station.Id, null);
 
         var allPatients = await service.GetPatientsAsync();
         Assert.Equal([discharged.Uid, active.Uid], allPatients.Select(patient => patient.Uid));
 
-        var updated = await service.UpdatePatientDetailsAsync(discharged.Uid, "  Corrected complaint  ", "  Self-care  ");
+        var dischargedRecord = allPatients.Single(patient => patient.Uid == discharged.Uid);
+        var correctedAddedAt = dischargedRecord.AddedAt.AddMinutes(-5);
+        var correctedDischargedAt = dischargedRecord.DischargedAt!.Value.AddMinutes(5);
+        var updated = await service.UpdatePatientDetailsAsync(discharged.Uid, correctedAddedAt, correctedDischargedAt, "  Corrected complaint  ", "  Self-care  ", "See, Advice-only, Discharge");
+        Assert.Equal(correctedAddedAt, updated.AddedAt);
+        Assert.Equal(correctedDischargedAt, updated.DischargedAt);
         Assert.Equal("Corrected complaint", updated.PresentingComplaint);
         Assert.Equal("Self-care", updated.DischargeRoute);
+        Assert.Equal("See, Advice-only, Discharge", updated.DischargeOutcome);
 
-        updated = await service.UpdatePatientDetailsAsync(discharged.Uid, "   ", "   ");
+        updated = await service.UpdatePatientDetailsAsync(discharged.Uid, correctedAddedAt, correctedDischargedAt, "   ", "   ", "   ");
         Assert.Null(updated.PresentingComplaint);
         Assert.Null(updated.DischargeRoute);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdatePatientDetailsAsync(active.Uid, null, "Conveyed"));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdatePatientDetailsAsync(Guid.NewGuid(), null, null));
+        Assert.Null(updated.DischargeOutcome);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdatePatientDetailsAsync(discharged.Uid, correctedDischargedAt, correctedDischargedAt, null, null, null));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdatePatientDetailsAsync(active.Uid, active.AddedAt, null, null, "Conveyed", null));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdatePatientDetailsAsync(Guid.NewGuid(), DateTimeOffset.UtcNow, null, null, null, null));
+
+        await service.UpdatePresentingComplaintAsync([discharged.Uid, active.Uid], "  Shared complaint  ");
+        Assert.All(await service.GetPatientsAsync(), patient => Assert.Equal("Shared complaint", patient.PresentingComplaint));
     }
 
     [Fact]
@@ -141,19 +152,30 @@ public sealed class TreatmentCentreServiceTests
             if (index >= 0) _patients[index] = patient;
             return Task.CompletedTask;
         }
+        public Task UpdatePresentingComplaintAsync(IReadOnlyCollection<Guid> patientUids, string presentingComplaint, CancellationToken cancellationToken = default)
+        {
+            for (var index = 0; index < _patients.Count; index++)
+            {
+                if (patientUids.Contains(_patients[index].Uid))
+                {
+                    _patients[index] = _patients[index] with { PresentingComplaint = presentingComplaint };
+                }
+            }
+            return Task.CompletedTask;
+        }
         public Task DeleteAsync(Guid patientUid, CancellationToken cancellationToken = default)
         {
             _patients.RemoveAll(patient => patient.Uid == patientUid);
             _events.RemoveAll(patientEvent => patientEvent.PatientUid == patientUid);
             return Task.CompletedTask;
         }
-        public Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, CancellationToken cancellationToken = default)
+        public Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default)
         {
             for (var index = 0; index < _patients.Count; index++)
             {
                 if (_patients[index].CurrentStationId == stationId)
                 {
-                    _patients[index] = _patients[index] with { CurrentStationId = null, DischargedAt = dischargedAt, DischargeRoute = dischargeRoute };
+                    _patients[index] = _patients[index] with { CurrentStationId = null, DischargedAt = dischargedAt, DischargeRoute = dischargeRoute, DischargeOutcome = dischargeOutcome };
                     return Task.FromResult<Patient?>(_patients[index]);
                 }
             }

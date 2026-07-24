@@ -2,6 +2,7 @@
 
 ## 0.8.0-DEV
 
+- Added editable patient new/discharge times with lifecycle validation, optional discharge outcomes, and multi-patient presenting-complaint updates.
 - Added confirmed patient deletion and confirmed soft deletion of available stations from both the Map and Tables.
 - Added 30-second encrypted shift autosaves, abrupt-shutdown recovery from newer healthy working databases, and automatic repair of damaged recent-shift catalogues.
 - Added a PIN-protected, read-only LAN web display with live Dashboard and positioned Map mirror views.

@@ -1,3 +1,22 @@
-<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="TCMPlus.App.Views.DischargePatientDialog" Width="410" Height="240" CanResize="False" WindowStartupLocation="CenterOwner" Title="Discharge patient" KeyDown="OnKeyDown">
-  <StackPanel Margin="24" Spacing="12"><TextBlock Text="Discharge patient" FontSize="20" FontWeight="Bold" /><TextBlock Name="StationText" /><TextBlock Text="Discharge route" FontWeight="SemiBold" /><ComboBox Name="RouteInput" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"><Button Content="Cancel" Click="OnCancel" /><Button Content="Discharge" Click="OnDischarge" /></StackPanel></StackPanel>
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TCMPlus.App.Views.DischargePatientDialog"
+        Width="440"
+        Height="330"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Discharge patient"
+        KeyDown="OnKeyDown">
+  <StackPanel Margin="24" Spacing="12">
+    <TextBlock Text="Discharge patient" FontSize="20" FontWeight="Bold" />
+    <TextBlock Name="StationText" />
+    <TextBlock Text="Discharge route" FontWeight="SemiBold" />
+    <ComboBox Name="RouteInput" />
+    <TextBlock Text="Outcome (optional)" FontWeight="SemiBold" />
+    <ComboBox Name="OutcomeInput" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+      <Button Content="Cancel" Click="OnCancel" />
+      <Button Content="Discharge" Click="OnDischarge" />
+    </StackPanel>
+  </StackPanel>
 </Window>

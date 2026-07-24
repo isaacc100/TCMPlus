@@ -284,44 +284,53 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Patients" Classes="section-title" />
-                        <TextBlock Text="All patients recorded during this shift. Patient details can be corrected without changing operational history." Classes="muted" />
+                        <TextBlock Text="All patients recorded during this shift. Edit details and recorded times, or select several patients to apply one complaint." Classes="muted" />
                     </StackPanel>
-                    <Button Grid.Column="1" Classes="secondary" Content="{Binding PatientEditModeText}" Command="{Binding TogglePatientEditModeCommand}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Classes="secondary" Content="Set complaint for selected" Command="{Binding RequestBulkComplaintCommand}" IsVisible="{Binding IsPatientEditMode}" />
+                        <Button Classes="secondary" Content="{Binding PatientEditModeText}" Command="{Binding TogglePatientEditModeCommand}" />
+                    </StackPanel>
                 </Grid>
             </Border>
             <Border Grid.Row="2" Classes="card" Padding="0" ClipToBounds="True">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <StackPanel MinWidth="1240">
+                    <StackPanel MinWidth="1720">
                         <Border Background="#EEF5EF" Padding="18,13">
-                            <Grid ColumnDefinitions="90,110,140,160,160,1.35*,1.2*,Auto" ColumnSpacing="8">
-                                <TextBlock Text="Patient" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="1" Text="Status" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="2" Text="Current station" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="3" Text="Arrived" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="4" Text="Discharged" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="5" Text="Presenting complaint" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="6" Text="Discharge route" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                            <Grid ColumnDefinitions="48,90,110,140,170,170,1.2*,1*,1.3*,Auto" ColumnSpacing="8">
+                                <TextBlock Grid.Column="1" Text="Patient" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="2" Text="Status" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="3" Text="Current station" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="4" Text="New time" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="5" Text="Discharge time" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="6" Text="Presenting complaint" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="7" Text="Discharge route" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="8" Text="Outcome" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                             </Grid>
                         </Border>
                         <ItemsControl ItemsSource="{Binding Patients}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Background="White" Padding="18,13">
-                                        <Grid ColumnDefinitions="90,110,140,160,160,1.35*,1.2*,Auto" ColumnSpacing="8">
+                                        <Grid ColumnDefinitions="48,90,110,140,170,170,1.2*,1*,1.3*,Auto" ColumnSpacing="8">
                                             <Grid.Styles>
                                                 <Style Selector="TextBlock.status"><Setter Property="Foreground" Value="#2F8F61" /><Setter Property="FontWeight" Value="Bold" /></Style>
                                                 <Style Selector="TextBlock.status.discharged"><Setter Property="Foreground" Value="#60737A" /></Style>
                                             </Grid.Styles>
-                                            <TextBlock Text="{Binding PatientNumber, StringFormat=Patient {0}}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource DeepSeaBrush}" />
-                                            <TextBlock Grid.Column="1" Text="{Binding StatusText}" Classes="status" Classes.discharged="{Binding IsDischarged}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding StationText}" Classes="muted" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="3" Text="{Binding AddedAtText}" Classes="muted" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="4" Text="{Binding DischargedAtText}" Classes="muted" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="5" Text="{Binding PresentingComplaintDisplay}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                            <TextBox Grid.Column="5" Text="{Binding PresentingComplaint, Mode=TwoWay}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="6" Text="{Binding DischargeRouteDisplay}" IsVisible="{Binding ShowReadOnlyDischargeRoute}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                            <ComboBox Grid.Column="6" ItemsSource="{Binding DischargeRoutes}" SelectedItem="{Binding DischargeRoute, Mode=TwoWay}" IsVisible="{Binding CanEditDischargeRoute}" VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsEditMode}">
+                                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding PatientNumber, StringFormat=Patient {0}}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource DeepSeaBrush}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding StatusText}" Classes="status" Classes.discharged="{Binding IsDischarged}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding StationText}" Classes="muted" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding AddedAtText}" Classes="muted" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="4" Text="{Binding AddedAtEditText, Mode=TwoWay}" IsVisible="{Binding IsEditMode}" PlaceholderText="dd/MM/yyyy HH:mm" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="5" Text="{Binding DischargedAtText}" Classes="muted" IsVisible="{Binding ShowReadOnlyDischargeDetails}" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="5" Text="{Binding DischargedAtEditText, Mode=TwoWay}" IsVisible="{Binding CanEditDischargeDetails}" PlaceholderText="dd/MM/yyyy HH:mm" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="6" Text="{Binding PresentingComplaintDisplay}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <TextBox Grid.Column="6" Text="{Binding PresentingComplaint, Mode=TwoWay}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="7" Text="{Binding DischargeRouteDisplay}" IsVisible="{Binding ShowReadOnlyDischargeDetails}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <ComboBox Grid.Column="7" ItemsSource="{Binding DischargeRoutes}" SelectedItem="{Binding DischargeRoute, Mode=TwoWay}" IsVisible="{Binding CanEditDischargeDetails}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="8" Text="{Binding DischargeOutcomeDisplay}" IsVisible="{Binding ShowReadOnlyDischargeDetails}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <ComboBox Grid.Column="8" ItemsSource="{Binding DischargeOutcomes}" SelectedItem="{Binding DischargeOutcome, Mode=TwoWay}" IsVisible="{Binding CanEditDischargeDetails}" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsEditMode}">
                                                 <Button Classes="secondary" Content="Save" Command="{Binding SaveCommand}" />
                                                 <Button Classes="secondary" Content="Cancel" Command="{Binding CancelCommand}" />
                                                 <Button Classes="danger" Content="Delete" Command="{Binding DeleteCommand}" />

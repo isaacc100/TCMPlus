@@ -44,6 +44,7 @@ public partial class MainViewModel : ViewModelBase
     public event Action<StationViewModel>? DischargeRequested;
     public event Action<StationViewModel>? StationDeletionRequested;
     public event Action<PatientViewModel>? PatientDeletionRequested;
+    public event Action<int>? BulkComplaintRequested;
     public event EventHandler? SessionSwitchRequested;
     public event Action<ExternalDisplayMode>? ExternalDisplayRequested;
     public event EventHandler? SessionLockRequested;
@@ -58,6 +59,7 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<DashboardChartPoint> OccupancyPoints { get; } = [];
     public ObservableCollection<DashboardChartPoint> CumulativeArrivalPoints { get; } = [];
     public ObservableCollection<string> DischargeRoutes { get; } = [];
+    public IReadOnlyList<string> DischargeOutcomes { get; } = DischargeOutcomeOptions.Defaults;
     public ObservableCollection<PatientViewModel> Patients { get; } = [];
     public ObservableCollection<LanDisplayAddress> LanDisplayAddresses { get; } = [];
 
@@ -165,6 +167,18 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand] private void ShowSetup() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Setup; }
     [RelayCommand] private void ToggleEditMode() => IsEditMode = !IsEditMode;
     [RelayCommand] private void TogglePatientEditMode() => IsPatientEditMode = !IsPatientEditMode;
+    [RelayCommand]
+    private void RequestBulkComplaint()
+    {
+        var selectedCount = Patients.Count(patient => patient.IsSelected);
+        if (selectedCount == 0)
+        {
+            Notify("Select at least one patient.", true);
+            return;
+        }
+
+        BulkComplaintRequested?.Invoke(selectedCount);
+    }
     [RelayCommand] private void RequestAddStation() => AddStationRequested?.Invoke(this, EventArgs.Empty);
     [RelayCommand] private void ShowSettings() { ClearPatientEdits(); SelectedArea = TcArea.Settings; }
     [RelayCommand] private void ShowSettingsGeneral() => SettingsPage = SettingsPage.General;
@@ -330,7 +344,7 @@ public partial class MainViewModel : ViewModelBase
     }
     private void RequestDischarge(StationViewModel station)
     {
-        if (QuickEntry) { _ = CompleteDischargeAsync(station, null); return; }
+        if (QuickEntry) { _ = CompleteDischargeAsync(station, null, null); return; }
         DischargeRequested?.Invoke(station);
     }
     private async Task RequestPatientDropAsync(StationViewModel destination, Guid sourceStationId)
@@ -360,8 +374,19 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            var updated = await _treatmentCentreService.UpdatePatientDetailsAsync(patient.Uid, patient.PresentingComplaint, patient.DischargeRoute);
+            if (!patient.TryGetEditedTimes(out var addedAt, out var dischargedAt, out var error))
+            {
+                Notify(error!, true);
+                return;
+            }
+
+            var updated = await _treatmentCentreService.UpdatePatientDetailsAsync(patient.Uid, addedAt, dischargedAt, patient.PresentingComplaint, patient.DischargeRoute, patient.DischargeOutcome);
             patient.AcceptSavedDetails(updated);
+            var station = Stations.FirstOrDefault(item => item.CurrentPatient?.Uid == patient.Uid);
+            if (station is not null)
+            {
+                station.CurrentPatient = updated;
+            }
             await RefreshDashboardAsync();
             Notify($"Patient {patient.PatientNumber} saved.");
         }
@@ -395,9 +420,26 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
-    public async Task CompleteDischargeAsync(StationViewModel station, string? route)
+    public async Task ApplyBulkComplaintAsync(string complaint)
     {
-        try { await _treatmentCentreService.DischargePatientAsync(station.Id, route); station.CurrentPatient = null; await RefreshOperationalDataAsync(); Notify($"{station.Name} is now available."); }
+        try
+        {
+            var selected = Patients.Where(patient => patient.IsSelected).ToList();
+            await _treatmentCentreService.UpdatePresentingComplaintAsync(selected.Select(patient => patient.Uid).ToList(), complaint);
+            foreach (var patient in selected)
+            {
+                patient.AcceptBulkComplaint(complaint.Trim());
+                patient.IsSelected = false;
+            }
+            await RefreshDashboardAsync();
+            Notify($"Presenting complaint updated for {selected.Count} patient{(selected.Count == 1 ? "" : "s")}.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task CompleteDischargeAsync(StationViewModel station, string? route, string? outcome)
+    {
+        try { await _treatmentCentreService.DischargePatientAsync(station.Id, route, outcome); station.CurrentPatient = null; await RefreshOperationalDataAsync(); Notify($"{station.Name} is now available."); }
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 

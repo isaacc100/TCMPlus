@@ -29,6 +29,7 @@ public partial class MainWindow : Window
             _viewModel.DischargeRequested -= OnDischargeRequested;
             _viewModel.StationDeletionRequested -= OnStationDeletionRequested;
             _viewModel.PatientDeletionRequested -= OnPatientDeletionRequested;
+            _viewModel.BulkComplaintRequested -= OnBulkComplaintRequested;
             _viewModel.SessionSwitchRequested -= OnSessionSwitchRequested;
             _viewModel.ExternalDisplayRequested -= OnExternalDisplayRequested;
             _viewModel.SessionLockRequested -= OnSessionLockRequested;
@@ -45,6 +46,7 @@ public partial class MainWindow : Window
             _viewModel.DischargeRequested += OnDischargeRequested;
             _viewModel.StationDeletionRequested += OnStationDeletionRequested;
             _viewModel.PatientDeletionRequested += OnPatientDeletionRequested;
+            _viewModel.BulkComplaintRequested += OnBulkComplaintRequested;
             _viewModel.SessionSwitchRequested += OnSessionSwitchRequested;
             _viewModel.ExternalDisplayRequested += OnExternalDisplayRequested;
             _viewModel.SessionLockRequested += OnSessionLockRequested;
@@ -106,8 +108,8 @@ public partial class MainWindow : Window
     private async void OnDischargeRequested(StationViewModel station)
     {
         if (_viewModel is null) return;
-        var route = await new DischargePatientDialog(station.Name, _viewModel.DischargeRoutes).ShowDialog<string?>(this);
-        if (route is not null) await _viewModel.CompleteDischargeAsync(station, route);
+        var draft = await new DischargePatientDialog(station.Name, _viewModel.DischargeRoutes, _viewModel.DischargeOutcomes).ShowDialog<DischargePatientDraft?>(this);
+        if (draft is not null) await _viewModel.CompleteDischargeAsync(station, draft.Route, draft.Outcome);
     }
 
     private async void OnStationDeletionRequested(StationViewModel station)
@@ -133,6 +135,19 @@ public partial class MainWindow : Window
             true,
             "Delete patient").ShowDialog<bool>(this);
         if (confirmed) await _viewModel.ConfirmDeletePatientAsync(patient);
+    }
+
+    private async void OnBulkComplaintRequested(int selectedCount)
+    {
+        if (_viewModel is null) return;
+        var complaint = await new TextEntryWindow(
+            "Set presenting complaint",
+            $"Presenting complaint for {selectedCount} selected patient{(selectedCount == 1 ? "" : "s")}")
+            .ShowDialog<string?>(this);
+        if (complaint is not null)
+        {
+            await _viewModel.ApplyBulkComplaintAsync(complaint);
+        }
     }
 
     private async Task OpenExternalDisplayAsync(ExternalDisplayMode mode)
