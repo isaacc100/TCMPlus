@@ -9,6 +9,7 @@ namespace TCMPlus.App.Views;
 
 public partial class MainWindow : Window
 {
+    private static readonly DataFormat<string> StationOrderFormat = DataFormat.CreateStringApplicationFormat("TCMPlus.StationOrder");
     private MainViewModel? _viewModel;
     private WindowState _windowStateBeforeFullScreen = WindowState.Normal;
     private ExternalDisplayWindow? _externalDisplay;
@@ -147,6 +148,75 @@ public partial class MainWindow : Window
         if (complaint is not null)
         {
             await _viewModel.ApplyBulkComplaintAsync(complaint);
+        }
+    }
+
+    private async void OnStationOrderPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control { DataContext: StationViewModel { IsEditMode: true } station }
+            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(StationOrderFormat, station.Id.ToString("N")));
+        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+        ClearStationOrderDropTargets();
+    }
+
+    private void OnStationOrderDragOver(object? sender, DragEventArgs e)
+    {
+        var sourceId = e.DataTransfer.TryGetValue(StationOrderFormat);
+        if (sender is Border { DataContext: StationViewModel { IsEditMode: true } target } row
+            && sourceId is not null
+            && !string.Equals(sourceId, target.Id.ToString("N"), StringComparison.OrdinalIgnoreCase))
+        {
+            ClearStationOrderDropTargets();
+            target.IsStationOrderDropTarget = true;
+            target.IsStationOrderDropAfter = e.GetPosition(row).Y >= row.Bounds.Height / 2;
+            e.DragEffects = DragDropEffects.Move;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.None;
+    }
+
+    private void OnStationOrderDragLeave(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Border { DataContext: StationViewModel target })
+        {
+            target.IsStationOrderDropTarget = false;
+            target.IsStationOrderDropAfter = false;
+        }
+    }
+
+    private async void OnStationOrderDrop(object? sender, DragEventArgs e)
+    {
+        var sourceId = e.DataTransfer.TryGetValue(StationOrderFormat);
+        if (_viewModel is null
+            || sender is not Border { DataContext: StationViewModel { IsEditMode: true } target } row
+            || sourceId is null
+            || !Guid.TryParse(sourceId, out var sourceStationId))
+        {
+            return;
+        }
+
+        var placeAfter = e.GetPosition(row).Y >= row.Bounds.Height / 2;
+        target.IsStationOrderDropTarget = false;
+        target.IsStationOrderDropAfter = false;
+        await _viewModel.ReorderStationAsync(sourceStationId, target.Id, placeAfter);
+        e.Handled = true;
+    }
+
+    private void ClearStationOrderDropTargets()
+    {
+        if (_viewModel is null) return;
+        foreach (var station in _viewModel.Stations)
+        {
+            station.IsStationOrderDropTarget = false;
+            station.IsStationOrderDropAfter = false;
         }
     }
 

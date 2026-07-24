@@ -28,6 +28,23 @@ public sealed class PersistenceDeletionTests : IDisposable
     }
 
     [Fact]
+    public async Task Station_table_order_is_persisted()
+    {
+        var factory = await CreateInitializedFactoryAsync();
+        var repository = new SqliteStationRepository(factory);
+        var first = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var second = new Station(Guid.NewGuid(), "Bay 2", "Bed", 10, 1, 8, 7);
+        var third = new Station(Guid.NewGuid(), "Bay 3", "Bed", 19, 1, 8, 7);
+        await repository.AddAsync(first);
+        await repository.AddAsync(second);
+        await repository.AddAsync(third);
+
+        await repository.UpdateOrderAsync([third.Id, first.Id, second.Id]);
+
+        Assert.Equal([third.Id, first.Id, second.Id], (await repository.GetAllAsync()).Select(station => station.Id));
+    }
+
+    [Fact]
     public async Task Deleting_a_patient_removes_the_patient_and_their_lifecycle_events()
     {
         var factory = await CreateInitializedFactoryAsync();
@@ -102,6 +119,11 @@ public sealed class PersistenceDeletionTests : IDisposable
                     grid_width REAL NOT NULL,
                     grid_height REAL NOT NULL
                 );
+
+                INSERT INTO stations (id, name, station_type, grid_x, grid_y, grid_width, grid_height)
+                VALUES
+                    ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'Bay B', 'Bed', 1, 1, 8, 7),
+                    ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'Bay A', 'Bed', 10, 1, 8, 7);
                 """;
             await create.ExecuteNonQueryAsync();
         }
@@ -112,6 +134,9 @@ public sealed class PersistenceDeletionTests : IDisposable
         await using var columns = migrated.CreateCommand();
         columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('stations') WHERE name = 'deleted_at_utc';";
         Assert.Equal(1L, await columns.ExecuteScalarAsync());
+        columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('stations') WHERE name = 'sort_order';";
+        Assert.Equal(1L, await columns.ExecuteScalarAsync());
+        Assert.Equal(["Bay A", "Bay B"], (await new SqliteStationRepository(factory).GetAllAsync()).Select(station => station.Name));
     }
 
     [Fact]

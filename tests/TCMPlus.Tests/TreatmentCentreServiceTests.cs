@@ -125,6 +125,21 @@ public sealed class TreatmentCentreServiceTests
         Assert.Empty(await service.GetSnapshotAsync());
     }
 
+    [Fact]
+    public async Task Reorders_only_the_complete_unique_station_list()
+    {
+        var first = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var second = new Station(Guid.NewGuid(), "Bay 2", "Bed", 10, 1, 8, 7);
+        var stations = new InMemoryStationRepository(first, second);
+        var service = new TreatmentCentreService(stations, new InMemoryPatientRepository());
+
+        await service.ReorderStationsAsync([second.Id, first.Id]);
+
+        Assert.Equal([second.Id, first.Id], (await stations.GetAllAsync()).Select(station => station.Id));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReorderStationsAsync([first.Id]));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReorderStationsAsync([first.Id, first.Id]));
+    }
+
     private sealed class InMemoryStationRepository(params Station[] stations) : IStationRepository
     {
         private readonly List<Station> _stations = [.. stations];
@@ -132,6 +147,13 @@ public sealed class TreatmentCentreServiceTests
         public Task<IReadOnlyList<Station>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Station>>(_stations);
         public Task AddAsync(Station station, CancellationToken cancellationToken = default) { _stations.Add(station); return Task.CompletedTask; }
         public Task UpdateAsync(Station station, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateOrderAsync(IReadOnlyList<Guid> stationIds, CancellationToken cancellationToken = default)
+        {
+            var byId = _stations.ToDictionary(station => station.Id);
+            _stations.Clear();
+            _stations.AddRange(stationIds.Select(stationId => byId[stationId]));
+            return Task.CompletedTask;
+        }
         public Task SoftDeleteAsync(Guid stationId, DateTimeOffset deletedAt, CancellationToken cancellationToken = default) { _stations.RemoveAll(item => item.Id == stationId); return Task.CompletedTask; }
     }
 

@@ -3,6 +3,7 @@
         xmlns:vm="using:TCMPlus.App.ViewModels"
         xmlns:controls="using:TCMPlus.App.Controls"
         xmlns:charts="using:TCMPlus.App.Controls"
+        xmlns:dnd="clr-namespace:Avalonia.Input;assembly=Avalonia.Base"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="820"
@@ -87,6 +88,14 @@
             <Setter Property="BorderBrush" Value="#D5E2DA" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="Border.station-table-row.order-target">
+            <Setter Property="Background" Value="#E7F5EC" />
+            <Setter Property="BorderBrush" Value="#3B6064" />
+            <Setter Property="BorderThickness" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="Border.station-table-row.order-target.order-after">
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
         </Style>
         <Style Selector="TextBlock.muted">
             <Setter Property="Foreground" Value="#60737A" />
@@ -221,7 +230,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Station tables" Classes="section-title" />
-                        <TextBlock Text="Each row reflects the current station state." Classes="muted" />
+                        <TextBlock Text="Each row reflects the current station state. In edit mode, drag the grip to reorder stations." Classes="muted" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Button Classes="secondary" Content="{Binding EditModeText}" Command="{Binding ToggleEditModeCommand}" />
@@ -233,18 +242,26 @@
                 <ScrollViewer HorizontalScrollBarVisibility="Auto">
                     <StackPanel MinWidth="760">
                         <Border Background="#EEF5EF" Padding="18,13">
-                            <Grid ColumnDefinitions="1.4*,1.15*,130,1.25*,Auto">
-                                <TextBlock Text="Station" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="1" Text="Type" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="2" Text="State" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="3" Text="Added" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                            <Grid ColumnDefinitions="36,1.4*,1.15*,130,1.25*,Auto">
+                                <TextBlock Grid.Column="1" Text="Station" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="2" Text="Type" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="3" Text="State" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="4" Text="Added" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                             </Grid>
                         </Border>
                         <ItemsControl ItemsSource="{Binding Stations}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="White" Padding="18,13">
-                                        <Grid ColumnDefinitions="1.4*,1.15*,130,1.25*,Auto" ColumnSpacing="8">
+                                    <Border Classes="station-table-row"
+                                            Classes.order-target="{Binding IsStationOrderDropTarget}"
+                                            Classes.order-after="{Binding IsStationOrderDropAfter}"
+                                            Background="White"
+                                            Padding="18,13"
+                                            dnd:DragDrop.AllowDrop="True"
+                                            dnd:DragDrop.DragOver="OnStationOrderDragOver"
+                                            dnd:DragDrop.DragLeave="OnStationOrderDragLeave"
+                                            dnd:DragDrop.Drop="OnStationOrderDrop">
+                                        <Grid ColumnDefinitions="36,1.4*,1.15*,130,1.25*,Auto" ColumnSpacing="8">
                                             <Grid.Styles>
                                                 <Style Selector="TextBlock.status">
                                                     <Setter Property="Foreground" Value="#2F8F61" />
@@ -254,16 +271,17 @@
                                                     <Setter Property="Foreground" Value="#B94B4B" />
                                                 </Style>
                                             </Grid.Styles>
-                                            <TextBlock Text="{Binding Name}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" Foreground="{StaticResource InkBrush}" FontWeight="SemiBold" />
-                                            <TextBox Text="{Binding Name}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Type}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" Classes="muted" />
-                                            <TextBox Grid.Column="1" Text="{Binding Type}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding StatusText}" Classes="status" Classes.occupied="{Binding IsOccupied}" VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="3" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="⠿" FontSize="20" Foreground="{StaticResource SeaBrush}" Cursor="Hand" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" HorizontalAlignment="Center" PointerPressed="OnStationOrderPointerPressed" ToolTip.Tip="Drag to reorder" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" Foreground="{StaticResource InkBrush}" FontWeight="SemiBold" />
+                                            <TextBox Grid.Column="1" Text="{Binding Name}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Type}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" Classes="muted" />
+                                            <TextBox Grid.Column="2" Text="{Binding Type}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding StatusText}" Classes="status" Classes.occupied="{Binding IsOccupied}" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="4" Spacing="2" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding PatientCounterText}" FontWeight="SemiBold" Foreground="{StaticResource DeepSeaBrush}" />
                                                 <TextBlock Text="{Binding PatientArrivalText}" Classes="muted" />
                                             </StackPanel>
-                                            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
+                                            <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="8">
                                                 <Button Classes="secondary" Content="Add Patient" Command="{Binding AddPatientCommand}" IsVisible="{Binding CanAddPatient}" />
                                                 <Button Classes="danger" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding CanDischargePatient}" />
                                                 <Button Classes="secondary" Content="Save" Command="{Binding SaveStationCommand}" IsVisible="{Binding IsEditMode}" />

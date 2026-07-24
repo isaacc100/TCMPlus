@@ -7,5 +7,6 @@ public interface IStationRepository
     Task<IReadOnlyList<Station>> GetAllAsync(CancellationToken cancellationToken = default);
     Task AddAsync(Station station, CancellationToken cancellationToken = default);
     Task UpdateAsync(Station station, CancellationToken cancellationToken = default);
+    Task UpdateOrderAsync(IReadOnlyList<Guid> stationIds, CancellationToken cancellationToken = default);
     Task SoftDeleteAsync(Guid stationId, DateTimeOffset deletedAt, CancellationToken cancellationToken = default);
 }

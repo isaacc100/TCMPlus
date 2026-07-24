@@ -15,6 +15,7 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
                 grid_y REAL NOT NULL,
                 grid_width REAL NOT NULL,
                 grid_height REAL NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
                 deleted_at_utc TEXT NULL
             );
 
@@ -59,6 +60,7 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
         await EnsurePatientColumnAsync(connection, "discharge_route", "TEXT NULL", cancellationToken);
         await EnsurePatientColumnAsync(connection, "discharge_outcome", "TEXT NULL", cancellationToken);
         await EnsureStationColumnAsync(connection, "deleted_at_utc", "TEXT NULL", cancellationToken);
+        await EnsureStationColumnAsync(connection, "sort_order", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
 
         await using var backfill = connection.CreateCommand();
         backfill.CommandText = """
@@ -70,6 +72,20 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
                    OR (ordered.added_at_utc = patients.added_at_utc AND ordered.uid <= patients.uid)
             )
             WHERE patient_number = 0;
+
+            UPDATE stations
+            SET sort_order = (
+                SELECT COUNT(*)
+                FROM stations AS ordered
+                WHERE ordered.deleted_at_utc IS NULL
+                  AND (
+                    ordered.name < stations.name
+                    OR (ordered.name = stations.name AND ordered.station_type < stations.station_type)
+                    OR (ordered.name = stations.name AND ordered.station_type = stations.station_type AND ordered.id <= stations.id)
+                  )
+            )
+            WHERE sort_order = 0
+              AND deleted_at_utc IS NULL;
             """;
         await backfill.ExecuteNonQueryAsync(cancellationToken);
     }

@@ -7,6 +7,7 @@ public interface ITreatmentCentreService
     Task<IReadOnlyList<StationSnapshot>> GetSnapshotAsync(CancellationToken cancellationToken = default);
     Task<Station> AddStationAsync(string name, string type, CancellationToken cancellationToken = default);
     Task SaveStationAsync(Station station, CancellationToken cancellationToken = default);
+    Task ReorderStationsAsync(IReadOnlyList<Guid> stationIds, CancellationToken cancellationToken = default);
     Task DeleteStationAsync(Guid stationId, CancellationToken cancellationToken = default);
     Task<Patient> AddPatientAsync(Guid stationId, string? presentingComplaint, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Patient>> GetPatientsAsync(CancellationToken cancellationToken = default);

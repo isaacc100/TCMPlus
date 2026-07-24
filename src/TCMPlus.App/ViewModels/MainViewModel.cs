@@ -370,6 +370,40 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
+    public async Task ReorderStationAsync(Guid sourceStationId, Guid targetStationId, bool placeAfter)
+    {
+        var originalOrder = Stations.ToList();
+        try
+        {
+            var source = Stations.FirstOrDefault(station => station.Id == sourceStationId);
+            var target = Stations.FirstOrDefault(station => station.Id == targetStationId);
+            if (source is null || target is null || source == target)
+            {
+                return;
+            }
+
+            Stations.Remove(source);
+            var targetIndex = Stations.IndexOf(target);
+            Stations.Insert(targetIndex + (placeAfter ? 1 : 0), source);
+            if (Stations.SequenceEqual(originalOrder))
+            {
+                return;
+            }
+
+            await _treatmentCentreService.ReorderStationsAsync(Stations.Select(station => station.Id).ToList());
+            Notify("Station order saved.");
+        }
+        catch (Exception exception)
+        {
+            Stations.Clear();
+            foreach (var station in originalOrder)
+            {
+                Stations.Add(station);
+            }
+            Notify(exception.Message, true);
+        }
+    }
+
     private async Task SavePatientAsync(PatientViewModel patient)
     {
         try

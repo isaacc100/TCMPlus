@@ -72,6 +72,12 @@ public partial class StationViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isDropTarget;
 
+    [ObservableProperty]
+    private bool _isStationOrderDropTarget;
+
+    [ObservableProperty]
+    private bool _isStationOrderDropAfter;
+
     public double CanvasX => GridX * GridSizePixels;
     public double CanvasY => GridY * GridSizePixels;
     public double CanvasWidth => GridWidth * GridSizePixels;

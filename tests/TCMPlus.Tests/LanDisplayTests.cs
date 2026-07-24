@@ -86,6 +86,7 @@ public sealed class LanDisplayTests
         public Task<IReadOnlyList<Patient>> GetPatientsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Patient>>([patient]);
         public Task<Station> AddStationAsync(string name, string type, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task SaveStationAsync(Station value, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task ReorderStationsAsync(IReadOnlyList<Guid> stationIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeleteStationAsync(Guid stationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Patient> AddPatientAsync(Guid stationId, string? presentingComplaint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Patient> UpdatePatientDetailsAsync(Guid patientUid, DateTimeOffset addedAt, DateTimeOffset? dischargedAt, string? presentingComplaint, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default) => throw new NotSupportedException();

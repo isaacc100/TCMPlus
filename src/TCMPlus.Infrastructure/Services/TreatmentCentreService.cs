@@ -33,6 +33,19 @@ public sealed class TreatmentCentreService(
         return stationRepository.UpdateAsync(station, cancellationToken);
     }
 
+    public async Task ReorderStationsAsync(IReadOnlyList<Guid> stationIds, CancellationToken cancellationToken = default)
+    {
+        var existingStationIds = (await stationRepository.GetAllAsync(cancellationToken)).Select(station => station.Id).ToHashSet();
+        if (stationIds.Count != existingStationIds.Count
+            || stationIds.Distinct().Count() != stationIds.Count
+            || stationIds.Any(stationId => !existingStationIds.Contains(stationId)))
+        {
+            throw new InvalidOperationException("The station order is out of date. Reload the shift and try again.");
+        }
+
+        await stationRepository.UpdateOrderAsync(stationIds, cancellationToken);
+    }
+
     public async Task DeleteStationAsync(Guid stationId, CancellationToken cancellationToken = default)
     {
         if (await patientRepository.GetByStationAsync(stationId, cancellationToken) is not null) throw new InvalidOperationException("Discharge or delete the current patient before deleting this station.");

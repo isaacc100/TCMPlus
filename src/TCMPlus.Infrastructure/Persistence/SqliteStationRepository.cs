@@ -11,7 +11,7 @@ public sealed class SqliteStationRepository(SqliteConnectionFactory connectionFa
         var stations = new List<Station>();
         await using var connection = connectionFactory.OpenConnection();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, name, station_type, grid_x, grid_y, grid_width, grid_height FROM stations WHERE deleted_at_utc IS NULL ORDER BY name, station_type;";
+        command.CommandText = "SELECT id, name, station_type, grid_x, grid_y, grid_width, grid_height FROM stations WHERE deleted_at_utc IS NULL ORDER BY sort_order, name, station_type;";
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -30,7 +30,10 @@ public sealed class SqliteStationRepository(SqliteConnectionFactory connectionFa
     }
 
     public Task AddAsync(Station station, CancellationToken cancellationToken = default) => ExecuteWriteAsync(
-        "INSERT INTO stations (id, name, station_type, grid_x, grid_y, grid_width, grid_height) VALUES (@id, @name, @type, @gridX, @gridY, @gridWidth, @gridHeight);",
+        """
+        INSERT INTO stations (id, name, station_type, grid_x, grid_y, grid_width, grid_height, sort_order)
+        VALUES (@id, @name, @type, @gridX, @gridY, @gridWidth, @gridHeight, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM stations));
+        """,
         station,
         cancellationToken);
 
@@ -38,6 +41,23 @@ public sealed class SqliteStationRepository(SqliteConnectionFactory connectionFa
         "UPDATE stations SET name = @name, station_type = @type, grid_x = @gridX, grid_y = @gridY, grid_width = @gridWidth, grid_height = @gridHeight WHERE id = @id AND deleted_at_utc IS NULL;",
         station,
         cancellationToken);
+
+    public async Task UpdateOrderAsync(IReadOnlyList<Guid> stationIds, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        for (var index = 0; index < stationIds.Count; index++)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "UPDATE stations SET sort_order = @sortOrder WHERE id = @id AND deleted_at_utc IS NULL;";
+            command.Parameters.AddWithValue("@sortOrder", index + 1);
+            command.Parameters.AddWithValue("@id", stationIds[index].ToString("N"));
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
 
     public async Task SoftDeleteAsync(Guid stationId, DateTimeOffset deletedAt, CancellationToken cancellationToken = default)
     {
