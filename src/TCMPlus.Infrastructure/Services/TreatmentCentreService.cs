@@ -35,8 +35,9 @@ public sealed class TreatmentCentreService(
 
     public async Task DeleteStationAsync(Guid stationId, CancellationToken cancellationToken = default)
     {
-        if (await patientRepository.GetByStationAsync(stationId, cancellationToken) is not null) throw new InvalidOperationException("Remove the current patient before deleting this station.");
-        await stationRepository.DeleteAsync(stationId, cancellationToken);
+        if (await patientRepository.GetByStationAsync(stationId, cancellationToken) is not null) throw new InvalidOperationException("Discharge or delete the current patient before deleting this station.");
+        if ((await stationRepository.GetAllAsync(cancellationToken)).All(station => station.Id != stationId)) throw new InvalidOperationException("The requested station no longer exists.");
+        await stationRepository.SoftDeleteAsync(stationId, DateTimeOffset.UtcNow, cancellationToken);
     }
 
     public async Task<Patient> AddPatientAsync(Guid stationId, string? presentingComplaint, CancellationToken cancellationToken = default)
@@ -69,6 +70,16 @@ public sealed class TreatmentCentreService(
         };
         await patientRepository.UpdateDetailsAsync(updated, cancellationToken);
         return updated;
+    }
+
+    public async Task DeletePatientAsync(Guid patientUid, CancellationToken cancellationToken = default)
+    {
+        if ((await patientRepository.GetAllAsync(cancellationToken)).All(patient => patient.Uid != patientUid))
+        {
+            throw new InvalidOperationException("The requested patient no longer exists.");
+        }
+
+        await patientRepository.DeleteAsync(patientUid, cancellationToken);
     }
 
     public async Task DischargePatientAsync(Guid stationId, string? dischargeRoute, CancellationToken cancellationToken = default)

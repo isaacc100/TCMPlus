@@ -60,6 +60,7 @@
                     <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="#364958" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="Drag anywhere to move." Foreground="#50636B" FontSize="10" />
                     <TextBlock Text="Use any corner to resize." Foreground="#50636B" FontSize="10" />
+                    <Button Classes="station-action" Background="#F5D5D5" Foreground="#843434" Content="Delete station" Command="{Binding DeleteStationCommand}" IsEnabled="{Binding CanDelete}" HorizontalAlignment="Left" />
                 </StackPanel>
                 <Border Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" BorderBrush="#3B6064" BorderThickness="2,2,0,0" Cursor="SizeNorthSouth" PointerPressed="OnTopLeftResizePointerPressed" IsVisible="{Binding IsEditMode}" />
                 <Border Width="18" Height="18" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" BorderBrush="#3B6064" BorderThickness="0,2,2,0" Cursor="SizeNorthSouth" PointerPressed="OnTopRightResizePointerPressed" IsVisible="{Binding IsEditMode}" />

@@ -27,6 +27,8 @@ public partial class MainWindow : Window
             _viewModel.NewPatientRequested -= OnNewPatientRequested;
             _viewModel.PatientSwapConfirmationRequested -= OnPatientSwapConfirmationRequested;
             _viewModel.DischargeRequested -= OnDischargeRequested;
+            _viewModel.StationDeletionRequested -= OnStationDeletionRequested;
+            _viewModel.PatientDeletionRequested -= OnPatientDeletionRequested;
             _viewModel.SessionSwitchRequested -= OnSessionSwitchRequested;
             _viewModel.ExternalDisplayRequested -= OnExternalDisplayRequested;
             _viewModel.SessionLockRequested -= OnSessionLockRequested;
@@ -41,6 +43,8 @@ public partial class MainWindow : Window
             _viewModel.NewPatientRequested += OnNewPatientRequested;
             _viewModel.PatientSwapConfirmationRequested += OnPatientSwapConfirmationRequested;
             _viewModel.DischargeRequested += OnDischargeRequested;
+            _viewModel.StationDeletionRequested += OnStationDeletionRequested;
+            _viewModel.PatientDeletionRequested += OnPatientDeletionRequested;
             _viewModel.SessionSwitchRequested += OnSessionSwitchRequested;
             _viewModel.ExternalDisplayRequested += OnExternalDisplayRequested;
             _viewModel.SessionLockRequested += OnSessionLockRequested;
@@ -104,6 +108,31 @@ public partial class MainWindow : Window
         if (_viewModel is null) return;
         var route = await new DischargePatientDialog(station.Name, _viewModel.DischargeRoutes).ShowDialog<string?>(this);
         if (route is not null) await _viewModel.CompleteDischargeAsync(station, route);
+    }
+
+    private async void OnStationDeletionRequested(StationViewModel station)
+    {
+        if (_viewModel is null) return;
+        var confirmed = await new MessageWindow(
+            "Delete station",
+            $"Remove {station.Name} from the active treatment-centre map and tables? Historical shift data will be retained.",
+            true,
+            "Delete station").ShowDialog<bool>(this);
+        if (confirmed) await _viewModel.ConfirmDeleteStationAsync(station);
+    }
+
+    private async void OnPatientDeletionRequested(PatientViewModel patient)
+    {
+        if (_viewModel is null) return;
+        var activeWarning = patient.IsDischarged
+            ? ""
+            : " This patient is currently active; their station will become available.";
+        var confirmed = await new MessageWindow(
+            "Delete patient",
+            $"Delete Patient {patient.PatientNumber} and their recorded lifecycle from this shift? This cannot be undone.{activeWarning}",
+            true,
+            "Delete patient").ShowDialog<bool>(this);
+        if (confirmed) await _viewModel.ConfirmDeletePatientAsync(patient);
     }
 
     private async Task OpenExternalDisplayAsync(ExternalDisplayMode mode)

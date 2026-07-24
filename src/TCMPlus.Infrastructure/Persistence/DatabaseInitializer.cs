@@ -14,7 +14,8 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
                 grid_x REAL NOT NULL,
                 grid_y REAL NOT NULL,
                 grid_width REAL NOT NULL,
-                grid_height REAL NOT NULL
+                grid_height REAL NOT NULL,
+                deleted_at_utc TEXT NULL
             );
 
             CREATE TABLE IF NOT EXISTS patients (
@@ -55,6 +56,7 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
         await EnsurePatientColumnAsync(connection, "presenting_complaint", "TEXT NULL", cancellationToken);
         await EnsurePatientColumnAsync(connection, "discharged_at_utc", "TEXT NULL", cancellationToken);
         await EnsurePatientColumnAsync(connection, "discharge_route", "TEXT NULL", cancellationToken);
+        await EnsureStationColumnAsync(connection, "deleted_at_utc", "TEXT NULL", cancellationToken);
 
         await using var backfill = connection.CreateCommand();
         backfill.CommandText = """
@@ -85,6 +87,24 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
 
         await using var alter = connection.CreateCommand();
         alter.CommandText = $"ALTER TABLE patients ADD COLUMN {name} {definition};";
+        await alter.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task EnsureStationColumnAsync(Microsoft.Data.Sqlite.SqliteConnection connection, string name, string definition, CancellationToken cancellationToken)
+    {
+        await using var check = connection.CreateCommand();
+        check.CommandText = "PRAGMA table_info(stations);";
+        await using var reader = await check.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (string.Equals(reader.GetString(1), name, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        await using var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE stations ADD COLUMN {name} {definition};";
         await alter.ExecuteNonQueryAsync(cancellationToken);
     }
 }

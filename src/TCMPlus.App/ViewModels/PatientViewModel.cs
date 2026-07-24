@@ -7,10 +7,16 @@ namespace TCMPlus.App.ViewModels;
 public partial class PatientViewModel : ViewModelBase
 {
     private readonly Func<PatientViewModel, Task> _save;
+    private readonly Action<PatientViewModel> _requestDelete;
     private string? _savedPresentingComplaint;
     private string? _savedDischargeRoute;
 
-    public PatientViewModel(Patient patient, string stationName, IEnumerable<string> configuredDischargeRoutes, Func<PatientViewModel, Task> save)
+    public PatientViewModel(
+        Patient patient,
+        string stationName,
+        IEnumerable<string> configuredDischargeRoutes,
+        Func<PatientViewModel, Task> save,
+        Action<PatientViewModel> requestDelete)
     {
         Uid = patient.Uid;
         PatientNumber = patient.PatientNumber;
@@ -22,6 +28,7 @@ public partial class PatientViewModel : ViewModelBase
         _savedPresentingComplaint = patient.PresentingComplaint;
         _savedDischargeRoute = patient.DischargeRoute;
         _save = save;
+        _requestDelete = requestDelete;
 
         var routes = configuredDischargeRoutes.ToList();
         if (!string.IsNullOrWhiteSpace(patient.DischargeRoute) && !routes.Contains(patient.DischargeRoute, StringComparer.OrdinalIgnoreCase)) routes.Insert(0, patient.DischargeRoute);
@@ -63,6 +70,9 @@ public partial class PatientViewModel : ViewModelBase
 
     [RelayCommand]
     private void Cancel() => CancelEdits();
+
+    [RelayCommand]
+    private void Delete() => _requestDelete(this);
 
     public void CancelEdits()
     {

@@ -11,7 +11,7 @@ public sealed class SqliteStationRepository(SqliteConnectionFactory connectionFa
         var stations = new List<Station>();
         await using var connection = connectionFactory.OpenConnection();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id, name, station_type, grid_x, grid_y, grid_width, grid_height FROM stations ORDER BY name, station_type;";
+        command.CommandText = "SELECT id, name, station_type, grid_x, grid_y, grid_width, grid_height FROM stations WHERE deleted_at_utc IS NULL ORDER BY name, station_type;";
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -35,16 +35,17 @@ public sealed class SqliteStationRepository(SqliteConnectionFactory connectionFa
         cancellationToken);
 
     public Task UpdateAsync(Station station, CancellationToken cancellationToken = default) => ExecuteWriteAsync(
-        "UPDATE stations SET name = @name, station_type = @type, grid_x = @gridX, grid_y = @gridY, grid_width = @gridWidth, grid_height = @gridHeight WHERE id = @id;",
+        "UPDATE stations SET name = @name, station_type = @type, grid_x = @gridX, grid_y = @gridY, grid_width = @gridWidth, grid_height = @gridHeight WHERE id = @id AND deleted_at_utc IS NULL;",
         station,
         cancellationToken);
 
-    public async Task DeleteAsync(Guid stationId, CancellationToken cancellationToken = default)
+    public async Task SoftDeleteAsync(Guid stationId, DateTimeOffset deletedAt, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.OpenConnection();
         await using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM stations WHERE id = @id;";
+        command.CommandText = "UPDATE stations SET deleted_at_utc = @deletedAt WHERE id = @id AND deleted_at_utc IS NULL;";
         command.Parameters.AddWithValue("@id", stationId.ToString("N"));
+        command.Parameters.AddWithValue("@deletedAt", deletedAt.UtcDateTime.ToString("O"));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 

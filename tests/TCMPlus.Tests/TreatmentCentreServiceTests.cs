@@ -94,6 +94,26 @@ public sealed class TreatmentCentreServiceTests
         Assert.Contains(TimeSpan.FromMinutes(15), intervals);
     }
 
+    [Fact]
+    public async Task Deletes_patients_and_only_deletes_unoccupied_stations()
+    {
+        var station = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var stations = new InMemoryStationRepository(station);
+        var patients = new InMemoryPatientRepository();
+        var service = new TreatmentCentreService(stations, patients);
+        var patient = await service.AddPatientAsync(station.Id, null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteStationAsync(station.Id));
+        await service.DeletePatientAsync(patient.Uid);
+
+        Assert.Empty(await service.GetPatientsAsync());
+        Assert.Empty(await patients.GetAllEventsAsync());
+        Assert.Null(Assert.Single(await service.GetSnapshotAsync()).CurrentPatient);
+
+        await service.DeleteStationAsync(station.Id);
+        Assert.Empty(await service.GetSnapshotAsync());
+    }
+
     private sealed class InMemoryStationRepository(params Station[] stations) : IStationRepository
     {
         private readonly List<Station> _stations = [.. stations];
@@ -101,7 +121,7 @@ public sealed class TreatmentCentreServiceTests
         public Task<IReadOnlyList<Station>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Station>>(_stations);
         public Task AddAsync(Station station, CancellationToken cancellationToken = default) { _stations.Add(station); return Task.CompletedTask; }
         public Task UpdateAsync(Station station, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DeleteAsync(Guid stationId, CancellationToken cancellationToken = default) { _stations.RemoveAll(item => item.Id == stationId); return Task.CompletedTask; }
+        public Task SoftDeleteAsync(Guid stationId, DateTimeOffset deletedAt, CancellationToken cancellationToken = default) { _stations.RemoveAll(item => item.Id == stationId); return Task.CompletedTask; }
     }
 
     private sealed class InMemoryPatientRepository : IPatientRepository
@@ -119,6 +139,12 @@ public sealed class TreatmentCentreServiceTests
         {
             var index = _patients.FindIndex(item => item.Uid == patient.Uid);
             if (index >= 0) _patients[index] = patient;
+            return Task.CompletedTask;
+        }
+        public Task DeleteAsync(Guid patientUid, CancellationToken cancellationToken = default)
+        {
+            _patients.RemoveAll(patient => patient.Uid == patientUid);
+            _events.RemoveAll(patientEvent => patientEvent.PatientUid == patientUid);
             return Task.CompletedTask;
         }
         public Task<Patient?> DischargeFromStationAsync(Guid stationId, DateTimeOffset dischargedAt, string? dischargeRoute, CancellationToken cancellationToken = default)

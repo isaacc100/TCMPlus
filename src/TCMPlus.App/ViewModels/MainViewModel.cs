@@ -42,6 +42,8 @@ public partial class MainViewModel : ViewModelBase
     public event Action<StationViewModel>? NewPatientRequested;
     public event Action<StationViewModel, StationViewModel>? PatientSwapConfirmationRequested;
     public event Action<StationViewModel>? DischargeRequested;
+    public event Action<StationViewModel>? StationDeletionRequested;
+    public event Action<PatientViewModel>? PatientDeletionRequested;
     public event EventHandler? SessionSwitchRequested;
     public event Action<ExternalDisplayMode>? ExternalDisplayRequested;
     public event EventHandler? SessionLockRequested;
@@ -123,7 +125,7 @@ public partial class MainViewModel : ViewModelBase
         .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().SingleOrDefault()?.InformationalVersion ?? "";
     public string EditModeText => IsEditMode ? "Finish editing" : "Edit Treatment Centre";
     public string PatientEditModeText => IsPatientEditMode ? "Finish editing" : "Edit patients";
-    public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize." : "Click an available station to add a patient. Drag a patient counter to transfer.";
+    public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize, or delete an available station from its card." : "Click an available station to add a patient. Drag a patient counter to transfer.";
     public int TotalStations => AvailableStations + OccupiedStations;
     public double GridPixelSize => GridDensity switch { GridDensity.Standard => 20d, GridDensity.Dense => 16d, _ => 24d };
 
@@ -366,9 +368,30 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
-    private async Task DeleteStationAsync(StationViewModel station)
+    private Task DeleteStationAsync(StationViewModel station)
     {
-        try { await _treatmentCentreService.DeleteStationAsync(station.Id); Stations.Remove(station); await RefreshSummaryAsync(); OnPropertyChanged(nameof(HasNoStations)); Notify("Station deleted."); }
+        StationDeletionRequested?.Invoke(station);
+        return Task.CompletedTask;
+    }
+
+    public async Task ConfirmDeleteStationAsync(StationViewModel station)
+    {
+        try { await _treatmentCentreService.DeleteStationAsync(station.Id); Stations.Remove(station); await RefreshSummaryAsync(); await RefreshDashboardAsync(); OnPropertyChanged(nameof(HasNoStations)); Notify($"{station.Name} removed."); }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    private void RequestPatientDeletion(PatientViewModel patient) => PatientDeletionRequested?.Invoke(patient);
+
+    public async Task ConfirmDeletePatientAsync(PatientViewModel patient)
+    {
+        try
+        {
+            await _treatmentCentreService.DeletePatientAsync(patient.Uid);
+            var station = Stations.FirstOrDefault(item => item.CurrentPatient?.Uid == patient.Uid);
+            if (station is not null) station.CurrentPatient = null;
+            await RefreshOperationalDataAsync();
+            Notify($"Patient {patient.PatientNumber} deleted.");
+        }
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
@@ -458,7 +481,7 @@ public partial class MainViewModel : ViewModelBase
         foreach (var patient in patients)
         {
             var stationName = patient.CurrentStationId is Guid stationId ? stationNames.GetValueOrDefault(stationId, "Unknown station") : string.Empty;
-            Patients.Add(new PatientViewModel(patient, stationName, DischargeRoutes, SavePatientAsync) { IsEditMode = IsPatientEditMode });
+            Patients.Add(new PatientViewModel(patient, stationName, DischargeRoutes, SavePatientAsync, RequestPatientDeletion) { IsEditMode = IsPatientEditMode });
         }
         OnPropertyChanged(nameof(HasNoPatients));
     }
