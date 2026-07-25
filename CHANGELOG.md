@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0-DEV
+
+- Added per-shift mobile teams with callsigns, notes, optional deployment locations, independently scrolling Map and Tables sections, and Setup management.
+- Added one-patient mobile-team assignments with bidirectional station handovers, team discharge and stand-down workflows, and station-only occupancy reporting.
+
 ## 0.8.0-DEV
 
 - Added persisted drag-and-drop station reordering to Tables edit mode.

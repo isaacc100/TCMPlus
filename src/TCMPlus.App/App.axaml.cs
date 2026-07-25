@@ -301,6 +301,7 @@ public partial class App : Application
         services.AddSingleton(session);
         services.AddSingleton(connectionFactory);
         services.AddSingleton<IStationRepository, SqliteStationRepository>();
+        services.AddSingleton<IMobileTeamRepository, SqliteMobileTeamRepository>();
         services.AddSingleton<IPatientRepository, SqlitePatientRepository>();
         services.AddSingleton<ITcSettingsRepository, SqliteTcSettingsRepository>();
         services.AddSingleton<IAppSettingsRepository, JsonAppSettingsRepository>();

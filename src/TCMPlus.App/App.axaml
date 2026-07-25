@@ -17,5 +17,26 @@
 
     <Application.Styles>
         <FluentTheme />
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#3B6064"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="14,9"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#E7F5EC"/>
+            <Setter Property="Foreground" Value="#245A42"/>
+            <Setter Property="BorderBrush" Value="#87BBA2"/>
+            <Setter Property="Padding" Value="13,8"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="#FCEAEA"/>
+            <Setter Property="Foreground" Value="#963D3D"/>
+            <Setter Property="BorderBrush" Value="#E5A0A0"/>
+            <Setter Property="Padding" Value="13,8"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
     </Application.Styles>
 </Application>

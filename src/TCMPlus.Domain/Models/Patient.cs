@@ -8,4 +8,5 @@ public sealed record Patient(
     string? PresentingComplaint,
     DateTimeOffset? DischargedAt,
     string? DischargeRoute,
-    string? DischargeOutcome = null);
+    string? DischargeOutcome = null,
+    Guid? CurrentMobileTeamId = null);

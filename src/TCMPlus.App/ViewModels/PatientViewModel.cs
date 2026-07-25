@@ -18,7 +18,7 @@ public partial class PatientViewModel : ViewModelBase
 
     public PatientViewModel(
         Patient patient,
-        string stationName,
+        string currentLocation,
         IEnumerable<string> configuredDischargeRoutes,
         Func<PatientViewModel, Task> save,
         Action<PatientViewModel> requestDelete)
@@ -27,7 +27,7 @@ public partial class PatientViewModel : ViewModelBase
         PatientNumber = patient.PatientNumber;
         AddedAt = patient.AddedAt;
         DischargedAt = patient.DischargedAt;
-        StationName = stationName;
+        CurrentLocation = currentLocation;
         _presentingComplaint = patient.PresentingComplaint;
         _dischargeRoute = patient.DischargeRoute;
         _dischargeOutcome = patient.DischargeOutcome;
@@ -62,14 +62,14 @@ public partial class PatientViewModel : ViewModelBase
     public int PatientNumber { get; }
     public DateTimeOffset AddedAt { get; private set; }
     public DateTimeOffset? DischargedAt { get; private set; }
-    public string StationName { get; }
+    public string CurrentLocation { get; }
     public IReadOnlyList<string> DischargeRoutes { get; }
     public IReadOnlyList<string> DischargeOutcomes { get; }
     public bool IsDischarged => DischargedAt is not null;
     public string StatusText => IsDischarged ? "Discharged" : "Active";
     public string AddedAtText => AddedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm");
     public string DischargedAtText => DischargedAt?.LocalDateTime.ToString("dd MMM yyyy HH:mm") ?? "—";
-    public string StationText => IsDischarged ? "—" : StationName;
+    public string CurrentLocationText => IsDischarged ? "—" : CurrentLocation;
     public string PresentingComplaintDisplay => string.IsNullOrWhiteSpace(PresentingComplaint) ? "—" : PresentingComplaint;
     public string DischargeRouteDisplay => string.IsNullOrWhiteSpace(DischargeRoute) ? "—" : DischargeRoute;
     public string DischargeOutcomeDisplay => string.IsNullOrWhiteSpace(DischargeOutcome) ? "—" : DischargeOutcome;

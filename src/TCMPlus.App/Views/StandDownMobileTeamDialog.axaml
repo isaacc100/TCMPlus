@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TCMPlus.App.Views.StandDownMobileTeamDialog"
+        x:CompileBindings="False"
+        Width="510" Height="330" CanResize="False" WindowStartupLocation="CenterOwner"
+        Title="Stand down mobile team" Background="#F5F8F4">
+  <Border Margin="18" Background="White" BorderBrush="#D5E2DA" BorderThickness="1" CornerRadius="10" Padding="22">
+    <StackPanel Spacing="13">
+      <TextBlock Name="Heading" FontSize="20" FontWeight="Bold" Foreground="#364958"/>
+      <TextBlock Text="This team still has a patient. Resolve the patient before standing down." Foreground="#60737A" TextWrapping="Wrap"/>
+      <TextBlock Text="Transfer to an available station" FontWeight="SemiBold" Foreground="#364958"/>
+      <ComboBox Name="StationInput" DisplayMemberBinding="{Binding Name}" PlaceholderText="Choose a station"/>
+      <TextBlock Name="NoStationsMessage" Text="No stations are currently available." Foreground="#B94B4B" FontSize="11"/>
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,8,0,0">
+        <Button Classes="secondary" Content="Cancel" Click="OnCancel" HorizontalAlignment="Left"/>
+        <Button Grid.Column="1" Classes="danger" Content="Discharge patient" Click="OnDischarge"/>
+        <Button Name="TransferButton" Grid.Column="2" Classes="primary" Content="Transfer and stand down" Click="OnTransfer"/>
+      </Grid>
+    </StackPanel>
+  </Border>
+</Window>

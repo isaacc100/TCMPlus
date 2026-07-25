@@ -81,6 +81,7 @@ public sealed class LanDisplayTests
     private sealed class FakeTreatmentCentreService(Station station, Patient patient) : ITreatmentCentreService
     {
         public Task<IReadOnlyList<StationSnapshot>> GetSnapshotAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StationSnapshot>>([new(station, patient)]);
+        public Task<IReadOnlyList<MobileTeamSnapshot>> GetMobileTeamsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MobileTeamSnapshot>>([]);
         public Task<DashboardSnapshot> GetDashboardAsync(CancellationToken cancellationToken = default) => Task.FromResult(new DashboardSnapshot(1, 1, 3, TimeSpan.FromMinutes(24), [], [], [], [], [new(DateTimeOffset.Now, 4)], [new(DateTimeOffset.Now, 3)]));
         public Task<int> GetPatientsSeenThisShiftAsync(CancellationToken cancellationToken = default) => Task.FromResult(3);
         public Task<IReadOnlyList<Patient>> GetPatientsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Patient>>([patient]);
@@ -88,11 +89,20 @@ public sealed class LanDisplayTests
         public Task SaveStationAsync(Station value, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task ReorderStationsAsync(IReadOnlyList<Guid> stationIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeleteStationAsync(Guid stationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<MobileTeam> AddMobileTeamAsync(string callsign, string? note, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<MobileTeam> UpdateMobileTeamAsync(Guid teamId, string callsign, string? note, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DeleteMobileTeamAsync(Guid teamId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<MobileTeam> DeployMobileTeamAsync(Guid teamId, string? location, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<MobileTeam> UpdateMobileTeamLocationAsync(Guid teamId, string? location, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<MobileTeam> StandDownMobileTeamAsync(Guid teamId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Patient> AddPatientAsync(Guid stationId, string? presentingComplaint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Patient> AddPatientToMobileTeamAsync(Guid teamId, string? presentingComplaint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Patient> UpdatePatientDetailsAsync(Guid patientUid, DateTimeOffset addedAt, DateTimeOffset? dischargedAt, string? presentingComplaint, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdatePresentingComplaintAsync(IReadOnlyCollection<Guid> patientUids, string presentingComplaint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeletePatientAsync(Guid patientUid, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DischargePatientAsync(Guid stationId, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DischargeAssignedPatientAsync(Guid patientUid, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<PatientTransferResult> MovePatientAsync(Guid sourceStationId, Guid destinationStationId, bool swap, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<PatientTransferResult> MovePatientAsync(Guid patientUid, PatientAssignment destination, bool swap, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

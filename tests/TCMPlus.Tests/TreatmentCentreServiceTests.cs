@@ -140,6 +140,69 @@ public sealed class TreatmentCentreServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReorderStationsAsync([first.Id, first.Id]));
     }
 
+    [Fact]
+    public async Task Mobile_team_lifecycle_validates_callsigns_and_clears_location_on_stand_down()
+    {
+        var teams = new InMemoryMobileTeamRepository();
+        var service = new TreatmentCentreService(new InMemoryStationRepository(), new InMemoryPatientRepository(), teams);
+
+        var team = await service.AddMobileTeamAsync("  RESPONSE 3  ", "  Pat / Morgan  ");
+        Assert.Equal("RESPONSE 3", team.Callsign);
+        Assert.Equal("Pat / Morgan", team.Note);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddMobileTeamAsync("response 3", null));
+
+        team = await service.DeployMobileTeamAsync(team.Id, "  West entrance  ");
+        Assert.True(team.IsDeployed);
+        Assert.Equal("West entrance", team.DeploymentLocation);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteMobileTeamAsync(team.Id));
+
+        team = await service.UpdateMobileTeamLocationAsync(team.Id, " ");
+        Assert.Null(team.DeploymentLocation);
+        team = await service.StandDownMobileTeamAsync(team.Id);
+        Assert.False(team.IsDeployed);
+        Assert.Null(team.DeploymentLocation);
+
+        await service.DeleteMobileTeamAsync(team.Id);
+        Assert.Empty(await service.GetMobileTeamsAsync());
+    }
+
+    [Fact]
+    public async Task Mobile_team_patients_count_immediately_and_transfer_only_to_valid_empty_assignments()
+    {
+        var firstStation = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var secondStation = new Station(Guid.NewGuid(), "Bay 2", "Bed", 10, 1, 8, 7);
+        var patients = new InMemoryPatientRepository();
+        var teams = new InMemoryMobileTeamRepository();
+        var service = new TreatmentCentreService(new InMemoryStationRepository(firstStation, secondStation), patients, teams);
+        var team = await service.AddMobileTeamAsync("DELTA 1", null);
+
+        var mobilePatient = await service.AddPatientToMobileTeamAsync(team.Id, null);
+        Assert.Equal(team.Id, mobilePatient.CurrentMobileTeamId);
+        Assert.Equal(1, await service.GetPatientsSeenThisShiftAsync());
+        Assert.Equal(0, (await service.GetDashboardAsync()).OccupiedStations);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddPatientToMobileTeamAsync(team.Id, null));
+
+        await service.MovePatientAsync(mobilePatient.Uid, new PatientAssignment(PatientAssignmentKind.Station, firstStation.Id), false);
+        Assert.Equal(firstStation.Id, (await patients.GetByUidAsync(mobilePatient.Uid))!.CurrentStationId);
+        Assert.Equal(1, (await service.GetDashboardAsync()).Occupancy[^1].OccupiedStations);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.MovePatientAsync(mobilePatient.Uid, new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id), false));
+        team = await service.DeployMobileTeamAsync(team.Id, null);
+        await service.MovePatientAsync(mobilePatient.Uid, new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id), false);
+        Assert.Equal(team.Id, (await patients.GetByUidAsync(mobilePatient.Uid))!.CurrentMobileTeamId);
+        Assert.Equal(0, (await service.GetDashboardAsync()).Occupancy[^1].OccupiedStations);
+
+        var stationPatient = await service.AddPatientAsync(secondStation.Id, null);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.MovePatientAsync(stationPatient.Uid, new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id), false));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.StandDownMobileTeamAsync(team.Id));
+
+        await service.DischargeAssignedPatientAsync(mobilePatient.Uid, "Home", null);
+        team = await service.StandDownMobileTeamAsync(team.Id);
+        Assert.False(team.IsDeployed);
+    }
+
     private sealed class InMemoryStationRepository(params Station[] stations) : IStationRepository
     {
         private readonly List<Station> _stations = [.. stations];
@@ -157,16 +220,39 @@ public sealed class TreatmentCentreServiceTests
         public Task SoftDeleteAsync(Guid stationId, DateTimeOffset deletedAt, CancellationToken cancellationToken = default) { _stations.RemoveAll(item => item.Id == stationId); return Task.CompletedTask; }
     }
 
+    private sealed class InMemoryMobileTeamRepository : IMobileTeamRepository
+    {
+        private readonly List<MobileTeam> _teams = [];
+        public Task<IReadOnlyList<MobileTeam>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MobileTeam>>(_teams.OrderBy(team => team.Callsign, StringComparer.OrdinalIgnoreCase).ToList());
+        public Task<MobileTeam?> GetByIdAsync(Guid teamId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_teams.FirstOrDefault(team => team.Id == teamId));
+        public Task AddAsync(MobileTeam team, CancellationToken cancellationToken = default) { _teams.Add(team); return Task.CompletedTask; }
+        public Task UpdateAsync(MobileTeam team, CancellationToken cancellationToken = default)
+        {
+            var index = _teams.FindIndex(item => item.Id == team.Id);
+            if (index >= 0) _teams[index] = team;
+            return Task.CompletedTask;
+        }
+        public Task SoftDeleteAsync(Guid teamId, DateTimeOffset deletedAt, CancellationToken cancellationToken = default)
+        {
+            _teams.RemoveAll(team => team.Id == teamId);
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class InMemoryPatientRepository : IPatientRepository
     {
         private readonly List<Patient> _patients = [];
 
-        public Task<IReadOnlyList<Patient>> GetAllActiveAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Patient>>(_patients.Where(patient => patient.CurrentStationId is not null).ToList());
+        public Task<IReadOnlyList<Patient>> GetAllActiveAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Patient>>(_patients.Where(patient => patient.DischargedAt is null).ToList());
         private readonly List<PatientEvent> _events = [];
 
         public Task<IReadOnlyList<Patient>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Patient>>(_patients.ToList());
         public Task<int> GetNextPatientNumberAsync(CancellationToken cancellationToken = default) => Task.FromResult(_patients.Count + 1);
+        public Task<Patient?> GetByUidAsync(Guid patientUid, CancellationToken cancellationToken = default) => Task.FromResult(_patients.FirstOrDefault(patient => patient.Uid == patientUid));
         public Task<Patient?> GetByStationAsync(Guid stationId, CancellationToken cancellationToken = default) => Task.FromResult(_patients.FirstOrDefault(patient => patient.CurrentStationId == stationId));
+        public Task<Patient?> GetByMobileTeamAsync(Guid teamId, CancellationToken cancellationToken = default) => Task.FromResult(_patients.FirstOrDefault(patient => patient.CurrentMobileTeamId == teamId));
         public Task AddAsync(Patient patient, CancellationToken cancellationToken = default) { _patients.Add(patient); return Task.CompletedTask; }
         public Task UpdateDetailsAsync(Patient patient, CancellationToken cancellationToken = default)
         {
@@ -205,6 +291,21 @@ public sealed class TreatmentCentreServiceTests
             return Task.FromResult<Patient?>(null);
         }
 
+        public Task<Patient?> DischargeAsync(Guid patientUid, DateTimeOffset dischargedAt, string? dischargeRoute, string? dischargeOutcome, CancellationToken cancellationToken = default)
+        {
+            var index = _patients.FindIndex(patient => patient.Uid == patientUid && patient.DischargedAt is null);
+            if (index < 0) return Task.FromResult<Patient?>(null);
+            _patients[index] = _patients[index] with
+            {
+                CurrentStationId = null,
+                CurrentMobileTeamId = null,
+                DischargedAt = dischargedAt,
+                DischargeRoute = dischargeRoute,
+                DischargeOutcome = dischargeOutcome
+            };
+            return Task.FromResult<Patient?>(_patients[index]);
+        }
+
         public Task<PatientTransferResult> MoveAsync(Guid sourceStationId, Guid destinationStationId, bool swap, CancellationToken cancellationToken = default)
         {
             var sourceIndex = _patients.FindIndex(patient => patient.CurrentStationId == sourceStationId);
@@ -222,7 +323,35 @@ public sealed class TreatmentCentreServiceTests
             return Task.FromResult(new PatientTransferResult(source, destination));
         }
 
+        public Task<PatientTransferResult> MoveAsync(Guid patientUid, PatientAssignment destination, bool swap, CancellationToken cancellationToken = default)
+        {
+            var sourceIndex = _patients.FindIndex(patient => patient.Uid == patientUid);
+            if (sourceIndex < 0) throw new InvalidOperationException();
+            var source = _patients[sourceIndex];
+            var sourceAssignment = source.CurrentStationId is Guid stationId
+                ? new PatientAssignment(PatientAssignmentKind.Station, stationId)
+                : new PatientAssignment(PatientAssignmentKind.MobileTeam, source.CurrentMobileTeamId!.Value);
+            var destinationIndex = _patients.FindIndex(patient => destination.Kind == PatientAssignmentKind.Station
+                ? patient.CurrentStationId == destination.Id
+                : patient.CurrentMobileTeamId == destination.Id);
+            if (destinationIndex >= 0 && !swap) throw new InvalidOperationException();
+
+            _patients[sourceIndex] = Assign(source, destination);
+            Patient? swapped = null;
+            if (destinationIndex >= 0)
+            {
+                swapped = Assign(_patients[destinationIndex], sourceAssignment);
+                _patients[destinationIndex] = swapped;
+            }
+            return Task.FromResult(new PatientTransferResult(_patients[sourceIndex], swapped));
+        }
+
         public Task AddEventAsync(PatientEvent patientEvent, CancellationToken cancellationToken = default) { _events.Add(patientEvent); return Task.CompletedTask; }
         public Task<IReadOnlyList<PatientEvent>> GetAllEventsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<PatientEvent>>(_events.ToList());
+
+        private static Patient Assign(Patient patient, PatientAssignment assignment) =>
+            assignment.Kind == PatientAssignmentKind.Station
+                ? patient with { CurrentStationId = assignment.Id, CurrentMobileTeamId = null }
+                : patient with { CurrentStationId = null, CurrentMobileTeamId = assignment.Id };
     }
 }

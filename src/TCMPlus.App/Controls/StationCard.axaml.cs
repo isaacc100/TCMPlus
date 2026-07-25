@@ -10,7 +10,6 @@ namespace TCMPlus.App.Controls;
 
 public partial class StationCard : UserControl
 {
-    private static readonly DataFormat<string> PatientSourceStationFormat = DataFormat.CreateStringApplicationFormat("TCMPlus.PatientSourceStation");
     private const double MinimumGridWidth = 7d;
     private const double MinimumGridHeight = 7d;
     private Canvas? _canvas;
@@ -78,15 +77,15 @@ public partial class StationCard : UserControl
         }
 
         var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(PatientSourceStationFormat, viewModel.Id.ToString("N")));
+        data.Add(DataTransferItem.Create(PatientDragData.Format, viewModel.CurrentPatient!.Uid.ToString("N")));
         await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
         e.Handled = true;
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        var sourceId = e.DataTransfer.TryGetValue(PatientSourceStationFormat);
-        if (ViewModel is { IsOperationalMode: true } viewModel && sourceId is not null && sourceId != viewModel.Id.ToString("N"))
+        var patientUid = e.DataTransfer.TryGetValue(PatientDragData.Format);
+        if (ViewModel is { IsOperationalMode: true } viewModel && patientUid is not null)
         {
             viewModel.IsDropTarget = true;
             e.DragEffects = DragDropEffects.Move;
@@ -104,13 +103,13 @@ public partial class StationCard : UserControl
     private async void OnDrop(object? sender, DragEventArgs e)
     {
         if (ViewModel is not null) ViewModel.IsDropTarget = false;
-        var sourceId = e.DataTransfer.TryGetValue(PatientSourceStationFormat);
-        if (ViewModel is not { IsOperationalMode: true } viewModel || sourceId is null || !Guid.TryParse(sourceId, out var sourceStationId))
+        var patientUid = e.DataTransfer.TryGetValue(PatientDragData.Format);
+        if (ViewModel is not { IsOperationalMode: true } viewModel || patientUid is null || !Guid.TryParse(patientUid, out var parsedPatientUid))
         {
             return;
         }
 
-        await viewModel.DropPatientAsync(sourceStationId);
+        await viewModel.DropPatientAsync(parsedPatientUid);
         e.Handled = true;
     }
 

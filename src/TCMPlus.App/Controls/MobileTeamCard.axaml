@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TCMPlus.App.ViewModels"
+             xmlns:dnd="clr-namespace:Avalonia.Input;assembly=Avalonia.Base"
+             x:Class="TCMPlus.App.Controls.MobileTeamCard"
+             x:DataType="vm:MobileTeamViewModel">
+  <Border Classes="team" Classes.deployed="{Binding IsDeployed}" Classes.drop-target="{Binding IsDropTarget}"
+          Padding="14" CornerRadius="8" BorderThickness="1"
+          PointerPressed="OnCardPointerPressed"
+          dnd:DragDrop.AllowDrop="True"
+          dnd:DragDrop.DragOver="OnDragOver"
+          dnd:DragDrop.DragLeave="OnDragLeave"
+          dnd:DragDrop.Drop="OnDrop">
+    <Border.Styles>
+      <Style Selector="Border.team"><Setter Property="Background" Value="#F2F8F3"/><Setter Property="BorderBrush" Value="#B9D7C4"/></Style>
+      <Style Selector="Border.team.deployed"><Setter Property="Background" Value="#EEF8FA"/><Setter Property="BorderBrush" Value="#9CCED6"/></Style>
+      <Style Selector="Border.team.drop-target"><Setter Property="BoxShadow" Value="0 0 0 3 #55828B"/></Style>
+    </Border.Styles>
+    <StackPanel Spacing="9">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Ellipse Width="10" Height="10" Fill="#2F8F61" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding Callsign}" FontSize="17" FontWeight="Bold" Foreground="#364958" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+        <Border Grid.Column="1" Background="#FFFFFFAA" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="5" Padding="7,3">
+          <TextBlock Text="{Binding StatusText}" Foreground="#245A42" FontSize="11" FontWeight="Bold"/>
+        </Border>
+      </Grid>
+      <TextBlock Text="{Binding NoteText}" Foreground="#60737A" TextWrapping="Wrap" MaxLines="2"/>
+      <StackPanel Orientation="Horizontal" Spacing="7" IsVisible="{Binding IsDeployed}">
+        <TextBlock Text="⌖" Foreground="#364958" FontSize="16"/>
+        <TextBlock Text="{Binding LocationText}" Foreground="#50636B" TextWrapping="Wrap"/>
+      </StackPanel>
+      <Border IsVisible="{Binding IsOccupied}" Background="#364958" CornerRadius="6" Padding="10,7"
+              PointerPressed="OnPatientPointerPressed" Cursor="Hand">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="⠿" Foreground="White" FontSize="16"/>
+          <StackPanel>
+            <TextBlock Text="{Binding PatientCounterText}" Foreground="White" FontWeight="Bold"/>
+            <TextBlock Text="{Binding PatientArrivalText}" Foreground="#DCE8E2" FontSize="10"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <WrapPanel Orientation="Horizontal">
+        <Button Classes="secondary" Content="Deploy" Command="{Binding DeployCommand}" IsVisible="{Binding IsAvailable}" Margin="0,0,7,7"/>
+        <Button Classes="secondary" Content="Set / edit location" Command="{Binding EditLocationCommand}" IsVisible="{Binding IsDeployed}" Margin="0,0,7,7"/>
+        <Button Classes="secondary" Content="Add patient" Command="{Binding AddPatientCommand}" IsVisible="{Binding CanAddPatient}" Margin="0,0,7,7"/>
+        <Button Classes="danger" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding IsOccupied}" Margin="0,0,7,7"/>
+        <Button Classes="secondary" Content="Stand down" Command="{Binding StandDownCommand}" IsVisible="{Binding IsDeployed}" Margin="0,0,7,7"/>
+      </WrapPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

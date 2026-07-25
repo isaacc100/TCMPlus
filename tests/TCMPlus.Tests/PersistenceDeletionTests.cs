@@ -169,6 +169,47 @@ public sealed class PersistenceDeletionTests : IDisposable
         Assert.Equal(1L, await columns.ExecuteScalarAsync());
     }
 
+    [Fact]
+    public async Task Initializer_migrates_mobile_team_assignments_and_event_location_kinds()
+    {
+        var factory = await CreateInitializedFactoryAsync();
+        await using var connection = factory.OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'mobile_teams';
+            """;
+        Assert.Equal(1L, await command.ExecuteScalarAsync());
+        command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('patients') WHERE name = 'current_mobile_team_id';";
+        Assert.Equal(1L, await command.ExecuteScalarAsync());
+        command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('patient_events') WHERE name IN ('from_location_kind', 'to_location_kind');";
+        Assert.Equal(2L, await command.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task Mobile_team_and_patient_assignment_round_trip_through_sqlite()
+    {
+        var factory = await CreateInitializedFactoryAsync();
+        var teams = new SqliteMobileTeamRepository(factory);
+        var patients = new SqlitePatientRepository(factory);
+        var team = new MobileTeam(Guid.NewGuid(), "DELTA 1", "Alex / Sam", true, "Main Stage");
+        await teams.AddAsync(team);
+        var patient = new Patient(Guid.NewGuid(), 1, DateTimeOffset.UtcNow, null, null, null, null, null, team.Id);
+
+        await patients.AddAsync(patient);
+
+        var persistedTeam = Assert.Single(await teams.GetAllAsync());
+        Assert.Equal(team, persistedTeam);
+        var persistedPatient = Assert.Single(await patients.GetAllActiveAsync());
+        Assert.Equal(team.Id, persistedPatient.CurrentMobileTeamId);
+        Assert.Null(persistedPatient.CurrentStationId);
+        await Assert.ThrowsAnyAsync<Microsoft.Data.Sqlite.SqliteException>(() =>
+            patients.AddAsync(new Patient(Guid.NewGuid(), 2, DateTimeOffset.UtcNow, null, null, null, null, null, team.Id)));
+
+        await patients.DeleteAsync(patient.Uid);
+        await teams.SoftDeleteAsync(team.Id, DateTimeOffset.UtcNow);
+        Assert.Empty(await teams.GetAllAsync());
+    }
+
     private async Task<SqliteConnectionFactory> CreateInitializedFactoryAsync()
     {
         Directory.CreateDirectory(_directory);

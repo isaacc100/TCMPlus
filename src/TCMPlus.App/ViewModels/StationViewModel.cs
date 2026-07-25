@@ -119,7 +119,7 @@ public partial class StationViewModel : ViewModelBase
     [RelayCommand]
     private void DischargePatient() => _requestDischarge(this);
 
-    public Task DropPatientAsync(Guid sourceStationId) => _dropPatient(this, sourceStationId);
+    public Task DropPatientAsync(Guid patientUid) => _dropPatient(this, patientUid);
 
     partial void OnCurrentPatientChanged(Patient? value)
     {

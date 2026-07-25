@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using TCMPlus.App.Controls;
 using TCMPlus.App.ViewModels;
 using TCMPlus.Domain.Models;
 
@@ -13,11 +14,14 @@ public partial class MainWindow : Window
     private MainViewModel? _viewModel;
     private WindowState _windowStateBeforeFullScreen = WindowState.Normal;
     private ExternalDisplayWindow? _externalDisplay;
+    private bool _isMobileTeamDrawerOpen;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        SizeChanged += (_, _) => UpdateMobileTeamLayout();
+        Opened += (_, _) => UpdateMobileTeamLayout();
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -31,6 +35,14 @@ public partial class MainWindow : Window
             _viewModel.StationDeletionRequested -= OnStationDeletionRequested;
             _viewModel.PatientDeletionRequested -= OnPatientDeletionRequested;
             _viewModel.BulkComplaintRequested -= OnBulkComplaintRequested;
+            _viewModel.AddMobileTeamRequested -= OnAddMobileTeamRequested;
+            _viewModel.MobileTeamDeployRequested -= OnMobileTeamDeployRequested;
+            _viewModel.MobileTeamLocationRequested -= OnMobileTeamLocationRequested;
+            _viewModel.MobileTeamPatientRequested -= OnMobileTeamPatientRequested;
+            _viewModel.MobileTeamStandDownRequested -= OnMobileTeamStandDownRequested;
+            _viewModel.MobileTeamDischargeRequested -= OnMobileTeamDischargeRequested;
+            _viewModel.MobileTeamEditRequested -= OnMobileTeamEditRequested;
+            _viewModel.MobileTeamDeletionRequested -= OnMobileTeamDeletionRequested;
             _viewModel.SessionSwitchRequested -= OnSessionSwitchRequested;
             _viewModel.ExternalDisplayRequested -= OnExternalDisplayRequested;
             _viewModel.SessionLockRequested -= OnSessionLockRequested;
@@ -48,6 +60,14 @@ public partial class MainWindow : Window
             _viewModel.StationDeletionRequested += OnStationDeletionRequested;
             _viewModel.PatientDeletionRequested += OnPatientDeletionRequested;
             _viewModel.BulkComplaintRequested += OnBulkComplaintRequested;
+            _viewModel.AddMobileTeamRequested += OnAddMobileTeamRequested;
+            _viewModel.MobileTeamDeployRequested += OnMobileTeamDeployRequested;
+            _viewModel.MobileTeamLocationRequested += OnMobileTeamLocationRequested;
+            _viewModel.MobileTeamPatientRequested += OnMobileTeamPatientRequested;
+            _viewModel.MobileTeamStandDownRequested += OnMobileTeamStandDownRequested;
+            _viewModel.MobileTeamDischargeRequested += OnMobileTeamDischargeRequested;
+            _viewModel.MobileTeamEditRequested += OnMobileTeamEditRequested;
+            _viewModel.MobileTeamDeletionRequested += OnMobileTeamDeletionRequested;
             _viewModel.SessionSwitchRequested += OnSessionSwitchRequested;
             _viewModel.ExternalDisplayRequested += OnExternalDisplayRequested;
             _viewModel.SessionLockRequested += OnSessionLockRequested;
@@ -61,6 +81,11 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(MainViewModel.IsLocked) && _viewModel?.IsLocked == true)
         {
             Dispatcher.UIThread.Post(() => UnlockDigitBox1.Focus());
+        }
+        if (e.PropertyName is nameof(MainViewModel.SelectedPage) or nameof(MainViewModel.SelectedArea))
+        {
+            _isMobileTeamDrawerOpen = false;
+            UpdateMobileTeamLayout();
         }
     }
 
@@ -76,6 +101,81 @@ public partial class MainWindow : Window
         {
             await _viewModel.CreateStationAsync(draft);
         }
+    }
+
+    private async void OnAddMobileTeamRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel is null) return;
+        var draft = await new MobileTeamEditorDialog().ShowDialog<MobileTeamDraft?>(this);
+        if (draft is not null) await _viewModel.CreateMobileTeamAsync(draft);
+    }
+
+    private async void OnMobileTeamEditRequested(MobileTeamViewModel team)
+    {
+        if (_viewModel is null) return;
+        var draft = await new MobileTeamEditorDialog(team.Callsign, team.Note).ShowDialog<MobileTeamDraft?>(this);
+        if (draft is not null) await _viewModel.UpdateMobileTeamAsync(team, draft);
+    }
+
+    private async void OnMobileTeamDeployRequested(MobileTeamViewModel team)
+    {
+        if (_viewModel is null) return;
+        var location = await new MobileTeamDeploymentDialog(team.Callsign).ShowDialog<string?>(this);
+        if (location is not null) await _viewModel.DeployMobileTeamAsync(team, location);
+    }
+
+    private async void OnMobileTeamLocationRequested(MobileTeamViewModel team)
+    {
+        if (_viewModel is null) return;
+        var location = await new MobileTeamDeploymentDialog(team.Callsign, team.DeploymentLocation, true).ShowDialog<string?>(this);
+        if (location is not null) await _viewModel.UpdateMobileTeamLocationAsync(team, location);
+    }
+
+    private async void OnMobileTeamPatientRequested(MobileTeamViewModel team)
+    {
+        if (_viewModel is null) return;
+        var draft = await new NewPatientDialog(team.Callsign).ShowDialog<NewPatientDraft?>(this);
+        if (draft is not null) await _viewModel.SubmitNewMobileTeamPatientAsync(team, draft);
+    }
+
+    private async void OnMobileTeamDischargeRequested(MobileTeamViewModel team)
+    {
+        if (_viewModel is null || team.CurrentPatient is null) return;
+        var draft = await new DischargePatientDialog(team.Callsign, _viewModel.DischargeRoutes, _viewModel.DischargeOutcomes).ShowDialog<DischargePatientDraft?>(this);
+        if (draft is not null) await _viewModel.CompleteMobileTeamDischargeAsync(team, draft.Route, draft.Outcome, false);
+    }
+
+    private async void OnMobileTeamStandDownRequested(MobileTeamViewModel team)
+    {
+        if (_viewModel is null) return;
+        if (team.CurrentPatient is null)
+        {
+            await _viewModel.StandDownMobileTeamAsync(team);
+            return;
+        }
+
+        var available = _viewModel.Stations.Where(station => !station.IsOccupied).ToList();
+        var request = await new StandDownMobileTeamDialog(team.Callsign, available).ShowDialog<StandDownRequest?>(this);
+        if (request?.Outcome == StandDownOutcome.Transfer && request.StationId is Guid stationId)
+        {
+            await _viewModel.TransferTeamPatientAndStandDownAsync(team, stationId);
+        }
+        else if (request?.Outcome == StandDownOutcome.Discharge)
+        {
+            var draft = await new DischargePatientDialog(team.Callsign, _viewModel.DischargeRoutes, _viewModel.DischargeOutcomes).ShowDialog<DischargePatientDraft?>(this);
+            if (draft is not null) await _viewModel.CompleteMobileTeamDischargeAsync(team, draft.Route, draft.Outcome, true);
+        }
+    }
+
+    private async void OnMobileTeamDeletionRequested(MobileTeamViewModel team)
+    {
+        if (_viewModel is null) return;
+        var confirmed = await new MessageWindow(
+            "Delete mobile team",
+            $"Remove {team.Callsign} from this shift? Historical patient events will be retained.",
+            true,
+            "Delete team").ShowDialog<bool>(this);
+        if (confirmed) await _viewModel.ConfirmDeleteMobileTeamAsync(team);
     }
 
     private async void OnNewPatientRequested(StationViewModel station)
@@ -129,7 +229,7 @@ public partial class MainWindow : Window
         if (_viewModel is null) return;
         var activeWarning = patient.IsDischarged
             ? ""
-            : " This patient is currently active; their station will become available.";
+            : " This patient is currently active; their station or mobile team will become available.";
         var confirmed = await new MessageWindow(
             "Delete patient",
             $"Delete Patient {patient.PatientNumber} and their recorded lifecycle from this shift? This cannot be undone.{activeWarning}",
@@ -166,8 +266,38 @@ public partial class MainWindow : Window
         ClearStationOrderDropTargets();
     }
 
+    private async void OnTablePatientPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var patient = (sender as Control)?.DataContext switch
+        {
+            StationViewModel station => station.CurrentPatient,
+            MobileTeamViewModel team => team.CurrentPatient,
+            _ => null
+        };
+        if (patient is null) return;
+
+        e.Handled = true;
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(PatientDragData.Format, patient.Uid.ToString("N")));
+        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+    }
+
     private void OnStationOrderDragOver(object? sender, DragEventArgs e)
     {
+        var patientUid = e.DataTransfer.TryGetValue(PatientDragData.Format);
+        if (sender is Border { DataContext: StationViewModel { IsOperationalMode: true } patientTarget }
+            && patientUid is not null)
+        {
+            patientTarget.IsDropTarget = true;
+            e.DragEffects = DragDropEffects.Move;
+            return;
+        }
+
         var sourceId = e.DataTransfer.TryGetValue(StationOrderFormat);
         if (sender is Border { DataContext: StationViewModel { IsEditMode: true } target } row
             && sourceId is not null
@@ -189,11 +319,23 @@ public partial class MainWindow : Window
         {
             target.IsStationOrderDropTarget = false;
             target.IsStationOrderDropAfter = false;
+            target.IsDropTarget = false;
         }
     }
 
     private async void OnStationOrderDrop(object? sender, DragEventArgs e)
     {
+        var patientUid = e.DataTransfer.TryGetValue(PatientDragData.Format);
+        if (sender is Border { DataContext: StationViewModel { IsOperationalMode: true } patientTarget }
+            && patientUid is not null
+            && Guid.TryParse(patientUid, out var parsedPatientUid))
+        {
+            patientTarget.IsDropTarget = false;
+            await patientTarget.DropPatientAsync(parsedPatientUid);
+            e.Handled = true;
+            return;
+        }
+
         var sourceId = e.DataTransfer.TryGetValue(StationOrderFormat);
         if (_viewModel is null
             || sender is not Border { DataContext: StationViewModel { IsEditMode: true } target } row
@@ -207,6 +349,40 @@ public partial class MainWindow : Window
         target.IsStationOrderDropTarget = false;
         target.IsStationOrderDropAfter = false;
         await _viewModel.ReorderStationAsync(sourceStationId, target.Id, placeAfter);
+        e.Handled = true;
+    }
+
+    private void OnMobileTeamRowDragOver(object? sender, DragEventArgs e)
+    {
+        var patientUid = e.DataTransfer.TryGetValue(PatientDragData.Format);
+        if (sender is Border { DataContext: MobileTeamViewModel { CanAcceptPatientDrop: true } target }
+            && patientUid is not null)
+        {
+            target.IsDropTarget = true;
+            e.DragEffects = DragDropEffects.Move;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.None;
+    }
+
+    private void OnMobileTeamRowDragLeave(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Border { DataContext: MobileTeamViewModel target }) target.IsDropTarget = false;
+    }
+
+    private async void OnMobileTeamRowDrop(object? sender, DragEventArgs e)
+    {
+        var patientUid = e.DataTransfer.TryGetValue(PatientDragData.Format);
+        if (sender is not Border { DataContext: MobileTeamViewModel { CanAcceptPatientDrop: true } target }
+            || patientUid is null
+            || !Guid.TryParse(patientUid, out var parsedPatientUid))
+        {
+            return;
+        }
+
+        target.IsDropTarget = false;
+        await target.DropPatientAsync(parsedPatientUid);
         e.Handled = true;
     }
 
@@ -260,8 +436,44 @@ public partial class MainWindow : Window
         Close();
     }
 
+    private void OnToggleMobileTeamDrawer(object? sender, RoutedEventArgs e)
+    {
+        _isMobileTeamDrawerOpen = !_isMobileTeamDrawerOpen;
+        UpdateMobileTeamLayout();
+    }
+
+    private void OnCloseMobileTeamDrawer(object? sender, RoutedEventArgs e)
+    {
+        _isMobileTeamDrawerOpen = false;
+        UpdateMobileTeamLayout();
+    }
+
+    private void UpdateMobileTeamLayout()
+    {
+        if (ManagerMapGrid is null || ManagerMapGrid.ColumnDefinitions.Count < 5)
+        {
+            return;
+        }
+
+        var wide = ClientSize.Width >= 1450;
+        ManagerMapGrid.ColumnDefinitions[4].Width = new GridLength(wide ? 320 : 0);
+        ManagerMapGrid.ColumnDefinitions[3].Width = new GridLength(wide ? 16 : 0);
+        DockedMobileTeamRail.IsVisible = wide;
+        MobileTeamDrawerButton.IsVisible = !wide;
+        MobileTeamDrawer.IsVisible = !wide && _isMobileTeamDrawerOpen && _viewModel?.IsMapPage == true;
+        if (wide) _isMobileTeamDrawerOpen = false;
+    }
+
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && _isMobileTeamDrawerOpen)
+        {
+            _isMobileTeamDrawerOpen = false;
+            UpdateMobileTeamLayout();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.F11)
         {
             return;

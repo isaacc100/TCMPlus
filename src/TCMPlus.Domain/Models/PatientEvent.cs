@@ -13,5 +13,7 @@ public sealed record PatientEvent(
     int PatientNumber,
     PatientEventType Type,
     DateTimeOffset OccurredAt,
-    string? FromStationName,
-    string? ToStationName);
+    string? FromLocationName,
+    string? ToLocationName,
+    PatientAssignmentKind? FromLocationKind = null,
+    PatientAssignmentKind? ToLocationKind = null);

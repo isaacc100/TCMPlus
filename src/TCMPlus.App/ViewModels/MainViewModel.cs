@@ -45,6 +45,14 @@ public partial class MainViewModel : ViewModelBase
     public event Action<StationViewModel>? StationDeletionRequested;
     public event Action<PatientViewModel>? PatientDeletionRequested;
     public event Action<int>? BulkComplaintRequested;
+    public event EventHandler? AddMobileTeamRequested;
+    public event Action<MobileTeamViewModel>? MobileTeamDeployRequested;
+    public event Action<MobileTeamViewModel>? MobileTeamLocationRequested;
+    public event Action<MobileTeamViewModel>? MobileTeamPatientRequested;
+    public event Action<MobileTeamViewModel>? MobileTeamStandDownRequested;
+    public event Action<MobileTeamViewModel>? MobileTeamDischargeRequested;
+    public event Action<MobileTeamViewModel>? MobileTeamEditRequested;
+    public event Action<MobileTeamViewModel>? MobileTeamDeletionRequested;
     public event EventHandler? SessionSwitchRequested;
     public event Action<ExternalDisplayMode>? ExternalDisplayRequested;
     public event EventHandler? SessionLockRequested;
@@ -52,6 +60,7 @@ public partial class MainViewModel : ViewModelBase
 
     public SessionDescriptor Session { get; }
     public ObservableCollection<StationViewModel> Stations { get; } = [];
+    public ObservableCollection<MobileTeamViewModel> MobileTeams { get; } = [];
     public ObservableCollection<DashboardChartSlice> ComplaintBreakdown { get; } = [];
     public ObservableCollection<DashboardChartSlice> DischargeRouteBreakdown { get; } = [];
     public ObservableCollection<DashboardChartPoint> ThroughputPoints { get; } = [];
@@ -102,6 +111,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private string _lanDisplayStatus = "The LAN web display is off.";
 
     public bool HasNoStations => Stations.Count == 0;
+    public bool HasNoMobileTeams => MobileTeams.Count == 0;
     public bool IsDashboard => SelectedArea == TcArea.Dashboard;
     public bool IsManager => SelectedArea == TcArea.Manager;
     public bool IsSettings => SelectedArea == TcArea.Settings;
@@ -123,6 +133,7 @@ public partial class MainViewModel : ViewModelBase
     public bool HasNoDischargeDurations => !HasDischargeDurations;
     public bool HasLanDisplayAddresses => LanDisplayAddresses.Count > 0;
     public bool IsLanDisplayStopped => !IsLanDisplayRunning;
+    public int DeployedMobileTeams => MobileTeams.Count(team => team.IsDeployed);
     public string ApplicationVersion => typeof(MainViewModel).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
         .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().SingleOrDefault()?.InformationalVersion ?? "";
     public string EditModeText => IsEditMode ? "Finish editing" : "Edit Treatment Centre";
@@ -136,6 +147,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             foreach (var item in await _treatmentCentreService.GetSnapshotAsync()) AddViewModel(item.Station, item.CurrentPatient);
+            foreach (var item in await _treatmentCentreService.GetMobileTeamsAsync()) AddMobileTeamViewModel(item.Team, item.CurrentPatient);
             var settings = await _settingsRepository.GetAsync();
             _sessionSettings = settings;
             ShiftName = string.IsNullOrWhiteSpace(settings.ShiftName) ? Session.ShiftName : settings.ShiftName;
@@ -180,17 +192,22 @@ public partial class MainViewModel : ViewModelBase
         BulkComplaintRequested?.Invoke(selectedCount);
     }
     [RelayCommand] private void RequestAddStation() => AddStationRequested?.Invoke(this, EventArgs.Empty);
+    [RelayCommand] private void RequestAddMobileTeam() => AddMobileTeamRequested?.Invoke(this, EventArgs.Empty);
     [RelayCommand] private void ShowSettings() { ClearPatientEdits(); SelectedArea = TcArea.Settings; }
     [RelayCommand] private void ShowSettingsGeneral() => SettingsPage = SettingsPage.General;
     [RelayCommand] private void ShowSettingsOperations() => SettingsPage = SettingsPage.Operations;
     [RelayCommand] private void ShowSettingsDisplays() => SettingsPage = SettingsPage.Displays;
-    [RelayCommand] private async Task AddDischargeRouteAsync()
+
+    [RelayCommand]
+    private async Task AddDischargeRouteAsync()
     {
         var route = NewDischargeRoute.Trim();
         if (string.IsNullOrWhiteSpace(route) || DischargeRoutes.Contains(route, StringComparer.OrdinalIgnoreCase)) return;
         DischargeRoutes.Add(route); NewDischargeRoute = ""; await SaveAppSettingsAsync(DischargeRoutes, (await _appSettingsRepository.GetAsync()).ExternalDisplayMode);
     }
-    [RelayCommand] private async Task RemoveDischargeRouteAsync(string? route)
+
+    [RelayCommand]
+    private async Task RemoveDischargeRouteAsync(string? route)
     {
         if (string.IsNullOrWhiteSpace(route) || DischargeRoutes.Count <= 1) return;
         DischargeRoutes.Remove(route); await SaveAppSettingsAsync(DischargeRoutes, (await _appSettingsRepository.GetAsync()).ExternalDisplayMode);
@@ -246,6 +263,129 @@ public partial class MainViewModel : ViewModelBase
     public async Task CreateStationAsync(StationDraft draft)
     {
         try { var station = await _treatmentCentreService.AddStationAsync(draft.Name, draft.Type); AddViewModel(station, null); await RefreshSummaryAsync(); Notify($"{station.Name} added."); }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task CreateMobileTeamAsync(MobileTeamDraft draft)
+    {
+        try
+        {
+            var team = await _treatmentCentreService.AddMobileTeamAsync(draft.Callsign, draft.Note);
+            AddMobileTeamViewModel(team, null);
+            SortMobileTeams();
+            Notify($"{team.Callsign} added.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task UpdateMobileTeamAsync(MobileTeamViewModel team, MobileTeamDraft draft)
+    {
+        try
+        {
+            var updated = await _treatmentCentreService.UpdateMobileTeamAsync(team.Id, draft.Callsign, draft.Note);
+            team.Apply(updated, team.CurrentPatient);
+            SortMobileTeams();
+            Notify($"{updated.Callsign} saved.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task DeployMobileTeamAsync(MobileTeamViewModel team, string? location)
+    {
+        try
+        {
+            var updated = await _treatmentCentreService.DeployMobileTeamAsync(team.Id, location);
+            team.Apply(updated, team.CurrentPatient);
+            OnPropertyChanged(nameof(DeployedMobileTeams));
+            Notify($"{team.Callsign} deployed.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task UpdateMobileTeamLocationAsync(MobileTeamViewModel team, string? location)
+    {
+        try
+        {
+            var updated = await _treatmentCentreService.UpdateMobileTeamLocationAsync(team.Id, location);
+            team.Apply(updated, team.CurrentPatient);
+            Notify($"{team.Callsign} location updated.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task ConfirmDeleteMobileTeamAsync(MobileTeamViewModel team)
+    {
+        try
+        {
+            await _treatmentCentreService.DeleteMobileTeamAsync(team.Id);
+            MobileTeams.Remove(team);
+            OnPropertyChanged(nameof(HasNoMobileTeams));
+            OnPropertyChanged(nameof(DeployedMobileTeams));
+            Notify($"{team.Callsign} removed.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task StandDownMobileTeamAsync(MobileTeamViewModel team)
+    {
+        try
+        {
+            var updated = await _treatmentCentreService.StandDownMobileTeamAsync(team.Id);
+            team.Apply(updated, null);
+            OnPropertyChanged(nameof(DeployedMobileTeams));
+            Notify($"{team.Callsign} stood down.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task SubmitNewMobileTeamPatientAsync(MobileTeamViewModel team, NewPatientDraft draft)
+    {
+        try
+        {
+            team.CurrentPatient = await _treatmentCentreService.AddPatientToMobileTeamAsync(team.Id, draft.PresentingComplaint);
+            await RefreshOperationalDataAsync();
+            Notify($"{team.PatientCounterText} added to {team.Callsign}.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task CompleteMobileTeamDischargeAsync(MobileTeamViewModel team, string? route, string? outcome, bool standDown)
+    {
+        if (team.CurrentPatient is not { } patient)
+        {
+            return;
+        }
+
+        try
+        {
+            var patientNumber = patient.PatientNumber;
+            await _treatmentCentreService.DischargeAssignedPatientAsync(patient.Uid, route, outcome);
+            team.CurrentPatient = null;
+            if (standDown)
+            {
+                var updated = await _treatmentCentreService.StandDownMobileTeamAsync(team.Id);
+                team.Apply(updated, null);
+                OnPropertyChanged(nameof(DeployedMobileTeams));
+            }
+            await RefreshOperationalDataAsync();
+            Notify(standDown ? $"{team.Callsign} patient discharged and team stood down." : $"Patient {patientNumber} discharged.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    public async Task TransferTeamPatientAndStandDownAsync(MobileTeamViewModel team, Guid stationId)
+    {
+        if (team.CurrentPatient is not { } patient) return;
+        try
+        {
+            await _treatmentCentreService.MovePatientAsync(patient.Uid, new PatientAssignment(PatientAssignmentKind.Station, stationId), false);
+            await RefreshAssignmentsAsync();
+            var updated = await _treatmentCentreService.StandDownMobileTeamAsync(team.Id);
+            team.Apply(updated, null);
+            OnPropertyChanged(nameof(DeployedMobileTeams));
+            await RefreshOperationalDataAsync();
+            Notify($"{team.Callsign} patient transferred and team stood down.");
+        }
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
@@ -337,6 +477,47 @@ public partial class MainViewModel : ViewModelBase
         Stations.Add(viewModel); OnPropertyChanged(nameof(HasNoStations));
     }
 
+    private void AddMobileTeamViewModel(MobileTeam team, Patient? patient)
+    {
+        var viewModel = new MobileTeamViewModel(
+            team,
+            patient,
+            RequestMobileTeamDeploy,
+            RequestMobileTeamLocation,
+            RequestMobileTeamPatient,
+            RequestMobileTeamStandDown,
+            RequestMobileTeamDischarge,
+            RequestMobileTeamEdit,
+            RequestMobileTeamDeletion,
+            RequestMobileTeamPatientDropAsync);
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MobileTeamViewModel.IsDeployed))
+            {
+                OnPropertyChanged(nameof(DeployedMobileTeams));
+            }
+        };
+        MobileTeams.Add(viewModel);
+        OnPropertyChanged(nameof(HasNoMobileTeams));
+        OnPropertyChanged(nameof(DeployedMobileTeams));
+    }
+
+    private void RequestMobileTeamDeploy(MobileTeamViewModel team) => MobileTeamDeployRequested?.Invoke(team);
+    private void RequestMobileTeamLocation(MobileTeamViewModel team) => MobileTeamLocationRequested?.Invoke(team);
+    private void RequestMobileTeamStandDown(MobileTeamViewModel team) => MobileTeamStandDownRequested?.Invoke(team);
+    private void RequestMobileTeamDischarge(MobileTeamViewModel team) => MobileTeamDischargeRequested?.Invoke(team);
+    private void RequestMobileTeamEdit(MobileTeamViewModel team) => MobileTeamEditRequested?.Invoke(team);
+    private void RequestMobileTeamDeletion(MobileTeamViewModel team) => MobileTeamDeletionRequested?.Invoke(team);
+    private void RequestMobileTeamPatient(MobileTeamViewModel team)
+    {
+        if (QuickEntry)
+        {
+            _ = SubmitNewMobileTeamPatientAsync(team, new NewPatientDraft(null));
+            return;
+        }
+        MobileTeamPatientRequested?.Invoke(team);
+    }
+
     private void RequestNewPatient(StationViewModel station)
     {
         if (QuickEntry) { _ = SubmitNewPatientAsync(station, new NewPatientDraft(null)); return; }
@@ -347,12 +528,45 @@ public partial class MainViewModel : ViewModelBase
         if (QuickEntry) { _ = CompleteDischargeAsync(station, null, null); return; }
         DischargeRequested?.Invoke(station);
     }
-    private async Task RequestPatientDropAsync(StationViewModel destination, Guid sourceStationId)
+    private async Task RequestPatientDropAsync(StationViewModel destination, Guid patientUid)
     {
-        var source = Stations.FirstOrDefault(station => station.Id == sourceStationId);
-        if (source is null || source == destination || !source.IsOccupied) return;
-        if (destination.IsOccupied) { PatientSwapConfirmationRequested?.Invoke(source, destination); return; }
-        try { await MovePatientAsync(source, destination, false); Notify($"{destination.PatientCounterText} moved to {destination.Name}."); }
+        var sourceStation = Stations.FirstOrDefault(station => station.CurrentPatient?.Uid == patientUid);
+        if (sourceStation == destination) return;
+        if (destination.IsOccupied && sourceStation is not null)
+        {
+            PatientSwapConfirmationRequested?.Invoke(sourceStation, destination);
+            return;
+        }
+        if (destination.IsOccupied)
+        {
+            Notify("The destination station is occupied.", true);
+            return;
+        }
+        try
+        {
+            await _treatmentCentreService.MovePatientAsync(patientUid, new PatientAssignment(PatientAssignmentKind.Station, destination.Id), false);
+            await RefreshAssignmentsAsync();
+            await RefreshOperationalDataAsync();
+            Notify($"{destination.PatientCounterText} moved to {destination.Name}.");
+        }
+        catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    private async Task RequestMobileTeamPatientDropAsync(MobileTeamViewModel destination, Guid patientUid)
+    {
+        if (!destination.CanAcceptPatientDrop)
+        {
+            Notify(destination.IsDeployed ? "This mobile team already has a patient." : "Deploy the mobile team before transferring a patient to it.", true);
+            return;
+        }
+
+        try
+        {
+            await _treatmentCentreService.MovePatientAsync(patientUid, new PatientAssignment(PatientAssignmentKind.MobileTeam, destination.Id), false);
+            await RefreshAssignmentsAsync();
+            await RefreshOperationalDataAsync();
+            Notify($"{destination.PatientCounterText} moved to {destination.Callsign}.");
+        }
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
@@ -362,6 +576,13 @@ public partial class MainViewModel : ViewModelBase
         source.CurrentPatient = result.SwappedPatient;
         destination.CurrentPatient = result.SourcePatient;
         await RefreshOperationalDataAsync();
+    }
+
+    private void SortMobileTeams()
+    {
+        var ordered = MobileTeams.OrderBy(team => team.Callsign, StringComparer.OrdinalIgnoreCase).ToList();
+        MobileTeams.Clear();
+        foreach (var team in ordered) MobileTeams.Add(team);
     }
 
     private async Task SaveStationAsync(StationViewModel station)
@@ -421,6 +642,11 @@ public partial class MainViewModel : ViewModelBase
             {
                 station.CurrentPatient = updated;
             }
+            var team = MobileTeams.FirstOrDefault(item => item.CurrentPatient?.Uid == patient.Uid);
+            if (team is not null)
+            {
+                team.CurrentPatient = updated;
+            }
             await RefreshDashboardAsync();
             Notify($"Patient {patient.PatientNumber} saved.");
         }
@@ -448,6 +674,8 @@ public partial class MainViewModel : ViewModelBase
             await _treatmentCentreService.DeletePatientAsync(patient.Uid);
             var station = Stations.FirstOrDefault(item => item.CurrentPatient?.Uid == patient.Uid);
             if (station is not null) station.CurrentPatient = null;
+            var team = MobileTeams.FirstOrDefault(item => item.CurrentPatient?.Uid == patient.Uid);
+            if (team is not null) team.CurrentPatient = null;
             await RefreshOperationalDataAsync();
             Notify($"Patient {patient.PatientNumber} deleted.");
         }
@@ -521,6 +749,31 @@ public partial class MainViewModel : ViewModelBase
         await RefreshDashboardAsync();
         if (IsPatientsPage) await RefreshPatientsAsync();
     }
+
+    private async Task RefreshAssignmentsAsync()
+    {
+        var stationSnapshots = await _treatmentCentreService.GetSnapshotAsync();
+        foreach (var station in Stations)
+        {
+            station.CurrentPatient = stationSnapshots.FirstOrDefault(snapshot => snapshot.Station.Id == station.Id)?.CurrentPatient;
+        }
+
+        var teamSnapshots = await _treatmentCentreService.GetMobileTeamsAsync();
+        foreach (var snapshot in teamSnapshots)
+        {
+            var existing = MobileTeams.FirstOrDefault(team => team.Id == snapshot.Team.Id);
+            if (existing is null)
+            {
+                AddMobileTeamViewModel(snapshot.Team, snapshot.CurrentPatient);
+            }
+            else
+            {
+                existing.Apply(snapshot.Team, snapshot.CurrentPatient);
+            }
+        }
+        SortMobileTeams();
+        OnPropertyChanged(nameof(DeployedMobileTeams));
+    }
     private async Task RefreshSummaryAsync()
     {
         AvailableStations = Stations.Count(station => !station.IsOccupied);
@@ -552,12 +805,17 @@ public partial class MainViewModel : ViewModelBase
     private async Task RefreshPatientsAsync()
     {
         var stationNames = Stations.ToDictionary(station => station.Id, station => station.Name);
+        var teamNames = MobileTeams.ToDictionary(team => team.Id, team => team.Callsign);
         var patients = await _treatmentCentreService.GetPatientsAsync();
         Patients.Clear();
         foreach (var patient in patients)
         {
-            var stationName = patient.CurrentStationId is Guid stationId ? stationNames.GetValueOrDefault(stationId, "Unknown station") : string.Empty;
-            Patients.Add(new PatientViewModel(patient, stationName, DischargeRoutes, SavePatientAsync, RequestPatientDeletion) { IsEditMode = IsPatientEditMode });
+            var currentLocation = patient.CurrentStationId is Guid stationId
+                ? stationNames.GetValueOrDefault(stationId, "Unknown station")
+                : patient.CurrentMobileTeamId is Guid teamId
+                    ? teamNames.GetValueOrDefault(teamId, "Unknown mobile team")
+                    : string.Empty;
+            Patients.Add(new PatientViewModel(patient, currentLocation, DischargeRoutes, SavePatientAsync, RequestPatientDeletion) { IsEditMode = IsPatientEditMode });
         }
         OnPropertyChanged(nameof(HasNoPatients));
     }
@@ -581,7 +839,12 @@ public partial class MainViewModel : ViewModelBase
         _bannerTimer.Stop(); _bannerTimer.Interval = TimeSpan.FromSeconds(4); _bannerTimer.Start();
     }
 
-    private void RefreshClock() { CurrentTimeText = DateTimeOffset.Now.ToString("HH:mm:ss"); foreach (var station in Stations) station.RefreshPatientArrivalText(); }
+    private void RefreshClock()
+    {
+        CurrentTimeText = DateTimeOffset.Now.ToString("HH:mm:ss");
+        foreach (var station in Stations) station.RefreshPatientArrivalText();
+        foreach (var team in MobileTeams) team.RefreshPatientArrivalText();
+    }
     private string UnlockPin => string.Concat(UnlockDigit1, UnlockDigit2, UnlockDigit3, UnlockDigit4, UnlockDigit5, UnlockDigit6);
     private void ClearUnlockPin() { UnlockDigit1 = ""; UnlockDigit2 = ""; UnlockDigit3 = ""; UnlockDigit4 = ""; UnlockDigit5 = ""; UnlockDigit6 = ""; }
     private static string FormatDuration(TimeSpan value) => value.TotalHours >= 1 ? $"{(int)value.TotalHours}h {value.Minutes}m" : $"{Math.Max(1, value.Minutes)}m";
@@ -590,6 +853,7 @@ public partial class MainViewModel : ViewModelBase
 }
 
 public sealed record StationDraft(string Name, string Type);
+public sealed record MobileTeamDraft(string Callsign, string? Note);
 public sealed record NewPatientDraft(string? PresentingComplaint);
 public enum TcArea { Dashboard, Manager, Settings }
 public enum TcPage { Map, Tables, Patients, Setup }

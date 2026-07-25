@@ -151,7 +151,14 @@
                 </StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><TextBlock Text="Quick entry" Classes="muted" VerticalAlignment="Center" /><ToggleSwitch IsChecked="{Binding QuickEntry, Mode=TwoWay}" /></StackPanel></Grid>
         </Border>
 
-        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsMapPage}" ColumnDefinitions="220,16,*">
+        <Grid x:Name="ManagerMapGrid" Grid.Row="2" Margin="28" IsVisible="{Binding IsMapPage}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="320"/>
+            </Grid.ColumnDefinitions>
             <Border Classes="card" Padding="18">
                 <StackPanel Spacing="18">
                     <TextBlock Text="Treatment centre" Classes="section-title" />
@@ -181,6 +188,7 @@
                                 <TextBlock Text="{Binding MapStatusText}" Classes="muted" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                                <Button x:Name="MobileTeamDrawerButton" Classes="secondary" Content="{Binding DeployedMobileTeams, StringFormat=Mobile teams ({0} deployed)}" Click="OnToggleMobileTeamDrawer" IsVisible="False"/>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <Ellipse Width="9" Height="9" Fill="{StaticResource OpenBrush}" VerticalAlignment="Center" />
                                     <TextBlock Text="Available" Classes="muted" />
@@ -223,9 +231,58 @@
                     </Viewbox>
                 </Grid>
             </Border>
+            <Border x:Name="DockedMobileTeamRail" Grid.Column="4" Classes="card" Padding="0" ClipToBounds="True">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Background="#EEF5EF" Padding="16,14" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Mobile teams" Classes="section-title"/>
+                            <TextBlock Text="{Binding DeployedMobileTeams, StringFormat={}{0} deployed}" Classes="muted"/>
+                        </StackPanel>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="12" Spacing="12">
+                            <ItemsControl ItemsSource="{Binding MobileTeams}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate><controls:MobileTeamCard Margin="0,0,0,12"/></DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel IsVisible="{Binding HasNoMobileTeams}" Spacing="8" Margin="8,24" HorizontalAlignment="Center">
+                                <TextBlock Text="No mobile teams configured" FontWeight="Bold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Add teams in Manager → Setup." Classes="muted" TextAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+            <Border x:Name="MobileTeamDrawer" Grid.Column="2" Width="320" HorizontalAlignment="Right" VerticalAlignment="Stretch"
+                    Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="10"
+                    BoxShadow="0 10 30 0 #00000044" IsVisible="False" ZIndex="20" ClipToBounds="True">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Background="#EEF5EF" Padding="16,12" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel>
+                                <TextBlock Text="Mobile teams" Classes="section-title"/>
+                                <TextBlock Text="{Binding DeployedMobileTeams, StringFormat={}{0} deployed}" Classes="muted"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="secondary" Content="Close" Click="OnCloseMobileTeamDrawer"/>
+                        </Grid>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="12" Spacing="12">
+                            <ItemsControl ItemsSource="{Binding MobileTeams}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate><controls:MobileTeamCard Margin="0,0,0,12"/></DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="No mobile teams configured. Add teams in Manager → Setup." Classes="muted"
+                                       IsVisible="{Binding HasNoMobileTeams}" TextWrapping="Wrap" TextAlignment="Center" Margin="8,24"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsTablesPage}" RowDefinitions="Auto,16,*">
+        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsTablesPage}" RowDefinitions="Auto,16,Auto,16,*">
             <Border Classes="card" Padding="20">
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Spacing="4">
@@ -238,7 +295,59 @@
                     </StackPanel>
                 </Grid>
             </Border>
-            <Border Grid.Row="2" Classes="card" Padding="0" ClipToBounds="True">
+            <Border Grid.Row="2" Classes="card" Padding="0" ClipToBounds="True" MaxHeight="270">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Background="#EEF5EF" Padding="18,12" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="1.1*,110,1.1*,1.1*,120,Auto" ColumnSpacing="8">
+                            <StackPanel>
+                                <TextBlock Text="Mobile teams" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+                                <TextBlock Text="{Binding DeployedMobileTeams, StringFormat={}{0} deployed}" Classes="muted" FontSize="11"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="State" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="Location" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="Note" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="Patient" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="5" Text="Actions" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding MobileTeams}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="White" Padding="18,10" BorderBrush="#E5ECE7" BorderThickness="0,0,0,1"
+                                                dnd:DragDrop.AllowDrop="True"
+                                                dnd:DragDrop.DragOver="OnMobileTeamRowDragOver"
+                                                dnd:DragDrop.DragLeave="OnMobileTeamRowDragLeave"
+                                                dnd:DragDrop.Drop="OnMobileTeamRowDrop">
+                                            <Grid ColumnDefinitions="1.1*,110,1.1*,1.1*,120,Auto" ColumnSpacing="8">
+                                                <TextBlock Text="{Binding Callsign}" FontWeight="Bold" Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding StatusText}" Foreground="{StaticResource OpenBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding LocationText}" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding NoteText}" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <Border Grid.Column="4" IsVisible="{Binding IsOccupied}" Background="#364958" CornerRadius="6" Padding="8,5"
+                                                        PointerPressed="OnTablePatientPointerPressed" Cursor="Hand" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="⠿" Foreground="White"/><TextBlock Text="{Binding PatientCounterText}" Foreground="White" FontWeight="Bold"/></StackPanel>
+                                                </Border>
+                                                <WrapPanel Grid.Column="5" Orientation="Horizontal">
+                                                    <Button Classes="secondary" Content="Deploy" Command="{Binding DeployCommand}" IsVisible="{Binding IsAvailable}" Margin="0,0,6,4"/>
+                                                    <Button Classes="secondary" Content="Location" Command="{Binding EditLocationCommand}" IsVisible="{Binding IsDeployed}" Margin="0,0,6,4"/>
+                                                    <Button Classes="secondary" Content="Add patient" Command="{Binding AddPatientCommand}" IsVisible="{Binding CanAddPatient}" Margin="0,0,6,4"/>
+                                                    <Button Classes="danger" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding IsOccupied}" Margin="0,0,6,4"/>
+                                                    <Button Classes="secondary" Content="Stand down" Command="{Binding StandDownCommand}" IsVisible="{Binding IsDeployed}" Margin="0,0,0,4"/>
+                                                </WrapPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="No mobile teams configured. Add teams in Manager → Setup." Classes="muted"
+                                       IsVisible="{Binding HasNoMobileTeams}" HorizontalAlignment="Center" Margin="18"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+            <Border Grid.Row="4" Classes="card" Padding="0" ClipToBounds="True">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto">
                     <StackPanel MinWidth="760">
                         <Border Background="#EEF5EF" Padding="18,13">
@@ -277,7 +386,7 @@
                                             <TextBlock Grid.Column="2" Text="{Binding Type}" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" Classes="muted" />
                                             <TextBox Grid.Column="2" Text="{Binding Type}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="3" Text="{Binding StatusText}" Classes="status" Classes.occupied="{Binding IsOccupied}" VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="4" Spacing="2" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="4" Spacing="2" VerticalAlignment="Center" PointerPressed="OnTablePatientPointerPressed" Cursor="Hand">
                                                 <TextBlock Text="{Binding PatientCounterText}" FontWeight="SemiBold" Foreground="{StaticResource DeepSeaBrush}" />
                                                 <TextBlock Text="{Binding PatientArrivalText}" Classes="muted" />
                                             </StackPanel>
@@ -317,7 +426,7 @@
                             <Grid ColumnDefinitions="48,90,110,140,170,170,1.2*,1*,1.3*,Auto" ColumnSpacing="8">
                                 <TextBlock Grid.Column="1" Text="Patient" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                                 <TextBlock Grid.Column="2" Text="Status" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
-                                <TextBlock Grid.Column="3" Text="Current station" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                                <TextBlock Grid.Column="3" Text="Current location" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                                 <TextBlock Grid.Column="4" Text="New time" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                                 <TextBlock Grid.Column="5" Text="Discharge time" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                                 <TextBlock Grid.Column="6" Text="Presenting complaint" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
@@ -337,7 +446,7 @@
                                             <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="{Binding PatientNumber, StringFormat=Patient {0}}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource DeepSeaBrush}" />
                                             <TextBlock Grid.Column="2" Text="{Binding StatusText}" Classes="status" Classes.discharged="{Binding IsDischarged}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="3" Text="{Binding StationText}" Classes="muted" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding CurrentLocationText}" Classes="muted" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="4" Text="{Binding AddedAtText}" Classes="muted" IsVisible="{Binding IsOperationalMode}" VerticalAlignment="Center" />
                                             <TextBox Grid.Column="4" Text="{Binding AddedAtEditText, Mode=TwoWay}" IsVisible="{Binding IsEditMode}" PlaceholderText="dd/MM/yyyy HH:mm" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="5" Text="{Binding DischargedAtText}" Classes="muted" IsVisible="{Binding ShowReadOnlyDischargeDetails}" VerticalAlignment="Center" />
@@ -364,7 +473,7 @@
             </Border>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSetupPage}">
+        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSetupPage}" ColumnDefinitions="520,16,*">
             <Border Classes="card" Padding="20" Width="520" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <StackPanel Spacing="16">
                     <TextBlock Text="Shift setup" Classes="section-title" />
@@ -381,6 +490,46 @@
                     <Button Classes="primary" Content="Save changes" Command="{Binding SaveShiftPinCommand}" />
                     <TextBlock Text="{Binding PinStatusText}" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Background="#EEF5EF" Padding="18,14" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Mobile teams" Classes="section-title"/>
+                                <TextBlock Text="Per-shift callsigns and optional operational notes." Classes="muted" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="primary" Content="Add mobile team" Command="{Binding RequestAddMobileTeamCommand}"/>
+                        </Grid>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding MobileTeams}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="18,13" Background="White" BorderBrush="#E5ECE7" BorderThickness="0,0,0,1">
+                                            <Grid ColumnDefinitions="*,1.4*,Auto" ColumnSpacing="10">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Callsign}" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+                                                    <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="11"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding NoteText}" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="7">
+                                                    <Button Classes="secondary" Content="Edit" Command="{Binding EditCommand}"/>
+                                                    <Button Classes="danger" Content="Delete" Command="{Binding DeleteCommand}" IsEnabled="{Binding CanDelete}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel IsVisible="{Binding HasNoMobileTeams}" Spacing="7" Margin="24" HorizontalAlignment="Center">
+                                <TextBlock Text="No mobile teams configured" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+                                <TextBlock Text="Add the first callsign for this shift." Classes="muted"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
             </Border>
         </Grid>
 
