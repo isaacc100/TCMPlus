@@ -176,61 +176,65 @@
                     </StackPanel>
                     <Button Classes="secondary" Content="{Binding EditModeText}" Command="{Binding ToggleEditModeCommand}" Margin="0,10,0,0" />
                     <Button Classes="primary" Content="Add station" Command="{Binding RequestAddStationCommand}" IsVisible="{Binding IsEditMode}" />
+                    <Button Classes="secondary" Content="Add / edit mobile teams" Command="{Binding ShowSetupCommand}" IsVisible="{Binding IsEditMode}" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
-                <Grid RowDefinitions="Auto,*">
-                    <Border Background="#EEF5EF" Padding="18,14" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel>
-                                <TextBlock Text="Station map" Classes="section-title" />
-                                <TextBlock Text="{Binding MapStatusText}" Classes="muted" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-                                <Button x:Name="MobileTeamDrawerButton" Classes="secondary" Content="{Binding DeployedMobileTeams, StringFormat=Mobile teams ({0} deployed)}" Click="OnToggleMobileTeamDrawer" IsVisible="False"/>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Ellipse Width="9" Height="9" Fill="{StaticResource OpenBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Available" Classes="muted" />
+            <Grid x:Name="StationMapHost" Grid.Column="2">
+                <Border x:Name="StationMapCard" Classes="card" Padding="0" ClipToBounds="True"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Background="#EEF5EF" Padding="18,14" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Text="Station map" Classes="section-title" />
+                                    <TextBlock Text="{Binding MapStatusText}" Classes="muted" />
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Ellipse Width="9" Height="9" Fill="{StaticResource ClosedBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Occupied" Classes="muted" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                                    <Button x:Name="MobileTeamDrawerButton" Classes="secondary" Content="{Binding DeployedMobileTeams, StringFormat=Mobile teams ({0} deployed)}" Click="OnToggleMobileTeamDrawer" IsVisible="False"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="9" Height="9" Fill="{StaticResource OpenBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="Available" Classes="muted" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="9" Height="9" Fill="{StaticResource ClosedBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="Occupied" Classes="muted" />
+                                    </StackPanel>
                                 </StackPanel>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                    <Viewbox Grid.Row="1" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Grid Width="1200" Height="720">
-                            <controls:DotGridControl Spacing="{Binding GridPixelSize}" />
-                            <ItemsControl ItemsSource="{Binding Stations}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <Canvas Width="1200" Height="720" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemContainerTheme>
-                                    <ControlTheme x:DataType="vm:StationViewModel" TargetType="ContentPresenter">
-                                        <Setter Property="Canvas.Left" Value="{Binding CanvasX}" />
-                                        <Setter Property="Canvas.Top" Value="{Binding CanvasY}" />
-                                    </ControlTheme>
-                                </ItemsControl.ItemContainerTheme>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <controls:StationCard Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Border IsVisible="{Binding HasNoStations}" Width="320" Height="150" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#FFFFFFDD" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="10" Padding="20">
-                                <StackPanel Spacing="8" HorizontalAlignment="Center">
-                                    <TextBlock Text="No stations configured" FontWeight="Bold" FontSize="17" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="Edit the treatment centre to add and place the first station." Classes="muted" TextWrapping="Wrap" TextAlignment="Center" />
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-                    </Viewbox>
-                </Grid>
-            </Border>
+                            </Grid>
+                        </Border>
+                        <Viewbox Grid.Row="1" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Grid Width="1200" Height="720">
+                                <controls:DotGridControl Spacing="{Binding GridPixelSize}" />
+                                <ItemsControl ItemsSource="{Binding Stations}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <Canvas Width="1200" Height="720" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerTheme>
+                                        <ControlTheme x:DataType="vm:StationViewModel" TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding CanvasX}" />
+                                            <Setter Property="Canvas.Top" Value="{Binding CanvasY}" />
+                                        </ControlTheme>
+                                    </ItemsControl.ItemContainerTheme>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <controls:StationCard Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Border IsVisible="{Binding HasNoStations}" Width="320" Height="150" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#FFFFFFDD" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="10" Padding="20">
+                                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                                        <TextBlock Text="No stations configured" FontWeight="Bold" FontSize="17" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Edit the treatment centre to add and place the first station." Classes="muted" TextWrapping="Wrap" TextAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Viewbox>
+                    </Grid>
+                </Border>
+            </Grid>
             <Border x:Name="DockedMobileTeamRail" Grid.Column="4" Classes="card" Padding="0" ClipToBounds="True">
                 <Grid RowDefinitions="Auto,*">
                     <Border Background="#EEF5EF" Padding="16,14" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">

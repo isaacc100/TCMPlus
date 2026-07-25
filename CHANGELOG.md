@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1-DEV
+
+- Locked the bordered station map to its native 5:3 aspect ratio at every manager-window size.
+- Added direct access to mobile-team management while editing the treatment centre.
+
 ## 0.9.0-DEV
 
 - Added per-shift mobile teams with callsigns, notes, optional deployment locations, independently scrolling Map and Tables sections, and Setup management.

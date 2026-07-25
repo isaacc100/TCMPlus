@@ -11,6 +11,7 @@ namespace TCMPlus.App.Views;
 public partial class MainWindow : Window
 {
     private static readonly DataFormat<string> StationOrderFormat = DataFormat.CreateStringApplicationFormat("TCMPlus.StationOrder");
+    private const double StationMapAspectRatio = 5d / 3d;
     private MainViewModel? _viewModel;
     private WindowState _windowStateBeforeFullScreen = WindowState.Normal;
     private ExternalDisplayWindow? _externalDisplay;
@@ -21,7 +22,12 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         SizeChanged += (_, _) => UpdateMobileTeamLayout();
-        Opened += (_, _) => UpdateMobileTeamLayout();
+        StationMapHost.SizeChanged += (_, _) => UpdateStationMapAspectRatio();
+        Opened += (_, _) =>
+        {
+            UpdateMobileTeamLayout();
+            UpdateStationMapAspectRatio();
+        };
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -462,6 +468,28 @@ public partial class MainWindow : Window
         MobileTeamDrawerButton.IsVisible = !wide;
         MobileTeamDrawer.IsVisible = !wide && _isMobileTeamDrawerOpen && _viewModel?.IsMapPage == true;
         if (wide) _isMobileTeamDrawerOpen = false;
+        Dispatcher.UIThread.Post(UpdateStationMapAspectRatio);
+    }
+
+    private void UpdateStationMapAspectRatio()
+    {
+        var availableWidth = StationMapHost.Bounds.Width;
+        var availableHeight = StationMapHost.Bounds.Height;
+        if (availableWidth <= 0 || availableHeight <= 0)
+        {
+            return;
+        }
+
+        if (availableWidth / availableHeight > StationMapAspectRatio)
+        {
+            StationMapCard.Height = availableHeight;
+            StationMapCard.Width = availableHeight * StationMapAspectRatio;
+        }
+        else
+        {
+            StationMapCard.Width = availableWidth;
+            StationMapCard.Height = availableWidth / StationMapAspectRatio;
+        }
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
