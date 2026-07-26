@@ -32,5 +32,6 @@
   <ItemGroup>
     <ProjectReference Include="..\TCMPlus.Domain\TCMPlus.Domain.csproj" />
     <ProjectReference Include="..\TCMPlus.Infrastructure\TCMPlus.Infrastructure.csproj" />
+    <ProjectReference Include="..\TCMPlus.Protocol\TCMPlus.Protocol.csproj" />
   </ItemGroup>
 </Project>

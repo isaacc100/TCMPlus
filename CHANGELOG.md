@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0-DEV
+
+- Added authoritative-host and desktop-terminal modes for secure multi-app operation over the LAN while keeping SQLite host-only.
+- Added versioned HTTPS terminal contracts, certificate-fingerprint verification, shift-scoped hashed terminal credentials, short-lived access tokens, revocation, rate limiting, and protocol negotiation.
+- Added serialized and idempotent remote operational commands with host priority, opaque patient references, outcome auditing, and explicit stale-state rejection.
+- Added an encrypted offline command queue with ordered replay, reconciliation, and operator-visible rejection reasons.
+- Kept terminal enrollment, shift and map administration, patient-record editing, certificate controls, and audit review on the authoritative host.
+- Preserved the separate PIN-protected read-only browser display.
+
 ## 0.9.1-DEV
 
 - Locked the bordered station map to its native 5:3 aspect ratio at every manager-window size.

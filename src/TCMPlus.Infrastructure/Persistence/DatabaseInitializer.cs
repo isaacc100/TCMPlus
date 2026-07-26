@@ -68,6 +68,39 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
 
             CREATE INDEX IF NOT EXISTS ix_patient_events_occurred_at
                 ON patient_events(occurred_at_utc);
+
+            CREATE TABLE IF NOT EXISTS terminal_registrations (
+                id TEXT PRIMARY KEY NOT NULL,
+                terminal_name TEXT NOT NULL COLLATE NOCASE,
+                password_salt TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at_utc TEXT NOT NULL,
+                expires_at_utc TEXT NOT NULL,
+                revoked_at_utc TEXT NULL,
+                protocol_version INTEGER NOT NULL
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_terminal_registrations_active_name
+                ON terminal_registrations(terminal_name COLLATE NOCASE)
+                WHERE revoked_at_utc IS NULL;
+
+            CREATE TABLE IF NOT EXISTS terminal_command_audit (
+                sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id TEXT NOT NULL UNIQUE,
+                terminal_id TEXT NOT NULL,
+                terminal_name TEXT NOT NULL,
+                received_at_utc TEXT NOT NULL,
+                processed_at_utc TEXT NULL,
+                operation TEXT NOT NULL,
+                target TEXT NULL,
+                status TEXT NOT NULL,
+                rejection_reason TEXT NULL,
+                response_json TEXT NULL,
+                FOREIGN KEY(terminal_id) REFERENCES terminal_registrations(id) ON DELETE RESTRICT
+            );
+
+            CREATE INDEX IF NOT EXISTS ix_terminal_command_audit_terminal
+                ON terminal_command_audit(terminal_id, sequence);
             """;
 
         await command.ExecuteNonQueryAsync(cancellationToken);

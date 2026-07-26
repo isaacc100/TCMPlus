@@ -3,15 +3,17 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
 using TCMPlus.Domain.Persistence;
 using TCMPlus.Domain.Services;
+using TCMPlus.Domain.Models;
+using TCMPlus.Infrastructure.Networking;
 using TCMPlus.Infrastructure.Persistence;
 using TCMPlus.Infrastructure.Services;
 using TCMPlus.Infrastructure.Sessions;
 using TCMPlus.App.ViewModels;
 using TCMPlus.App.Views;
 using TCMPlus.App.LanDisplay;
+using TCMPlus.App.TerminalNetworking;
 
 namespace TCMPlus.App;
 
@@ -21,6 +23,8 @@ public partial class App : Application
     private static readonly EncryptedSessionStore SessionStore = new();
     private static IClassicDesktopStyleApplicationLifetime? _desktop;
     private static ActiveSession? _activeSession;
+    private static Mutex? _hostMutex;
+    private static bool _hostMutexOwned;
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -31,28 +35,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _desktop = desktop;
-            var otherProcesses = FindOtherInstances();
-            if (otherProcesses.Count == 0)
-            {
-                CreateShiftSetup(desktop, false);
-            }
-            else
-            {
-                var conflict = new ProcessConflictWindow(otherProcesses.Count);
-                conflict.Resolved += async (_, terminateOthers) =>
-                {
-                    if (terminateOthers)
-                    {
-                        var failed = await TerminateAsync(otherProcesses);
-                        if (failed.Count > 0) { conflict.ShowError($"Could not stop {failed.Count} existing TCM+ instance(s). Close them manually, then try again."); return; }
-                    }
-                    else { desktop.Shutdown(); return; }
-
-                    conflict.Close();
-                    CreateShiftSetup(desktop, true);
-                };
-                desktop.MainWindow = conflict;
-            }
+            CreateShiftSetup(desktop, false);
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -63,34 +46,19 @@ public partial class App : Application
         var shiftSetup = new ShiftSetupWindow();
         shiftSetup.ShiftStarted += async (_, draft) => await OpenShiftAsync(desktop, shiftSetup, draft);
         shiftSetup.LoadExistingRequested += (_, _) => ShowRecentSessions(shiftSetup);
+        shiftSetup.TerminalConnectionRequested += (_, _) => ShowTerminalConnection(shiftSetup);
         desktop.MainWindow = shiftSetup;
         if (show) shiftSetup.Show();
     }
 
-    private static List<Process> FindOtherInstances()
-    {
-        using var current = Process.GetCurrentProcess();
-        return Process.GetProcessesByName(current.ProcessName).Where(process => process.Id != current.Id).ToList();
-    }
-
-    private static async Task<List<Process>> TerminateAsync(IEnumerable<Process> processes)
-    {
-        var failed = new List<Process>();
-        foreach (var process in processes)
-        {
-            try
-            {
-                if (!process.HasExited) process.Kill();
-                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
-            }
-            catch { failed.Add(process); }
-            finally { process.Dispose(); }
-        }
-        return failed;
-    }
-
     private static async Task OpenShiftAsync(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
     {
+        if (!TryAcquireHost())
+        {
+            shiftSetup.ShowError("Another authoritative TCM+ host is already running. Connect this app as a terminal instead.");
+            return;
+        }
+
         try
         {
             var session = await SessionStore.CreateAsync(draft.ShiftName, draft.SessionPassword);
@@ -103,6 +71,7 @@ public partial class App : Application
         }
         catch (Exception exception)
         {
+            ReleaseHostIfInactive();
             shiftSetup.ShowError($"Unable to start this shift: {exception.Message}");
         }
     }
@@ -118,6 +87,11 @@ public partial class App : Application
                 return;
             }
 
+            if (_activeSession is null && !TryAcquireHost())
+            {
+                throw new InvalidOperationException("Another authoritative TCM+ host is already running. Connect this app as a terminal instead.");
+            }
+
             var session = await SessionStore.OpenAsync(request.Entry, request.Password);
             var services = await ConfigureServicesAsync(session, null);
             var settings = services.GetRequiredService<ITcSettingsRepository>();
@@ -126,7 +100,7 @@ public partial class App : Application
 
             if (_activeSession is not null)
             {
-                await CloseActiveSessionAsync(_activeSession);
+                await CloseActiveSessionAsync(_activeSession, releaseHostMutex: false);
             }
 
             ShowSessionWindow(_desktop, session, request.Password, services);
@@ -134,14 +108,67 @@ public partial class App : Application
         }
         catch (Exception exception)
         {
+            ReleaseHostIfInactive();
             await new MessageWindow("Unable to load shift", exception.Message).ShowDialog(owner);
+        }
+    }
+
+    private static void ShowTerminalConnection(Avalonia.Controls.Window owner)
+    {
+        var window = new TerminalConnectWindow();
+        window.ConnectionRequested += async (_, draft) => await ConnectTerminalAsync(owner, window, draft);
+        _ = window.ShowDialog(owner);
+    }
+
+    private static async Task ConnectTerminalAsync(
+        Avalonia.Controls.Window owner,
+        TerminalConnectWindow connectionWindow,
+        TerminalConnectionDraft draft)
+    {
+        ITerminalApiClient? apiClient = null;
+        EncryptedTerminalCommandQueue? queue = null;
+        RemoteTreatmentCentreService? remoteService = null;
+        try
+        {
+            apiClient = new TerminalApiClient(draft.Host, draft.TerminalName, draft.Password, draft.CertificateFingerprint);
+            queue = new EncryptedTerminalCommandQueue(draft.Host, draft.TerminalName, draft.Password);
+            remoteService = new RemoteTreatmentCentreService(apiClient, queue);
+            var login = await remoteService.ConnectAsync();
+            var session = new SessionDescriptor(
+                login.TerminalId,
+                DateTimeOffset.UtcNow,
+                login.ShiftName,
+                string.Empty,
+                string.Empty);
+            var services = ConfigureTerminalServices(session, draft, remoteService);
+            if (_desktop is null)
+            {
+                throw new InvalidOperationException("The desktop application is not available.");
+            }
+
+            ShowSessionWindow(_desktop, session, string.Empty, services);
+            connectionWindow.Close();
+            owner.Close();
+            apiClient = null;
+            queue = null;
+            remoteService = null;
+        }
+        catch (Exception exception)
+        {
+            remoteService?.Dispose();
+            if (remoteService is null)
+            {
+                queue?.Dispose();
+                apiClient?.Dispose();
+            }
+            connectionWindow.ShowError($"Unable to connect this terminal: {exception.Message}");
         }
     }
 
     public static async Task SealActiveSessionAsync()
     {
         var activeSession = _activeSession;
-        if (activeSession is not null)
+        if (activeSession is not null && !activeSession.Runtime.IsTerminal)
         {
             await StopAutosaveAsync(activeSession);
             try
@@ -161,7 +188,7 @@ public partial class App : Application
     public static async Task UnsealActiveSessionAsync()
     {
         var activeSession = _activeSession;
-        if (activeSession is null) return;
+        if (activeSession is null || activeSession.Runtime.IsTerminal) return;
         var entry = (await SessionStore.GetRecentAsync()).Single(item => item.Id == activeSession.Session.Id);
         await SessionStore.OpenAsync(entry, activeSession.Password);
         activeSession.IsSealed = false;
@@ -171,10 +198,14 @@ public partial class App : Application
     private static void ShowSessionWindow(IClassicDesktopStyleApplicationLifetime desktop, TCMPlus.Domain.Models.SessionDescriptor session, string password, ServiceProvider services)
     {
         var viewModel = services.GetRequiredService<MainViewModel>();
+        var runtime = services.GetRequiredService<TerminalRuntimeContext>();
         var window = new MainWindow { DataContext = viewModel };
-        var activeSession = new ActiveSession(session, password, window, viewModel);
+        var activeSession = new ActiveSession(session, password, window, viewModel, runtime, services);
         _activeSession = activeSession;
-        StartAutosave(activeSession);
+        if (!runtime.IsTerminal)
+        {
+            StartAutosave(activeSession);
+        }
         window.Opened += async (_, _) => await viewModel.InitializeAsync();
         window.Closing += async (_, args) =>
         {
@@ -199,7 +230,7 @@ public partial class App : Application
 
     private static void StartAutosave(ActiveSession activeSession)
     {
-        if (activeSession.IsSealed || activeSession.AutosaveTask is not null)
+        if (activeSession.Runtime.IsTerminal || activeSession.IsSealed || activeSession.AutosaveTask is not null)
         {
             return;
         }
@@ -265,18 +296,24 @@ public partial class App : Application
         cancellation.Dispose();
     }
 
-    private static async Task CloseActiveSessionAsync(ActiveSession activeSession)
+    private static async Task CloseActiveSessionAsync(ActiveSession activeSession, bool releaseHostMutex = true)
     {
         await StopAutosaveAsync(activeSession);
         try
         {
             await activeSession.ViewModel.StopLanDisplayForSessionAsync();
-            if (!activeSession.IsSealed)
+            if (activeSession.Runtime.HostServer is not null)
+            {
+                await activeSession.Runtime.HostServer.StopAsync();
+            }
+
+            if (!activeSession.Runtime.IsTerminal && !activeSession.IsSealed)
             {
                 await SessionStore.SealAsync(activeSession.Session, activeSession.Password);
                 activeSession.IsSealed = true;
             }
 
+            activeSession.ViewModel.StopUiTimersForSession();
             activeSession.CloseAllowed = true;
             if (ReferenceEquals(_activeSession, activeSession))
             {
@@ -284,6 +321,11 @@ public partial class App : Application
             }
 
             activeSession.Window.Close();
+            activeSession.Services.Dispose();
+            if (!activeSession.Runtime.IsTerminal && releaseHostMutex)
+            {
+                ReleaseHostMutex();
+            }
         }
         catch
         {
@@ -306,7 +348,16 @@ public partial class App : Application
         services.AddSingleton<ITcSettingsRepository, SqliteTcSettingsRepository>();
         services.AddSingleton<IAppSettingsRepository, JsonAppSettingsRepository>();
         services.AddSingleton<IShiftPinService, ShiftPinService>();
-        services.AddSingleton<ITreatmentCentreService, TreatmentCentreService>();
+        services.AddSingleton<TreatmentCentreService>();
+        services.AddSingleton<SerializedTreatmentCentreService>(provider =>
+            new SerializedTreatmentCentreService(provider.GetRequiredService<TreatmentCentreService>()));
+        services.AddSingleton<ITreatmentCentreService>(provider =>
+            provider.GetRequiredService<SerializedTreatmentCentreService>());
+        services.AddSingleton<TerminalSecurityStore>();
+        services.AddSingleton<TerminalCommandExecutor>();
+        services.AddSingleton<TerminalHostServer>();
+        services.AddSingleton<TerminalRuntimeContext>(provider =>
+            TerminalRuntimeContext.Host(provider.GetRequiredService<TerminalHostServer>()));
         services.AddSingleton<LanDisplaySnapshotProvider>();
         services.AddSingleton<LanDisplayServer>();
         services.AddSingleton<MainViewModel>();
@@ -320,16 +371,81 @@ public partial class App : Application
         return provider;
     }
 
+    private static ServiceProvider ConfigureTerminalServices(
+        SessionDescriptor session,
+        TerminalConnectionDraft draft,
+        RemoteTreatmentCentreService remoteService)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(session);
+        services.AddSingleton(remoteService);
+        services.AddSingleton<ITreatmentCentreService>(remoteService);
+        services.AddSingleton<ITcSettingsRepository>(new RemoteTcSettingsRepository(remoteService));
+        services.AddSingleton<IAppSettingsRepository>(new RemoteAppSettingsRepository(remoteService));
+        services.AddSingleton<IShiftPinService, ShiftPinService>();
+        services.AddSingleton(TerminalRuntimeContext.Terminal(
+            remoteService,
+            draft.TerminalName,
+            draft.Host.GetLeftPart(UriPartial.Authority)));
+        services.AddSingleton<LanDisplaySnapshotProvider>();
+        services.AddSingleton<LanDisplayServer>();
+        services.AddSingleton<MainViewModel>();
+        return services.BuildServiceProvider();
+    }
+
+    private static bool TryAcquireHost()
+    {
+        if (_hostMutexOwned)
+        {
+            return true;
+        }
+
+        _hostMutex ??= new Mutex(false, "Local\\TCMPlus.AuthoritativeHost");
+        try
+        {
+            _hostMutexOwned = _hostMutex.WaitOne(0);
+        }
+        catch (AbandonedMutexException)
+        {
+            _hostMutexOwned = true;
+        }
+
+        return _hostMutexOwned;
+    }
+
+    private static void ReleaseHostIfInactive()
+    {
+        if (_activeSession is null)
+        {
+            ReleaseHostMutex();
+        }
+    }
+
+    private static void ReleaseHostMutex()
+    {
+        if (!_hostMutexOwned || _hostMutex is null)
+        {
+            return;
+        }
+
+        _hostMutex.ReleaseMutex();
+        _hostMutexOwned = false;
+    }
+
     private sealed class ActiveSession(
         TCMPlus.Domain.Models.SessionDescriptor session,
         string password,
         MainWindow window,
-        MainViewModel viewModel)
+        MainViewModel viewModel,
+        TerminalRuntimeContext runtime,
+        ServiceProvider services)
     {
         public TCMPlus.Domain.Models.SessionDescriptor Session { get; } = session;
         public string Password { get; } = password;
         public MainWindow Window { get; } = window;
         public MainViewModel ViewModel { get; } = viewModel;
+        public TerminalRuntimeContext Runtime { get; } = runtime;
+        public ServiceProvider Services { get; } = services;
         public CancellationTokenSource? AutosaveCancellation { get; set; }
         public Task? AutosaveTask { get; set; }
         public bool AutosaveErrorReported { get; set; }

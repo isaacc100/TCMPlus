@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TCMPlus.App.Views.TerminalConnectWindow"
+        Width="620"
+        Height="610"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Connect terminal"
+        Background="#F5F8F4">
+  <Window.Styles>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#3B6064"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="16,10"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+  </Window.Styles>
+  <Border Margin="24" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="14" Padding="28">
+    <StackPanel Spacing="12">
+      <TextBlock Text="Connect this TCM+ app" FontSize="24" FontWeight="Bold" Foreground="#364958"/>
+      <TextBlock Text="Enter the HTTPS address, terminal credentials, and certificate fingerprint exactly as shown on the authoritative host."
+                 Foreground="#60737A" TextWrapping="Wrap"/>
+      <TextBlock Text="Host address" FontWeight="SemiBold" Foreground="#364958"/>
+      <TextBox Name="HostInput" PlaceholderText="https://192.168.1.20:12345"/>
+      <TextBlock Text="Terminal name" FontWeight="SemiBold" Foreground="#364958"/>
+      <TextBox Name="TerminalNameInput" PlaceholderText="e.g. Reception 1"/>
+      <TextBlock Text="Temporary terminal password" FontWeight="SemiBold" Foreground="#364958"/>
+      <TextBox Name="PasswordInput" PasswordChar="*" PlaceholderText="XXXX-XXXX-XXXX"/>
+      <TextBlock Text="Host certificate SHA-256 fingerprint" FontWeight="SemiBold" Foreground="#364958"/>
+      <TextBox Name="FingerprintInput" AcceptsReturn="True" TextWrapping="Wrap" Height="74"
+               PlaceholderText="Paste the full fingerprint shown on the host"/>
+      <Border Background="#FFF7D9" BorderBrush="#D39B28" BorderThickness="1" CornerRadius="6" Padding="10">
+        <TextBlock Text="Verify the fingerprint using the host screen or another trusted channel. A matching fingerprint prevents an impersonating machine from reading terminal credentials."
+                   Foreground="#765617" TextWrapping="Wrap"/>
+      </Border>
+      <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+        <Button Content="Cancel" Click="OnCancel"/>
+        <Button Name="ConnectButton" Classes="primary" Content="Connect" Click="OnConnect"/>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

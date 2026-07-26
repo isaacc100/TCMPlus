@@ -3,9 +3,12 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TCMPlus.App.LanDisplay;
+using TCMPlus.App.TerminalNetworking;
 using TCMPlus.Domain.Models;
 using TCMPlus.Domain.Persistence;
 using TCMPlus.Domain.Services;
+using TCMPlus.Infrastructure.Networking;
+using TCMPlus.Protocol;
 
 namespace TCMPlus.App.ViewModels;
 
@@ -16,18 +19,29 @@ public partial class MainViewModel : ViewModelBase
     private readonly IShiftPinService _shiftPinService;
     private readonly IAppSettingsRepository _appSettingsRepository;
     private readonly LanDisplayServer _lanDisplayServer;
+    private readonly TerminalRuntimeContext _runtime;
     private AppSettings? _appSettings;
     private TcSessionSettings? _sessionSettings;
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _bannerTimer;
+    private readonly DispatcherTimer _terminalRefreshTimer;
+    private bool _terminalRefreshInProgress;
 
-    public MainViewModel(ITreatmentCentreService treatmentCentreService, ITcSettingsRepository settingsRepository, IShiftPinService shiftPinService, IAppSettingsRepository appSettingsRepository, LanDisplayServer lanDisplayServer, SessionDescriptor session)
+    public MainViewModel(
+        ITreatmentCentreService treatmentCentreService,
+        ITcSettingsRepository settingsRepository,
+        IShiftPinService shiftPinService,
+        IAppSettingsRepository appSettingsRepository,
+        LanDisplayServer lanDisplayServer,
+        SessionDescriptor session,
+        TerminalRuntimeContext runtime)
     {
         _treatmentCentreService = treatmentCentreService;
         _settingsRepository = settingsRepository;
         _shiftPinService = shiftPinService;
         _appSettingsRepository = appSettingsRepository;
         _lanDisplayServer = lanDisplayServer;
+        _runtime = runtime;
         Session = session;
         _shiftName = session.ShiftName;
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -35,6 +49,12 @@ public partial class MainViewModel : ViewModelBase
         _clockTimer.Start();
         _bannerTimer = new DispatcherTimer();
         _bannerTimer.Tick += (_, _) => { IsBannerVisible = false; _bannerTimer.Stop(); };
+        _terminalRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _terminalRefreshTimer.Tick += async (_, _) => await RefreshTerminalAsync();
+        if (_runtime.RemoteService is not null)
+        {
+            _runtime.RemoteService.QueueChanged += (_, _) => Dispatcher.UIThread.Post(() => _ = UpdateTerminalQueueStateAsync());
+        }
         RefreshClock();
     }
 
@@ -71,6 +91,9 @@ public partial class MainViewModel : ViewModelBase
     public IReadOnlyList<string> DischargeOutcomes { get; } = DischargeOutcomeOptions.Defaults;
     public ObservableCollection<PatientViewModel> Patients { get; } = [];
     public ObservableCollection<LanDisplayAddress> LanDisplayAddresses { get; } = [];
+    public ObservableCollection<string> TerminalHostAddresses { get; } = [];
+    public ObservableCollection<TerminalRegistration> RegisteredTerminals { get; } = [];
+    public ObservableCollection<TerminalAuditEntry> TerminalAuditEntries { get; } = [];
 
     [ObservableProperty] private TcArea _selectedArea = TcArea.Manager;
     [ObservableProperty] private TcPage _selectedPage = TcPage.Map;
@@ -109,6 +132,15 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private bool _isLanDisplayRunning;
     [ObservableProperty] private string _lanDisplayPin = "";
     [ObservableProperty] private string _lanDisplayStatus = "The LAN web display is off.";
+    [ObservableProperty] private bool _isTerminalHostRunning;
+    [ObservableProperty] private string _terminalHostStatus = "App-to-app terminal hosting is off.";
+    [ObservableProperty] private string _terminalCertificateFingerprint = "";
+    [ObservableProperty] private string _newTerminalName = "";
+    [ObservableProperty] private string _newTerminalPassword = "";
+    [ObservableProperty] private int _pendingTerminalCommands;
+    [ObservableProperty] private int _rejectedTerminalCommands;
+    [ObservableProperty] private string _terminalConnectionStatus = "";
+    [ObservableProperty] private string _terminalQueueReviewText = "";
 
     public bool HasNoStations => Stations.Count == 0;
     public bool HasNoMobileTeams => MobileTeams.Count == 0;
@@ -133,6 +165,15 @@ public partial class MainViewModel : ViewModelBase
     public bool HasNoDischargeDurations => !HasDischargeDurations;
     public bool HasLanDisplayAddresses => LanDisplayAddresses.Count > 0;
     public bool IsLanDisplayStopped => !IsLanDisplayRunning;
+    public bool IsTerminalHostStopped => !IsTerminalHostRunning;
+    public bool IsTerminal => _runtime.IsTerminal;
+    public bool CanAdministerHost => !_runtime.IsTerminal;
+    public bool CanLock => !_runtime.IsTerminal;
+    public bool HasRejectedTerminalCommands => RejectedTerminalCommands > 0;
+    public bool HasPendingTerminalCommands => PendingTerminalCommands > 0;
+    public string InstanceModeText => IsTerminal
+        ? $"Terminal: {_runtime.TerminalName} - {_runtime.HostAddress}"
+        : "Authoritative host";
     public int DeployedMobileTeams => MobileTeams.Count(team => team.IsDeployed);
     public string ApplicationVersion => typeof(MainViewModel).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
         .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().SingleOrDefault()?.InformationalVersion ?? "";
@@ -160,6 +201,16 @@ public partial class MainViewModel : ViewModelBase
             await RefreshSummaryAsync();
             await RefreshDashboardAsync();
             if (Stations.Count == 0) Notify("Edit the treatment centre to add the first station.");
+            if (_runtime.IsTerminal)
+            {
+                await UpdateTerminalQueueStateAsync();
+                TerminalConnectionStatus = $"Connected securely to {_runtime.HostAddress}.";
+                _terminalRefreshTimer.Start();
+            }
+            else
+            {
+                await RefreshRegisteredTerminalsAsync();
+            }
         }
         catch (Exception exception) { Notify($"Unable to load this session: {exception.Message}", true); }
     }
@@ -171,14 +222,15 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task ShowPatientsAsync()
     {
+        if (!CanAdministerHost) return;
         SelectedArea = TcArea.Manager;
         SelectedPage = TcPage.Patients;
         try { await RefreshPatientsAsync(); }
         catch (Exception exception) { Notify($"Unable to load patients: {exception.Message}", true); }
     }
     [RelayCommand] private void ShowSetup() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Setup; }
-    [RelayCommand] private void ToggleEditMode() => IsEditMode = !IsEditMode;
-    [RelayCommand] private void TogglePatientEditMode() => IsPatientEditMode = !IsPatientEditMode;
+    [RelayCommand] private void ToggleEditMode() { if (CanAdministerHost) IsEditMode = !IsEditMode; }
+    [RelayCommand] private void TogglePatientEditMode() { if (CanAdministerHost) IsPatientEditMode = !IsPatientEditMode; }
     [RelayCommand]
     private void RequestBulkComplaint()
     {
@@ -191,9 +243,9 @@ public partial class MainViewModel : ViewModelBase
 
         BulkComplaintRequested?.Invoke(selectedCount);
     }
-    [RelayCommand] private void RequestAddStation() => AddStationRequested?.Invoke(this, EventArgs.Empty);
+    [RelayCommand] private void RequestAddStation() { if (CanAdministerHost) AddStationRequested?.Invoke(this, EventArgs.Empty); }
     [RelayCommand] private void RequestAddMobileTeam() => AddMobileTeamRequested?.Invoke(this, EventArgs.Empty);
-    [RelayCommand] private void ShowSettings() { ClearPatientEdits(); SelectedArea = TcArea.Settings; }
+    [RelayCommand] private void ShowSettings() { if (CanAdministerHost) { ClearPatientEdits(); SelectedArea = TcArea.Settings; } }
     [RelayCommand] private void ShowSettingsGeneral() => SettingsPage = SettingsPage.General;
     [RelayCommand] private void ShowSettingsOperations() => SettingsPage = SettingsPage.Operations;
     [RelayCommand] private void ShowSettingsDisplays() => SettingsPage = SettingsPage.Displays;
@@ -234,6 +286,92 @@ public partial class MainViewModel : ViewModelBase
         }
     }
     [RelayCommand] private async Task StopLanDisplayAsync() => await StopLanDisplayForSessionAsync();
+
+    [RelayCommand]
+    private async Task StartTerminalHostAsync()
+    {
+        if (_runtime.HostServer is null) return;
+        try
+        {
+            var access = await _runtime.HostServer.StartAsync();
+            TerminalHostAddresses.Clear();
+            foreach (var address in access.Addresses) TerminalHostAddresses.Add(address);
+            TerminalCertificateFingerprint = access.CertificateFingerprint;
+            IsTerminalHostRunning = true;
+            TerminalHostStatus = $"Secure app-to-app hosting is running with protocol v{access.ProtocolVersion}.";
+            OnPropertyChanged(nameof(IsTerminalHostStopped));
+            await RefreshRegisteredTerminalsAsync();
+            Notify("Secure terminal hosting started.");
+        }
+        catch (Exception exception)
+        {
+            TerminalHostStatus = $"Could not start terminal hosting: {exception.Message}";
+            Notify(TerminalHostStatus, true);
+        }
+    }
+
+    [RelayCommand]
+    private async Task StopTerminalHostAsync()
+    {
+        if (_runtime.HostServer is null) return;
+        await _runtime.HostServer.StopAsync();
+        TerminalHostAddresses.Clear();
+        TerminalCertificateFingerprint = "";
+        NewTerminalPassword = "";
+        IsTerminalHostRunning = false;
+        TerminalHostStatus = "App-to-app terminal hosting is off. All temporary terminal sessions were revoked.";
+        OnPropertyChanged(nameof(IsTerminalHostStopped));
+        await RefreshRegisteredTerminalsAsync();
+    }
+
+    [RelayCommand]
+    private async Task CreateTerminalCredentialAsync()
+    {
+        if (_runtime.HostServer is null || !IsTerminalHostRunning)
+        {
+            Notify("Start terminal hosting before creating a terminal credential.", true);
+            return;
+        }
+
+        try
+        {
+            var credential = await _runtime.HostServer.CreateTerminalAsync(NewTerminalName);
+            NewTerminalName = "";
+            NewTerminalPassword = credential.Password;
+            await RefreshRegisteredTerminalsAsync();
+            Notify($"Temporary access created for {credential.Registration.Name}. The password is shown once.");
+        }
+        catch (Exception exception)
+        {
+            Notify(exception.Message, true);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RevokeTerminalAsync(TerminalRegistration? terminal)
+    {
+        if (_runtime.HostServer is null || terminal is null) return;
+        await _runtime.HostServer.RevokeTerminalAsync(terminal.Id);
+        await RefreshRegisteredTerminalsAsync();
+        Notify($"{terminal.Name} revoked.");
+    }
+
+    [RelayCommand]
+    private async Task RefreshTerminalAuditAsync()
+    {
+        if (_runtime.HostServer is null) return;
+        TerminalAuditEntries.Clear();
+        foreach (var entry in await _runtime.HostServer.GetAuditAsync()) TerminalAuditEntries.Add(entry);
+    }
+
+    [RelayCommand]
+    private async Task AcknowledgeRejectedTerminalCommandsAsync()
+    {
+        if (_runtime.RemoteService is null) return;
+        await _runtime.RemoteService.AcknowledgeRejectedCommandsAsync();
+        await UpdateTerminalQueueStateAsync();
+    }
+
     [RelayCommand] private void RequestSessionSwitch() => SessionSwitchRequested?.Invoke(this, EventArgs.Empty);
     [RelayCommand] private async Task SaveQuickEntryAsync() => await SaveSessionOptionsAsync();
     [RelayCommand] private void SetCompactDensity() => SetGridDensity(GridDensity.Compact);
@@ -242,7 +380,13 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand] private void BeginPinChange() => IsChangingPin = true;
 
     [RelayCommand]
-    private void Lock() { ClearUnlockPin(); LockMessage = "Enter the shift PIN to continue."; SessionLockRequested?.Invoke(this, EventArgs.Empty); }
+    private void Lock()
+    {
+        if (!CanLock) return;
+        ClearUnlockPin();
+        LockMessage = "Enter the shift PIN to continue.";
+        SessionLockRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     [RelayCommand]
     private async Task UnlockAsync()
@@ -399,6 +543,13 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasLanDisplayAddresses));
     }
 
+    public void StopUiTimersForSession()
+    {
+        _terminalRefreshTimer.Stop();
+        _clockTimer.Stop();
+        _bannerTimer.Stop();
+    }
+
     public async Task SubmitNewPatientAsync(StationViewModel station, NewPatientDraft draft)
     {
         try { station.CurrentPatient = await _treatmentCentreService.AddPatientAsync(station.Id, draft.PresentingComplaint); await RefreshOperationalDataAsync(); Notify($"{station.PatientCounterText} added to {station.Name}."); }
@@ -428,6 +579,9 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnSelectedAreaChanged(TcArea value) => RefreshAreaProperties();
     partial void OnIsLanDisplayRunningChanged(bool value) => OnPropertyChanged(nameof(IsLanDisplayStopped));
+    partial void OnIsTerminalHostRunningChanged(bool value) => OnPropertyChanged(nameof(IsTerminalHostStopped));
+    partial void OnPendingTerminalCommandsChanged(int value) => OnPropertyChanged(nameof(HasPendingTerminalCommands));
+    partial void OnRejectedTerminalCommandsChanged(int value) => OnPropertyChanged(nameof(HasRejectedTerminalCommands));
     partial void OnIsLockedChanged(bool value) => OnPropertyChanged(nameof(ActiveBlurRadius));
     partial void OnLockBlurRadiusChanged(double value)
     {
@@ -452,7 +606,10 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(PatientEditModeText));
     }
 
-    partial void OnQuickEntryChanged(bool value) => _ = SaveSessionOptionsAsync();
+    partial void OnQuickEntryChanged(bool value)
+    {
+        if (CanAdministerHost) _ = SaveSessionOptionsAsync();
+    }
     partial void OnGridDensityChanged(GridDensity value) { foreach (var station in Stations) station.GridSizePixels = GridPixelSize; OnPropertyChanged(nameof(GridPixelSize)); }
 
     private void RefreshAreaProperties()
@@ -489,7 +646,8 @@ public partial class MainViewModel : ViewModelBase
             RequestMobileTeamDischarge,
             RequestMobileTeamEdit,
             RequestMobileTeamDeletion,
-            RequestMobileTeamPatientDropAsync);
+            RequestMobileTeamPatientDropAsync,
+            CanAdministerHost);
         viewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(MobileTeamViewModel.IsDeployed))
@@ -750,15 +908,95 @@ public partial class MainViewModel : ViewModelBase
         if (IsPatientsPage) await RefreshPatientsAsync();
     }
 
+    private async Task RefreshTerminalAsync()
+    {
+        if (!_runtime.IsTerminal || _terminalRefreshInProgress)
+        {
+            return;
+        }
+
+        _terminalRefreshInProgress = true;
+        try
+        {
+            await RefreshAssignmentsAsync();
+            await RefreshOperationalDataAsync();
+            TerminalConnectionStatus = $"Connected securely to {_runtime.HostAddress}.";
+            await UpdateTerminalQueueStateAsync();
+        }
+        catch (Exception exception)
+        {
+            TerminalConnectionStatus = $"Connection unavailable: {exception.Message}";
+            await UpdateTerminalQueueStateAsync();
+        }
+        finally
+        {
+            _terminalRefreshInProgress = false;
+        }
+    }
+
+    private async Task RefreshRegisteredTerminalsAsync()
+    {
+        RegisteredTerminals.Clear();
+        if (_runtime.HostServer is null)
+        {
+            return;
+        }
+
+        foreach (var terminal in await _runtime.HostServer.GetTerminalsAsync())
+        {
+            RegisteredTerminals.Add(terminal);
+        }
+    }
+
+    private async Task UpdateTerminalQueueStateAsync()
+    {
+        if (_runtime.RemoteService is null)
+        {
+            PendingTerminalCommands = 0;
+            RejectedTerminalCommands = 0;
+            TerminalQueueReviewText = "";
+            return;
+        }
+
+        PendingTerminalCommands = _runtime.RemoteService.PendingCommandCount;
+        RejectedTerminalCommands = _runtime.RemoteService.RejectedCommandCount;
+        var rejected = (await _runtime.RemoteService.GetQueuedCommandsAsync())
+            .Where(command => command.State == QueuedTerminalCommandState.Rejected)
+            .Take(3)
+            .Select(command => $"{command.Command.Kind}: {command.RejectionReason}")
+            .ToList();
+        TerminalQueueReviewText = rejected.Count == 0
+            ? ""
+            : string.Join(Environment.NewLine, rejected);
+    }
+
     private async Task RefreshAssignmentsAsync()
     {
         var stationSnapshots = await _treatmentCentreService.GetSnapshotAsync();
-        foreach (var station in Stations)
+        var stationIds = stationSnapshots.Select(snapshot => snapshot.Station.Id).ToHashSet();
+        foreach (var removed in Stations.Where(station => !stationIds.Contains(station.Id)).ToList())
         {
-            station.CurrentPatient = stationSnapshots.FirstOrDefault(snapshot => snapshot.Station.Id == station.Id)?.CurrentPatient;
+            Stations.Remove(removed);
+        }
+        foreach (var snapshot in stationSnapshots)
+        {
+            var existing = Stations.FirstOrDefault(station => station.Id == snapshot.Station.Id);
+            if (existing is null)
+            {
+                AddViewModel(snapshot.Station, snapshot.CurrentPatient);
+            }
+            else
+            {
+                existing.Apply(snapshot.Station, snapshot.CurrentPatient);
+            }
         }
 
         var teamSnapshots = await _treatmentCentreService.GetMobileTeamsAsync();
+        var teamIds = teamSnapshots.Select(snapshot => snapshot.Team.Id).ToHashSet();
+        foreach (var removed in MobileTeams.Where(team => !teamIds.Contains(team.Id)).ToList())
+        {
+            MobileTeams.Remove(removed);
+        }
         foreach (var snapshot in teamSnapshots)
         {
             var existing = MobileTeams.FirstOrDefault(team => team.Id == snapshot.Team.Id);

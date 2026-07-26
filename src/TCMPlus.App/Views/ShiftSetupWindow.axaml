@@ -45,6 +45,7 @@
             <ComboBox Name="GridDensityInput" SelectedIndex="0"><ComboBoxItem Content="Compact (50 × 30)" /><ComboBoxItem Content="Standard (60 × 36)" /><ComboBoxItem Content="Dense (75 × 45)" /></ComboBox>
             <TextBlock Name="ValidationMessage" Foreground="#963D3D" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10" Margin="0,5,0,0">
+                <Button Content="Connect terminal" Click="OnConnectTerminal" />
                 <Button Classes="secondary" Content="Load existing shift" Click="OnLoadExistingShift" />
                 <Button Classes="primary" Content="Start shift" Click="OnStartShift" />
             </StackPanel>

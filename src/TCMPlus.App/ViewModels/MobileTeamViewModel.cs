@@ -25,7 +25,8 @@ public partial class MobileTeamViewModel : ViewModelBase
         Action<MobileTeamViewModel> requestDischarge,
         Action<MobileTeamViewModel> requestEdit,
         Action<MobileTeamViewModel> requestDelete,
-        Func<MobileTeamViewModel, Guid, Task> dropPatient)
+        Func<MobileTeamViewModel, Guid, Task> dropPatient,
+        bool allowDelete = true)
     {
         Id = team.Id;
         _callsign = team.Callsign;
@@ -41,9 +42,11 @@ public partial class MobileTeamViewModel : ViewModelBase
         _requestEdit = requestEdit;
         _requestDelete = requestDelete;
         _dropPatient = dropPatient;
+        AllowDelete = allowDelete;
     }
 
     public Guid Id { get; }
+    public bool AllowDelete { get; }
     [ObservableProperty] private string _callsign;
     [ObservableProperty] private string? _note;
     [ObservableProperty] private bool _isDeployed;
@@ -57,7 +60,7 @@ public partial class MobileTeamViewModel : ViewModelBase
     public bool CanAcceptPatientDrop => IsDeployed && !IsOccupied;
     public bool HasNote => !string.IsNullOrWhiteSpace(Note);
     public bool HasLocation => !string.IsNullOrWhiteSpace(DeploymentLocation);
-    public bool CanDelete => !IsDeployed && !IsOccupied;
+    public bool CanDelete => AllowDelete && !IsDeployed && !IsOccupied;
     public string StatusText => IsDeployed ? "Deployed" : "Available";
     public string NoteText => HasNote ? Note! : "No note";
     public string LocationText => HasLocation ? DeploymentLocation! : "Location not set";

@@ -15,6 +15,7 @@ public partial class ShiftSetupWindow : Window
 
     public event EventHandler<ShiftSetupDraft>? ShiftStarted;
     public event EventHandler? LoadExistingRequested;
+    public event EventHandler? TerminalConnectionRequested;
     public void ShowError(string message) => ValidationMessage.Text = message;
 
     private void OnStartShift(object? sender, RoutedEventArgs e)
@@ -39,6 +40,7 @@ public partial class ShiftSetupWindow : Window
     }
 
     private void OnLoadExistingShift(object? sender, RoutedEventArgs e) => LoadExistingRequested?.Invoke(this, EventArgs.Empty);
+    private void OnConnectTerminal(object? sender, RoutedEventArgs e) => TerminalConnectionRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnPinDigitChanged(object? sender, TextChangedEventArgs e)
     {

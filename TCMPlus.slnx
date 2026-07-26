@@ -3,6 +3,7 @@
     <Project Path="src/TCMPlus.App/TCMPlus.App.csproj" />
     <Project Path="src/TCMPlus.Domain/TCMPlus.Domain.csproj" />
     <Project Path="src/TCMPlus.Infrastructure/TCMPlus.Infrastructure.csproj" />
+    <Project Path="src/TCMPlus.Protocol/TCMPlus.Protocol.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TCMPlus.Tests/TCMPlus.Tests.csproj" />

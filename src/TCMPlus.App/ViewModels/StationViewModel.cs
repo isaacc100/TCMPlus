@@ -95,6 +95,17 @@ public partial class StationViewModel : ViewModelBase
 
     public Station ToDomain() => new(Id, Name, Type, GridX, GridY, GridWidth, GridHeight);
 
+    public void Apply(Station station, Patient? currentPatient)
+    {
+        Name = station.Name;
+        Type = station.Type;
+        GridX = station.GridX;
+        GridY = station.GridY;
+        GridWidth = station.GridWidth;
+        GridHeight = station.GridHeight;
+        CurrentPatient = currentPatient;
+    }
+
     public void RestoreGeometry(StationGeometry geometry)
     {
         GridX = geometry.GridX;

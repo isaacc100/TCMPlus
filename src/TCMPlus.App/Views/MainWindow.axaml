@@ -123,16 +123,17 @@
             <Grid ColumnDefinitions="Auto,*">
                 <TextBlock Text="TCM+" Foreground="White" FontSize="23" FontWeight="Bold" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12">
+                    <TextBlock Text="{Binding InstanceModeText}" Foreground="#D9E9E1" FontSize="11" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding CurrentTimeText}" Foreground="White" FontFamily="Consolas" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Button Classes="primary-nav" Classes.active="{Binding IsDashboard}" Content="Dashboard" Command="{Binding ShowDashboardCommand}" />
                     <Button Classes="primary-nav" Classes.active="{Binding IsManager}" Content="Manager" Command="{Binding ShowManagerCommand}" />
                     <Button Classes="icon" Click="OnFullScreenClicked" ToolTip.Tip="Toggle fullscreen">
                         <TextBlock Text="&#xE740;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
                     </Button>
-                    <Button Classes="icon" Command="{Binding LockCommand}" ToolTip.Tip="Lock application">
+                    <Button Classes="icon" Command="{Binding LockCommand}" ToolTip.Tip="Lock application" IsVisible="{Binding CanLock}">
                         <TextBlock Text="&#xE72E;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
                     </Button>
-                    <Button Classes="icon" Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Application settings">
+                    <Button Classes="icon" Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Application settings" IsVisible="{Binding CanAdministerHost}">
                         <TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" Foreground="White" FontSize="17" />
                     </Button>
                     <Button Classes="icon" Click="OnSafeExitClicked" ToolTip.Tip="Seal this shift and exit TCM+">
@@ -146,9 +147,21 @@
             <Grid ColumnDefinitions="*,Auto"><StackPanel Orientation="Horizontal" Spacing="4">
                     <Button Classes="sub-nav" Classes.active="{Binding IsMapPage}" Content="Map" Command="{Binding ShowMapCommand}" />
                     <Button Classes="sub-nav" Classes.active="{Binding IsTablesPage}" Content="Tables" Command="{Binding ShowTablesCommand}" />
-                    <Button Classes="sub-nav" Classes.active="{Binding IsPatientsPage}" Content="Patients" Command="{Binding ShowPatientsCommand}" />
+                    <Button Classes="sub-nav" Classes.active="{Binding IsPatientsPage}" Content="Patients" Command="{Binding ShowPatientsCommand}" IsVisible="{Binding CanAdministerHost}" />
                     <Button Classes="sub-nav" Classes.active="{Binding IsSetupPage}" Content="Setup" Command="{Binding ShowSetupCommand}" />
-                </StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><TextBlock Text="Quick entry" Classes="muted" VerticalAlignment="Center" /><ToggleSwitch IsChecked="{Binding QuickEntry, Mode=TwoWay}" /></StackPanel></Grid>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding CanAdministerHost}">
+                    <TextBlock Text="Quick entry" Classes="muted" VerticalAlignment="Center" />
+                    <ToggleSwitch IsChecked="{Binding QuickEntry, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" IsVisible="{Binding IsTerminal}">
+                    <TextBlock Text="{Binding TerminalConnectionStatus}" Classes="muted" MaxWidth="420" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding PendingTerminalCommands, StringFormat=Queued: {0}}" Foreground="#765617" IsVisible="{Binding HasPendingTerminalCommands}"/>
+                    <TextBlock Text="{Binding RejectedTerminalCommands, StringFormat=Rejected: {0}}" Foreground="#963D3D"
+                               IsVisible="{Binding HasRejectedTerminalCommands}" ToolTip.Tip="{Binding TerminalQueueReviewText}"/>
+                    <Button Content="Acknowledge" Command="{Binding AcknowledgeRejectedTerminalCommandsCommand}" IsVisible="{Binding HasRejectedTerminalCommands}"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <Grid x:Name="ManagerMapGrid" Grid.Row="2" Margin="28" IsVisible="{Binding IsMapPage}">
@@ -174,7 +187,7 @@
                         <TextBlock Text="{Binding PatientsSeenThisShift}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource DeepSeaBrush}" />
                         <TextBlock Text="Patients seen this shift" Classes="muted" TextWrapping="Wrap" />
                     </StackPanel>
-                    <Button Classes="secondary" Content="{Binding EditModeText}" Command="{Binding ToggleEditModeCommand}" Margin="0,10,0,0" />
+                    <Button Classes="secondary" Content="{Binding EditModeText}" Command="{Binding ToggleEditModeCommand}" Margin="0,10,0,0" IsVisible="{Binding CanAdministerHost}" />
                     <Button Classes="primary" Content="Add station" Command="{Binding RequestAddStationCommand}" IsVisible="{Binding IsEditMode}" />
                     <Button Classes="secondary" Content="Add / edit mobile teams" Command="{Binding ShowSetupCommand}" IsVisible="{Binding IsEditMode}" />
                 </StackPanel>
@@ -294,7 +307,7 @@
                         <TextBlock Text="Each row reflects the current station state. In edit mode, drag the grip to reorder stations." Classes="muted" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button Classes="secondary" Content="{Binding EditModeText}" Command="{Binding ToggleEditModeCommand}" />
+                        <Button Classes="secondary" Content="{Binding EditModeText}" Command="{Binding ToggleEditModeCommand}" IsVisible="{Binding CanAdministerHost}" />
                         <Button Classes="primary" Content="Add station" Command="{Binding RequestAddStationCommand}" IsVisible="{Binding IsEditMode}" />
                     </StackPanel>
                 </Grid>
@@ -478,7 +491,7 @@
         </Grid>
 
         <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSetupPage}" ColumnDefinitions="520,16,*">
-            <Border Classes="card" Padding="20" Width="520" HorizontalAlignment="Left" VerticalAlignment="Top">
+            <Border Classes="card" Padding="20" Width="520" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding CanAdministerHost}">
                 <StackPanel Spacing="16">
                     <TextBlock Text="Shift setup" Classes="section-title" />
                     <TextBlock Text="Shift details" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
@@ -520,7 +533,7 @@
                                                 <TextBlock Grid.Column="1" Text="{Binding NoteText}" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center"/>
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="7">
                                                     <Button Classes="secondary" Content="Edit" Command="{Binding EditCommand}"/>
-                                                    <Button Classes="danger" Content="Delete" Command="{Binding DeleteCommand}" IsEnabled="{Binding CanDelete}"/>
+                                                    <Button Classes="danger" Content="Delete" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
                                                 </StackPanel>
                                             </Grid>
                                         </Border>
@@ -539,7 +552,126 @@
 
         <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSettings}" ColumnDefinitions="210,18,*">
             <Border Classes="card" Padding="12"><StackPanel Spacing="5"><TextBlock Text="Settings" Classes="section-title" Margin="8,4,0,10"/><Button Classes="sub-nav" Content="General" Command="{Binding ShowSettingsGeneralCommand}"/><Button Classes="sub-nav" Content="Operations" Command="{Binding ShowSettingsOperationsCommand}"/><Button Classes="sub-nav" Content="Displays" Command="{Binding ShowSettingsDisplaysCommand}"/></StackPanel></Border>
-            <Border Grid.Column="2" Classes="card" Padding="24"><Grid><StackPanel IsVisible="{Binding IsSettingsGeneral}" Spacing="12"><TextBlock Text="General" Classes="section-title"/><TextBlock Text="Application settings will expand here as TCM+ grows." Classes="muted"/><TextBlock Text="Lock-screen blur" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/><TextBlock Text="Adjust how strongly the treatment centre is obscured while locked." Classes="muted" TextWrapping="Wrap"/><Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"><Slider Minimum="4" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding LockBlurRadius, Mode=TwoWay}"/><TextBlock Grid.Column="1" Text="{Binding LockBlurRadius, StringFormat={}{0:0}px}" Foreground="{StaticResource DeepSeaBrush}" VerticalAlignment="Center"/></Grid><TextBlock Text="{Binding ApplicationVersion, StringFormat=TCM+ {0}}" Foreground="{StaticResource DeepSeaBrush}"/></StackPanel><StackPanel IsVisible="{Binding IsSettingsOperations}" Spacing="12"><TextBlock Text="Operations" Classes="section-title"/><TextBlock Text="Discharge routes" Classes="muted"/><ListBox ItemsSource="{Binding DischargeRoutes}"><ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,Auto" Margin="0,4"><TextBlock Text="{Binding}" VerticalAlignment="Center"/><Button Grid.Column="1" Classes="danger" Content="Remove" Command="{Binding DataContext.RemoveDischargeRouteCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/></Grid></DataTemplate></ListBox.ItemTemplate></ListBox><StackPanel Orientation="Horizontal" Spacing="8"><TextBox Text="{Binding NewDischargeRoute}" Width="260" PlaceholderText="New discharge route"/><Button Classes="primary" Content="Add route" Command="{Binding AddDischargeRouteCommand}"/></StackPanel><TextBlock Text="Keep at least one route." Classes="muted"/></StackPanel><ScrollViewer IsVisible="{Binding IsSettingsDisplays}" VerticalScrollBarVisibility="Auto"><StackPanel Spacing="14"><TextBlock Text="Displays" Classes="section-title"/><TextBlock Text="Open a fullscreen read-only display on the next connected monitor." Classes="muted" TextWrapping="Wrap"/><Button Classes="primary" Content="Open Dashboard display" Command="{Binding OpenExternalDisplayCommand}" CommandParameter="Dashboard"/><Button Classes="secondary" Content="Open Map mirror" Command="{Binding OpenExternalDisplayCommand}" CommandParameter="Map"/><Separator/><TextBlock Text="LAN web display" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/><TextBlock Text="Start a read-only Dashboard and Map mirror for browsers on this local network. Windows Firewall may ask you to allow access." Classes="muted" TextWrapping="Wrap"/><Button IsVisible="{Binding IsLanDisplayStopped}" Classes="primary" Content="Start LAN web display" Command="{Binding StartLanDisplayCommand}"/><StackPanel IsVisible="{Binding IsLanDisplayRunning}" Spacing="10"><TextBlock Text="{Binding LanDisplayStatus}" Classes="muted" TextWrapping="Wrap"/><TextBlock Text="Viewer PIN" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/><TextBlock Text="{Binding LanDisplayPin}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DeepSeaBrush}"/><ItemsControl ItemsSource="{Binding LanDisplayAddresses}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel Spacing="4" Margin="0,4"><TextBlock Text="{Binding Host}" FontWeight="SemiBold"/><TextBlock Text="Dashboard" Classes="muted"/><TextBox Text="{Binding DashboardUrl}" IsReadOnly="True"/><TextBlock Text="Map" Classes="muted"/><TextBox Text="{Binding MapUrl}" IsReadOnly="True"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Button Classes="danger" Content="Stop LAN web display" Command="{Binding StopLanDisplayCommand}"/></StackPanel></StackPanel></ScrollViewer></Grid></Border>
+            <Border Grid.Column="2" Classes="card" Padding="24">
+                <Grid>
+                    <StackPanel IsVisible="{Binding IsSettingsGeneral}" Spacing="12">
+                        <TextBlock Text="General" Classes="section-title"/>
+                        <TextBlock Text="Application settings will expand here as TCM+ grows." Classes="muted"/>
+                        <TextBlock Text="Lock-screen blur" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                        <TextBlock Text="Adjust how strongly the treatment centre is obscured while locked." Classes="muted" TextWrapping="Wrap"/>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Slider Minimum="4" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding LockBlurRadius, Mode=TwoWay}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding LockBlurRadius, StringFormat={}{0:0}px}" Foreground="{StaticResource DeepSeaBrush}" VerticalAlignment="Center"/>
+                        </Grid>
+                        <TextBlock Text="{Binding ApplicationVersion, StringFormat=TCM+ {0}}" Foreground="{StaticResource DeepSeaBrush}"/>
+                    </StackPanel>
+                    <StackPanel IsVisible="{Binding IsSettingsOperations}" Spacing="12">
+                        <TextBlock Text="Operations" Classes="section-title"/>
+                        <TextBlock Text="Discharge routes" Classes="muted"/>
+                        <ListBox ItemsSource="{Binding DischargeRoutes}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                                        <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Classes="danger" Content="Remove" Command="{Binding DataContext.RemoveDischargeRouteCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox Text="{Binding NewDischargeRoute}" Width="260" PlaceholderText="New discharge route"/>
+                            <Button Classes="primary" Content="Add route" Command="{Binding AddDischargeRouteCommand}"/>
+                        </StackPanel>
+                        <TextBlock Text="Keep at least one route." Classes="muted"/>
+                    </StackPanel>
+                    <ScrollViewer IsVisible="{Binding IsSettingsDisplays}" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="14">
+                            <TextBlock Text="Displays and terminals" Classes="section-title"/>
+                            <TextBlock Text="Secure app-to-app terminals" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                            <TextBlock Text="One authoritative host owns this shift. Other TCM+ apps connect through the authenticated HTTPS protocol and never open this database."
+                                       Classes="muted" TextWrapping="Wrap"/>
+                            <Button IsVisible="{Binding IsTerminalHostStopped}" Classes="primary" Content="Start terminal host" Command="{Binding StartTerminalHostCommand}"/>
+                            <StackPanel IsVisible="{Binding IsTerminalHostRunning}" Spacing="10">
+                                <TextBlock Text="{Binding TerminalHostStatus}" Classes="muted" TextWrapping="Wrap"/>
+                                <TextBlock Text="HTTPS addresses" FontWeight="SemiBold"/>
+                                <ItemsControl ItemsSource="{Binding TerminalHostAddresses}">
+                                    <ItemsControl.ItemTemplate><DataTemplate><TextBox Text="{Binding}" IsReadOnly="True" Margin="0,2"/></DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="Certificate SHA-256 fingerprint" FontWeight="SemiBold"/>
+                                <TextBox Text="{Binding TerminalCertificateFingerprint}" IsReadOnly="True" TextWrapping="Wrap"/>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Text="{Binding NewTerminalName}" PlaceholderText="Terminal name"/>
+                                    <Button Grid.Column="1" Classes="primary" Content="Create temporary access" Command="{Binding CreateTerminalCredentialCommand}"/>
+                                </Grid>
+                                <Border Background="#FFF7D9" BorderBrush="#D39B28" BorderThickness="1" CornerRadius="6" Padding="10">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="One-time terminal password" FontWeight="SemiBold" Foreground="#765617"/>
+                                        <TextBlock Text="{Binding NewTerminalPassword}" FontFamily="Consolas" FontSize="20" FontWeight="Bold" Foreground="#765617"/>
+                                        <TextBlock Text="Copy it now. TCM+ stores only its salted hash." Foreground="#765617"/>
+                                    </StackPanel>
+                                </Border>
+                                <ItemsControl ItemsSource="{Binding RegisteredTerminals}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding ExpiresAt, StringFormat=Expires {0:g}}" Classes="muted"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Classes="danger" Content="Revoke"
+                                                        Command="{Binding DataContext.RevokeTerminalCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" IsEnabled="{Binding IsActive}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Classes="secondary" Content="Refresh command audit" Command="{Binding RefreshTerminalAuditCommand}"/>
+                                <ItemsControl ItemsSource="{Binding TerminalAuditEntries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="70,140,*,Auto" ColumnSpacing="8" Margin="0,2">
+                                                <TextBlock Text="{Binding Sequence, StringFormat=#{0}}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding TerminalName}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Operation}"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding Status}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Classes="danger" Content="Stop terminal host and revoke all access" Command="{Binding StopTerminalHostCommand}"/>
+                            </StackPanel>
+                            <Separator/>
+                            <TextBlock Text="Connected display" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                            <TextBlock Text="Open a fullscreen read-only display on the next connected monitor." Classes="muted" TextWrapping="Wrap"/>
+                            <Button Classes="primary" Content="Open Dashboard display" Command="{Binding OpenExternalDisplayCommand}" CommandParameter="Dashboard"/>
+                            <Button Classes="secondary" Content="Open Map mirror" Command="{Binding OpenExternalDisplayCommand}" CommandParameter="Map"/>
+                            <Separator/>
+                            <TextBlock Text="LAN web display" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                            <TextBlock Text="Start a read-only Dashboard and Map mirror for browsers on this local network. Windows Firewall may ask you to allow access." Classes="muted" TextWrapping="Wrap"/>
+                            <Button IsVisible="{Binding IsLanDisplayStopped}" Classes="primary" Content="Start LAN web display" Command="{Binding StartLanDisplayCommand}"/>
+                            <StackPanel IsVisible="{Binding IsLanDisplayRunning}" Spacing="10">
+                                <TextBlock Text="{Binding LanDisplayStatus}" Classes="muted" TextWrapping="Wrap"/>
+                                <TextBlock Text="Viewer PIN" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                                <TextBlock Text="{Binding LanDisplayPin}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DeepSeaBrush}"/>
+                                <ItemsControl ItemsSource="{Binding LanDisplayAddresses}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Spacing="4" Margin="0,4">
+                                                <TextBlock Text="{Binding Host}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Dashboard" Classes="muted"/>
+                                                <TextBox Text="{Binding DashboardUrl}" IsReadOnly="True"/>
+                                                <TextBlock Text="Map" Classes="muted"/>
+                                                <TextBox Text="{Binding MapUrl}" IsReadOnly="True"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Classes="danger" Content="Stop LAN web display" Command="{Binding StopLanDisplayCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
         </Grid>
 
         <ScrollViewer Grid.Row="2" Margin="28" IsVisible="{Binding IsDashboard}" VerticalScrollBarVisibility="Auto">

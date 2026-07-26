@@ -18,6 +18,8 @@ The app starts by naming the shift and setting its required six-digit PIN. It th
 - Per-shift mobile teams remain outside the positioned map while supporting callsigns, notes, optional deployment locations, one patient, and station handovers from the Map and Tables manager views.
 - Dashboard with live shift summaries, patient lifecycle activity, presenting-complaint breakdown, discharge throughput, and discharge-duration trends.
 - PIN-protected LAN web display with live read-only Dashboard and positioned Map mirror pages, started from Settings → Displays.
+- Secure app-to-app LAN terminals: one authoritative TCM+ host owns the shift database while other TCM+ desktop apps connect over fingerprint-verified HTTPS with temporary shift-scoped credentials.
+- Remote operational commands are serialized and idempotent, with encrypted offline queuing, host-side revalidation, explicit conflict rejection, and a non-clinical audit trail.
 - Map and Tables edit modes for station management, plus Setup for shift details and a six-digit, salted-hash shift PIN.
 - Top-level Dashboard and application-settings placeholders, an F11 fullscreen mode, and a lock screen that requires the current shift PIN to return to the application.
 - One active patient per station or mobile team in the UI. Patients have a backend-only UID, sequential shift counter, optional presenting complaint, arrival time, current assignment, and discharge time. Available map cards add patients; occupied counters can transfer patients between stations or deployed teams, while station-to-station swaps retain confirmation.
