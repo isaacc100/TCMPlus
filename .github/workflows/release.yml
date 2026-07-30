@@ -63,6 +63,9 @@ jobs:
       - name: Test
         run: dotnet test TCMPlus.slnx --configuration Release --no-restore
 
+      - name: Restore Windows x64 app
+        run: dotnet restore src/TCMPlus.App/TCMPlus.App.csproj --runtime win-x64
+
       - name: Publish self-contained app
         run: dotnet publish src/TCMPlus.App/TCMPlus.App.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output publish
 
