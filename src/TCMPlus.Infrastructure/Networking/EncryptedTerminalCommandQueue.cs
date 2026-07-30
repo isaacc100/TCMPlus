@@ -7,18 +7,16 @@ namespace TCMPlus.Infrastructure.Networking;
 
 public sealed class EncryptedTerminalCommandQueue : IDisposable
 {
-    private static readonly byte[] Magic = "TCQ1"u8.ToArray();
+    private static readonly byte[] Magic = "TCQ2"u8.ToArray();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string _path;
     private readonly byte[] _key;
-    private readonly byte[] _salt;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private List<QueuedTerminalCommand> _commands;
 
     public EncryptedTerminalCommandQueue(
         Uri host,
         string terminalName,
-        string password,
         string? applicationDataRoot = null)
     {
         applicationDataRoot ??= Path.Combine(
@@ -27,24 +25,22 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
         var directory = Path.Combine(applicationDataRoot, "TerminalQueues");
         Directory.CreateDirectory(directory);
         var identity = SHA256.HashData(Encoding.UTF8.GetBytes($"{host.GetLeftPart(UriPartial.Authority)}|{terminalName.Trim().ToUpperInvariant()}"));
-        _path = Path.Combine(directory, $"{Convert.ToHexString(identity)[..24]}.tcq");
+        var identityText = Convert.ToHexString(identity)[..24];
+        _path = Path.Combine(directory, $"{identityText}.v2.tcq");
+        _key = TerminalQueueKeyStore.GetOrCreate(identityText, identity, applicationDataRoot);
 
         if (File.Exists(_path))
         {
             var contents = File.ReadAllBytes(_path);
-            if (contents.Length < Magic.Length + 16 + 12 + 16 || !contents.AsSpan(0, Magic.Length).SequenceEqual(Magic))
+            if (contents.Length < Magic.Length + 12 + 16 || !contents.AsSpan(0, Magic.Length).SequenceEqual(Magic))
             {
                 throw new InvalidOperationException("The local terminal command queue is damaged.");
             }
 
-            _salt = contents.AsSpan(Magic.Length, 16).ToArray();
-            _key = DeriveKey(password, _salt);
             _commands = Decrypt(contents);
         }
         else
         {
-            _salt = RandomNumberGenerator.GetBytes(16);
-            _key = DeriveKey(password, _salt);
             _commands = [];
         }
     }
@@ -164,12 +160,10 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
         }
 
         CryptographicOperations.ZeroMemory(plaintext);
-        var contents = new byte[Magic.Length + _salt.Length + nonce.Length + tag.Length + ciphertext.Length];
+        var contents = new byte[Magic.Length + nonce.Length + tag.Length + ciphertext.Length];
         var offset = 0;
         Magic.CopyTo(contents, offset);
         offset += Magic.Length;
-        _salt.CopyTo(contents, offset);
-        offset += _salt.Length;
         nonce.CopyTo(contents, offset);
         offset += nonce.Length;
         tag.CopyTo(contents, offset);
@@ -183,7 +177,7 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
 
     private List<QueuedTerminalCommand> Decrypt(byte[] contents)
     {
-        var offset = Magic.Length + 16;
+        var offset = Magic.Length;
         var nonce = contents.AsSpan(offset, 12);
         offset += 12;
         var tag = contents.AsSpan(offset, 16);
@@ -198,7 +192,7 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
         }
         catch (CryptographicException exception)
         {
-            throw new InvalidOperationException("The local command queue could not be opened with these terminal credentials.", exception);
+            throw new InvalidOperationException("The protected local terminal command queue could not be opened.", exception);
         }
         finally
         {
@@ -206,8 +200,98 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
         }
     }
 
-    private static byte[] DeriveKey(string password, byte[] salt) =>
-        Rfc2898DeriveBytes.Pbkdf2(password, salt, 310_000, HashAlgorithmName.SHA256, 32);
+}
+
+internal static class TerminalQueueKeyStore
+{
+    private static readonly byte[] Magic = "TQK1"u8.ToArray();
+
+    public static byte[] GetOrCreate(
+        string identityText,
+        byte[] entropy,
+        string applicationDataRoot)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("Secure terminal queues require Windows data protection.");
+        }
+
+        var directory = Path.Combine(applicationDataRoot, "TerminalQueueKeys");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, $"{identityText}.key");
+        if (File.Exists(path))
+        {
+            return Unprotect(File.ReadAllBytes(path), entropy);
+        }
+
+        var key = RandomNumberGenerator.GetBytes(32);
+        var protectedKey = ProtectedData.Protect(key, entropy, DataProtectionScope.CurrentUser);
+        var contents = new byte[Magic.Length + protectedKey.Length];
+        Magic.CopyTo(contents, 0);
+        protectedKey.CopyTo(contents, Magic.Length);
+        var temporaryPath = path + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            File.WriteAllBytes(temporaryPath, contents);
+            try
+            {
+                File.Move(temporaryPath, path);
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+                CryptographicOperations.ZeroMemory(key);
+                return Unprotect(File.ReadAllBytes(path), entropy);
+            }
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+            CryptographicOperations.ZeroMemory(protectedKey);
+            CryptographicOperations.ZeroMemory(contents);
+        }
+
+        return key;
+    }
+
+    private static byte[] Unprotect(byte[] contents, byte[] entropy)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("Secure terminal queues require Windows data protection.");
+        }
+
+        if (contents.Length <= Magic.Length || !contents.AsSpan(0, Magic.Length).SequenceEqual(Magic))
+        {
+            throw new InvalidOperationException("The local terminal queue key is damaged.");
+        }
+
+        var protectedKey = contents.AsSpan(Magic.Length).ToArray();
+        try
+        {
+            var key = ProtectedData.Unprotect(protectedKey, entropy, DataProtectionScope.CurrentUser);
+            if (key.Length != 32)
+            {
+                CryptographicOperations.ZeroMemory(key);
+                throw new InvalidOperationException("The local terminal queue key is invalid.");
+            }
+
+            return key;
+        }
+        catch (CryptographicException exception)
+        {
+            throw new InvalidOperationException(
+                "The local terminal queue belongs to a different Windows user or device.",
+                exception);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(protectedKey);
+            CryptographicOperations.ZeroMemory(contents);
+        }
+    }
 }
 
 public sealed record QueuedTerminalCommand(

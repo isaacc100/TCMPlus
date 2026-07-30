@@ -101,6 +101,19 @@ public sealed class DatabaseInitializer(SqliteConnectionFactory connectionFactor
 
             CREATE INDEX IF NOT EXISTS ix_terminal_command_audit_terminal
                 ON terminal_command_audit(terminal_id, sequence);
+
+            CREATE TABLE IF NOT EXISTS terminal_pairing_audit (
+                sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                pairing_id TEXT NOT NULL,
+                terminal_name TEXT NOT NULL,
+                source_address TEXT NOT NULL,
+                occurred_at_utc TEXT NOT NULL,
+                result TEXT NOT NULL,
+                reason TEXT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS ix_terminal_pairing_audit_pairing
+                ON terminal_pairing_audit(pairing_id, sequence);
             """;
 
         await command.ExecuteNonQueryAsync(cancellationToken);

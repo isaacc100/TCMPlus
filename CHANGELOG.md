@@ -2,9 +2,16 @@
 
 ## 0.11.0-DEV
 
+- Replaced manual terminal URLs, passwords, and certificate fingerprints with Bluetooth-style LAN discovery and host-approved six-digit pairing.
+- Added protocol-v2 multicast, broadcast, host-code, IP-address, and host-name discovery while retaining protocol-v1 operational compatibility.
+- Added ephemeral P-256 ECDH pairing with HKDF-SHA256 transcript binding, AES-GCM protected bootstrap credentials, post-approval certificate pinning, two-minute expiry, one-attempt verification, and per-source rate limits.
+- Terminal approval now appears immediately on the authoritative host, terminal credentials remain in memory for the current app process only, and shift closure revokes pending and active terminal access.
+- Moved persistent offline-queue protection to random per-host keys protected by Windows DPAPI, allowing queued request IDs to survive restarts without preserving host authorization.
+- Pairing preferences remember only the terminal name and last host hint; pairing audits exclude verification codes, credentials, certificates, and patient data.
 - Added consent-based automatic updates from GitHub Releases, including platform- and architecture-specific release channels, development prerelease support, and safe pre-shift update prompts.
 - Added a tag-driven GitHub Actions release workflow that tests, packages, and publishes self-contained Windows Velopack installers and update feeds.
 - Existing ZIP-based installations must install the first Velopack release manually; subsequent installed releases update in place.
+- This is an unsigned development prerelease and may trigger a Windows publisher warning during its first manual installation.
 
 ## 0.10.0-DEV
 

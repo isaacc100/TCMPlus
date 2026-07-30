@@ -12,6 +12,7 @@ public interface ITerminalApiClient : IDisposable
     Uri Host { get; }
     TerminalLoginResponse? Login { get; }
     Task<TerminalLoginResponse> AuthenticateAsync(CancellationToken cancellationToken = default);
+    Task DisconnectAsync(CancellationToken cancellationToken = default);
     Task<TerminalSnapshotResponse> GetSnapshotAsync(CancellationToken cancellationToken = default);
     Task<TerminalCommandResponse> SendCommandAsync(TerminalCommandRequest command, CancellationToken cancellationToken = default);
 }
@@ -97,6 +98,24 @@ public sealed class TerminalApiClient : ITerminalApiClient
 
         return await response.Content.ReadFromJsonAsync<TerminalSnapshotResponse>(JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("The host returned an empty terminal snapshot.");
+    }
+
+    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+    {
+        if (_accessToken is null)
+        {
+            return;
+        }
+
+        using var response = await SendOnceAsync(
+            new HttpRequestMessage(HttpMethod.Delete, $"{TerminalProtocol.ApiRoot}/auth/session"),
+            cancellationToken);
+        _accessToken = null;
+        _accessTokenExpiresAt = default;
+        if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            throw await CreateExceptionAsync(response, cancellationToken);
+        }
     }
 
     public async Task<TerminalCommandResponse> SendCommandAsync(

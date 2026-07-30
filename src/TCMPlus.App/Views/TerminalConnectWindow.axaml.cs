@@ -1,14 +1,23 @@
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using TCMPlus.Infrastructure.Networking;
 
 namespace TCMPlus.App.Views;
 
 public partial class TerminalConnectWindow : Window
 {
+    private readonly TerminalConnectionPreferencesStore _preferencesStore = new();
+    private readonly List<TerminalDiscoveredHost> _hosts = [];
+    private CancellationTokenSource? _operationCancellation;
+    private TerminalPairingSession? _pairingSession;
+    private TerminalConnectionPreferences _preferences = TerminalConnectionPreferences.Default;
+
     public TerminalConnectWindow()
     {
         InitializeComponent();
-        Opened += (_, _) => HostInput.Focus();
+        Opened += async (_, _) => await InitializeAsync();
+        Closed += (_, _) => CancelOperation();
     }
 
     public event EventHandler<TerminalConnectionDraft>? ConnectionRequested;
@@ -16,34 +25,182 @@ public partial class TerminalConnectWindow : Window
     public void ShowError(string message)
     {
         ValidationMessage.Text = message;
-        ConnectButton.IsEnabled = true;
+        PairingCodePanel.IsVisible = false;
+        SetControlsEnabled(true);
     }
 
-    private void OnConnect(object? sender, RoutedEventArgs e)
+    private async Task InitializeAsync()
     {
-        var hostText = HostInput.Text?.Trim() ?? string.Empty;
-        var terminalName = TerminalNameInput.Text?.Trim() ?? string.Empty;
-        var password = PasswordInput.Text ?? string.Empty;
-        var fingerprint = FingerprintInput.Text?.Trim() ?? string.Empty;
-        if (!Uri.TryCreate(hostText, UriKind.Absolute, out var host)
-            || !string.Equals(host.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-        {
-            ShowError("Enter the complete HTTPS address shown by the host.");
-            return;
-        }
-
-        if (terminalName.Length < 2 || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(fingerprint))
-        {
-            ShowError("Enter the terminal name, temporary password, and complete certificate fingerprint.");
-            return;
-        }
-
-        ConnectButton.IsEnabled = false;
-        ValidationMessage.Text = "Connecting securely…";
-        ConnectionRequested?.Invoke(this, new TerminalConnectionDraft(host, terminalName, password, fingerprint));
+        _preferences = await _preferencesStore.LoadAsync();
+        TerminalNameInput.Text = _preferences.TerminalName;
+        ManualHostInput.Text = _preferences.HostIdentifier;
+        await RefreshHostsAsync();
     }
 
-    private void OnCancel(object? sender, RoutedEventArgs e) => Close();
+    private async void OnRefresh(object? sender, RoutedEventArgs e) => await RefreshHostsAsync();
+
+    private async Task RefreshHostsAsync()
+    {
+        CancelOperation();
+        _operationCancellation = new CancellationTokenSource();
+        SetControlsEnabled(false);
+        DiscoveryMessage.Text = "Searching this LAN for TCM+ hosts…";
+        ValidationMessage.Text = "";
+        PairingCodePanel.IsVisible = false;
+        try
+        {
+            var discovered = await TerminalDiscoveryClient.DiscoverAsync(
+                cancellationToken: _operationCancellation.Token);
+            ReplaceHosts(discovered);
+            DiscoveryMessage.Text = _hosts.Count == 0
+                ? "No host replied. Ask the host operator to confirm terminal connections are enabled, then try its host code or IP address."
+                : $"{_hosts.Count} host{(_hosts.Count == 1 ? "" : "s")} found.";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            DiscoveryMessage.Text = $"Automatic discovery was unavailable: {exception.Message}";
+        }
+        finally
+        {
+            SetControlsEnabled(true);
+        }
+    }
+
+    private async void OnFindHost(object? sender, RoutedEventArgs e)
+    {
+        CancelOperation();
+        _operationCancellation = new CancellationTokenSource();
+        SetControlsEnabled(false);
+        ValidationMessage.Text = "";
+        DiscoveryMessage.Text = "Looking for that host…";
+        try
+        {
+            var discovered = await TerminalDiscoveryClient.ResolveAsync(
+                ManualHostInput.Text ?? string.Empty,
+                cancellationToken: _operationCancellation.Token);
+            ReplaceHosts(discovered);
+            DiscoveryMessage.Text = _hosts.Count == 0
+                ? "No TCM+ host answered at that code or address."
+                : "Host found. Request access when ready.";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            ValidationMessage.Text = exception.Message;
+        }
+        finally
+        {
+            SetControlsEnabled(true);
+        }
+    }
+
+    private async void OnConnect(object? sender, RoutedEventArgs e)
+    {
+        var terminalName = TerminalNameInput.Text?.Trim() ?? string.Empty;
+        if (terminalName.Length is < 2 or > 48 || terminalName.Any(char.IsControl))
+        {
+            ShowError("Enter a terminal name containing between 2 and 48 characters.");
+            return;
+        }
+
+        var host = HostList.SelectedItem as TerminalDiscoveredHost;
+        if (host is null)
+        {
+            ShowError("Choose a discovered host or find one using its host code or address.");
+            return;
+        }
+
+        CancelOperation();
+        _operationCancellation = new CancellationTokenSource();
+        SetControlsEnabled(false);
+        ValidationMessage.Text = "Requesting approval from the host…";
+        PairingCodePanel.IsVisible = false;
+        try
+        {
+            var clientVersion = typeof(TerminalConnectWindow).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? typeof(TerminalConnectWindow).Assembly.GetName().Version?.ToString()
+                ?? "unknown";
+            _pairingSession = await TerminalPairingClient.StartAsync(
+                host.Host,
+                terminalName,
+                clientVersion,
+                _operationCancellation.Token);
+            PairingCodeText.Text = _pairingSession.VerificationCode;
+            PairingCodePanel.IsVisible = true;
+            ValidationMessage.Text = "Waiting for the host operator to enter this code and approve the terminal…";
+
+            var result = await _pairingSession.WaitForApprovalAsync(_operationCancellation.Token);
+            await _preferencesStore.SaveAsync(
+                new TerminalConnectionPreferences(terminalName, host.Address),
+                _operationCancellation.Token);
+            ValidationMessage.Text = "Approved. Connecting securely…";
+            ConnectionRequested?.Invoke(
+                this,
+                new TerminalConnectionDraft(
+                    result.Host,
+                    result.TerminalName,
+                    result.Password,
+                    result.CertificateFingerprint));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _pairingSession?.Dispose();
+            _pairingSession = null;
+        }
+    }
+
+    private void ReplaceHosts(IEnumerable<TerminalDiscoveredHost> hosts)
+    {
+        _hosts.Clear();
+        _hosts.AddRange(hosts);
+        HostList.ItemsSource = null;
+        HostList.ItemsSource = _hosts;
+        var preferred = _hosts.FirstOrDefault(host =>
+            string.Equals(host.Address, _preferences.HostIdentifier, StringComparison.OrdinalIgnoreCase));
+        HostList.SelectedItem = preferred ?? _hosts.FirstOrDefault();
+    }
+
+    private void SetControlsEnabled(bool enabled)
+    {
+        RefreshButton.IsEnabled = enabled;
+        FindButton.IsEnabled = enabled;
+        ConnectButton.IsEnabled = enabled;
+        HostList.IsEnabled = enabled;
+        ManualHostInput.IsEnabled = enabled;
+        TerminalNameInput.IsEnabled = enabled;
+    }
+
+    private void CancelOperation()
+    {
+        _operationCancellation?.Cancel();
+        _operationCancellation?.Dispose();
+        _operationCancellation = null;
+        _pairingSession?.Dispose();
+        _pairingSession = null;
+    }
+
+    private void OnCancel(object? sender, RoutedEventArgs e)
+    {
+        CancelOperation();
+        Close();
+    }
 }
 
-public sealed record TerminalConnectionDraft(Uri Host, string TerminalName, string Password, string CertificateFingerprint);
+public sealed record TerminalConnectionDraft(
+    Uri Host,
+    string TerminalName,
+    string Password,
+    string CertificateFingerprint);

@@ -26,6 +26,9 @@ public sealed class RemoteTreatmentCentreService(
         return login;
     }
 
+    public Task DisconnectAsync(CancellationToken cancellationToken = default) =>
+        apiClient.DisconnectAsync(cancellationToken);
+
     public async Task<IReadOnlyList<StationSnapshot>> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
         var snapshot = await RefreshAsync(cancellationToken);

@@ -591,28 +591,19 @@
                         <StackPanel Spacing="14">
                             <TextBlock Text="Displays and terminals" Classes="section-title"/>
                             <TextBlock Text="Secure app-to-app terminals" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
-                            <TextBlock Text="One authoritative host owns this shift. Other TCM+ apps connect through the authenticated HTTPS protocol and never open this database."
+                            <TextBlock Text="Terminal connections start automatically for this shift. A terminal must be approved here using the six-digit code shown on its own screen."
                                        Classes="muted" TextWrapping="Wrap"/>
-                            <Button IsVisible="{Binding IsTerminalHostStopped}" Classes="primary" Content="Start terminal host" Command="{Binding StartTerminalHostCommand}"/>
+                            <Button IsVisible="{Binding IsTerminalHostStopped}" Classes="primary" Content="Enable terminal connections" Command="{Binding StartTerminalHostCommand}"/>
                             <StackPanel IsVisible="{Binding IsTerminalHostRunning}" Spacing="10">
                                 <TextBlock Text="{Binding TerminalHostStatus}" Classes="muted" TextWrapping="Wrap"/>
-                                <TextBlock Text="HTTPS addresses" FontWeight="SemiBold"/>
-                                <ItemsControl ItemsSource="{Binding TerminalHostAddresses}">
-                                    <ItemsControl.ItemTemplate><DataTemplate><TextBox Text="{Binding}" IsReadOnly="True" Margin="0,2"/></DataTemplate></ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                                <TextBlock Text="Certificate SHA-256 fingerprint" FontWeight="SemiBold"/>
-                                <TextBox Text="{Binding TerminalCertificateFingerprint}" IsReadOnly="True" TextWrapping="Wrap"/>
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                    <TextBox Text="{Binding NewTerminalName}" PlaceholderText="Terminal name"/>
-                                    <Button Grid.Column="1" Classes="primary" Content="Create temporary access" Command="{Binding CreateTerminalCredentialCommand}"/>
-                                </Grid>
-                                <Border Background="#FFF7D9" BorderBrush="#D39B28" BorderThickness="1" CornerRadius="6" Padding="10">
+                                <Border Background="#EAF5EF" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="8" Padding="14">
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="One-time terminal password" FontWeight="SemiBold" Foreground="#765617"/>
-                                        <TextBlock Text="{Binding NewTerminalPassword}" FontFamily="Consolas" FontSize="20" FontWeight="Bold" Foreground="#765617"/>
-                                        <TextBlock Text="Copy it now. TCM+ stores only its salted hash." Foreground="#765617"/>
+                                        <TextBlock Text="Host code" FontWeight="SemiBold" Foreground="#364958"/>
+                                        <TextBlock Text="{Binding TerminalHostCode}" FontFamily="Consolas" FontSize="28" FontWeight="Bold" Foreground="#3B6064"/>
+                                        <TextBlock Text="Use this only if the terminal cannot find the host automatically. It identifies this host; it is not a password." Classes="muted" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
+                                <TextBlock Text="Approved terminal sessions" FontWeight="SemiBold"/>
                                 <ItemsControl ItemsSource="{Binding RegisteredTerminals}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -628,6 +619,7 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <Button Classes="secondary" Content="Disable terminal connections" Command="{Binding StopTerminalHostCommand}" HorizontalAlignment="Left"/>
                                 <Button Classes="secondary" Content="Refresh command audit" Command="{Binding RefreshTerminalAuditCommand}"/>
                                 <ItemsControl ItemsSource="{Binding TerminalAuditEntries}">
                                     <ItemsControl.ItemTemplate>

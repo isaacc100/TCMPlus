@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using TCMPlus.App.Controls;
 using TCMPlus.App.ViewModels;
 using TCMPlus.Domain.Models;
+using TCMPlus.Protocol;
 
 namespace TCMPlus.App.Views;
 
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private WindowState _windowStateBeforeFullScreen = WindowState.Normal;
     private ExternalDisplayWindow? _externalDisplay;
     private bool _isMobileTeamDrawerOpen;
+    private readonly SemaphoreSlim _pairingApprovalGate = new(1, 1);
 
     public MainWindow()
     {
@@ -53,6 +55,7 @@ public partial class MainWindow : Window
             _viewModel.ExternalDisplayRequested -= OnExternalDisplayRequested;
             _viewModel.SessionLockRequested -= OnSessionLockRequested;
             _viewModel.SessionUnlockRequested -= OnSessionUnlockRequested;
+            _viewModel.TerminalPairingRequested -= OnTerminalPairingRequested;
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         }
 
@@ -78,8 +81,52 @@ public partial class MainWindow : Window
             _viewModel.ExternalDisplayRequested += OnExternalDisplayRequested;
             _viewModel.SessionLockRequested += OnSessionLockRequested;
             _viewModel.SessionUnlockRequested += OnSessionUnlockRequested;
+            _viewModel.TerminalPairingRequested += OnTerminalPairingRequested;
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
+    }
+
+    private void OnTerminalPairingRequested(TerminalPairingRequestInfo request)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            await _pairingApprovalGate.WaitAsync();
+            try
+            {
+                if (_viewModel is null || !IsVisible)
+                {
+                    return;
+                }
+                if (_viewModel.IsLocked)
+                {
+                    await _viewModel.DenyTerminalPairingAsync(
+                        request.PairingId,
+                        "The host is locked. Unlock it before requesting terminal access.");
+                    return;
+                }
+
+                var decision = await new TerminalPairingApprovalWindow(request)
+                    .ShowDialog<TerminalPairingDecision?>(this);
+                if (decision?.Approved == true && decision.VerificationCode is not null)
+                {
+                    var result = await _viewModel.ApproveTerminalPairingAsync(
+                        request.PairingId,
+                        decision.VerificationCode);
+                    if (!result.Approved)
+                    {
+                        await new MessageWindow("Terminal not approved", result.Message).ShowDialog(this);
+                    }
+                }
+                else
+                {
+                    await _viewModel.DenyTerminalPairingAsync(request.PairingId);
+                }
+            }
+            finally
+            {
+                _pairingApprovalGate.Release();
+            }
+        });
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

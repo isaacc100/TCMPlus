@@ -76,7 +76,10 @@ public sealed class TerminalSecurityStore(SqliteConnectionFactory connectionFact
         int protocolVersion,
         CancellationToken cancellationToken = default)
     {
-        if (protocolVersion != TerminalProtocol.CurrentVersion || string.IsNullOrWhiteSpace(terminalName) || password.Length > 128)
+        if (!TerminalProtocol.IsSupported(protocolVersion)
+            || string.IsNullOrWhiteSpace(terminalName)
+            || string.IsNullOrEmpty(password)
+            || password.Length > 128)
         {
             return null;
         }
@@ -130,6 +133,9 @@ public sealed class TerminalSecurityStore(SqliteConnectionFactory connectionFact
 
     public Task RevokeAsync(Guid terminalId, CancellationToken cancellationToken = default) =>
         RevokeWhereAsync("id = @value", terminalId.ToString("N"), cancellationToken);
+
+    public Task RevokeByNameAsync(string terminalName, CancellationToken cancellationToken = default) =>
+        RevokeWhereAsync("terminal_name = @value COLLATE NOCASE", terminalName.Trim(), cancellationToken);
 
     public async Task RevokeAllAsync(CancellationToken cancellationToken = default)
     {
@@ -255,6 +261,61 @@ public sealed class TerminalSecurityStore(SqliteConnectionFactory connectionFact
                 reader.IsDBNull(6) ? null : reader.GetString(6),
                 status,
                 reader.IsDBNull(8) ? null : reader.GetString(8)));
+        }
+
+        return entries;
+    }
+
+    public async Task RecordPairingAuditAsync(
+        Guid pairingId,
+        string terminalName,
+        string sourceAddress,
+        string result,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO terminal_pairing_audit
+                (pairing_id, terminal_name, source_address, occurred_at_utc, result, reason)
+            VALUES
+                (@pairingId, @terminalName, @sourceAddress, @occurredAt, @result, @reason);
+            """;
+        command.Parameters.AddWithValue("@pairingId", pairingId.ToString("N"));
+        command.Parameters.AddWithValue("@terminalName", terminalName.Trim());
+        command.Parameters.AddWithValue("@sourceAddress", sourceAddress);
+        command.Parameters.AddWithValue("@occurredAt", DateTimeOffset.UtcNow.UtcDateTime.ToString("O"));
+        command.Parameters.AddWithValue("@result", result);
+        command.Parameters.AddWithValue("@reason", reason is null ? DBNull.Value : reason);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<TerminalPairingAuditEntry>> GetPairingAuditAsync(
+        int limit = 200,
+        CancellationToken cancellationToken = default)
+    {
+        var entries = new List<TerminalPairingAuditEntry>();
+        await using var connection = connectionFactory.OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT sequence, pairing_id, terminal_name, source_address, occurred_at_utc, result, reason
+            FROM terminal_pairing_audit
+            ORDER BY sequence DESC
+            LIMIT @limit;
+            """;
+        command.Parameters.AddWithValue("@limit", Math.Clamp(limit, 1, 1000));
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            entries.Add(new TerminalPairingAuditEntry(
+                reader.GetInt64(0),
+                Guid.Parse(reader.GetString(1)),
+                reader.GetString(2),
+                reader.GetString(3),
+                DateTimeOffset.Parse(reader.GetString(4)),
+                reader.GetString(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6)));
         }
 
         return entries;

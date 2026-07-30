@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using TCMPlus.App.TerminalNetworking;
@@ -92,14 +93,13 @@ public sealed class TerminalNetworkingTests : IDisposable
     public async Task Offline_queue_is_encrypted_and_retains_rejections_for_acknowledgement()
     {
         var host = new Uri("https://127.0.0.1:41234");
-        const string password = "ABCD-EFGH-2345";
         var request = new TerminalCommandRequest(
             Guid.NewGuid(),
             TerminalCommandKind.AddMobileTeam,
             Name: "Sensitive callsign",
             CreatedAt: DateTimeOffset.UtcNow);
 
-        using (var queue = new EncryptedTerminalCommandQueue(host, "Reception", password, _root))
+        using (var queue = new EncryptedTerminalCommandQueue(host, "Reception", _root))
         {
             await queue.EnqueueAsync(request);
             await queue.RejectAsync(request.RequestId, 7, "Host state changed.");
@@ -108,13 +108,10 @@ public sealed class TerminalNetworkingTests : IDisposable
 
         var queueFile = Assert.Single(Directory.GetFiles(Path.Combine(_root, "TerminalQueues"), "*.tcq"));
         Assert.DoesNotContain("Sensitive callsign", Encoding.UTF8.GetString(await File.ReadAllBytesAsync(queueFile)), StringComparison.Ordinal);
+        var keyFile = Assert.Single(Directory.GetFiles(Path.Combine(_root, "TerminalQueueKeys"), "*.key"));
+        Assert.DoesNotContain("Sensitive callsign", Encoding.UTF8.GetString(await File.ReadAllBytesAsync(keyFile)), StringComparison.Ordinal);
 
-        Assert.Throws<InvalidOperationException>(() =>
-        {
-            using var queue = new EncryptedTerminalCommandQueue(host, "Reception", "WRONG-PASSWORD", _root);
-        });
-
-        using (var reopened = new EncryptedTerminalCommandQueue(host, "Reception", password, _root))
+        using (var reopened = new EncryptedTerminalCommandQueue(host, "Reception", _root))
         {
             var rejected = Assert.Single(await reopened.GetAsync());
             Assert.Equal(QueuedTerminalCommandState.Rejected, rejected.State);
@@ -122,6 +119,21 @@ public sealed class TerminalNetworkingTests : IDisposable
             await reopened.AcknowledgeRejectedAsync();
             Assert.Empty(await reopened.GetAsync());
         }
+    }
+
+    [Fact]
+    public async Task Terminal_preferences_remember_only_non_secret_connection_hints()
+    {
+        var store = new TerminalConnectionPreferencesStore(_root);
+        await store.SaveAsync(new TerminalConnectionPreferences("Reception 1", "192.168.1.20"));
+
+        var loaded = await store.LoadAsync();
+        Assert.Equal("Reception 1", loaded.TerminalName);
+        Assert.Equal("192.168.1.20", loaded.HostIdentifier);
+        var json = await File.ReadAllTextAsync(Path.Combine(_root, "terminal-connection.json"));
+        Assert.DoesNotContain("password", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fingerprint", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -137,7 +149,7 @@ public sealed class TerminalNetworkingTests : IDisposable
         };
         using var remote = new RemoteTreatmentCentreService(
             api,
-            new EncryptedTerminalCommandQueue(host, "Queue test", "ABCD-EFGH-2345", _root));
+            new EncryptedTerminalCommandQueue(host, "Queue test", _root));
 
         await Assert.ThrowsAsync<TerminalCommandQueuedException>(() =>
             remote.AddPatientAsync(firstStation, null));
@@ -167,13 +179,13 @@ public sealed class TerminalNetworkingTests : IDisposable
     {
         var fixture = await CreateFixtureAsync();
         var station = await fixture.Service.AddStationAsync("Bay 3", "Bed");
-        var credential = await fixture.Security.CreateAsync("Remote app", DateTimeOffset.UtcNow.AddHours(8));
         await using var server = new TerminalHostServer(
             fixture.Security,
             fixture.Executor,
             new TerminalHostServerOptions(IPAddress.Loopback));
         var access = await server.StartAsync();
         var host = new Uri(Assert.Single(access.Addresses));
+        var credential = await fixture.Security.CreateAsync("Remote app", DateTimeOffset.UtcNow.AddHours(8));
 
         using (var rawClient = new HttpClient(new HttpClientHandler
         {
@@ -221,16 +233,285 @@ public sealed class TerminalNetworkingTests : IDisposable
     }
 
     [Fact]
+    public async Task Pairing_requires_host_code_approval_and_returns_a_pinned_in_memory_credential()
+    {
+        var fixture = await CreateFixtureAsync();
+        var station = await fixture.Service.AddStationAsync("Pairing bay", "Bed");
+        await using var server = new TerminalHostServer(
+            fixture.Security,
+            fixture.Executor,
+            new TerminalHostServerOptions(IPAddress.Loopback));
+        var access = await server.StartAsync();
+        var host = new Uri(Assert.Single(access.Addresses));
+
+        using var pairing = await TerminalPairingClient.StartAsync(host, "Reception tablet", "0.11.0-DEV");
+        var request = Assert.Single(server.GetPendingPairings());
+        Assert.Equal("Reception tablet", request.TerminalName);
+        Assert.Matches("^[0-9]{6}$", pairing.VerificationCode);
+
+        var approved = await server.ApprovePairingAsync(request.PairingId, pairing.VerificationCode);
+        Assert.True(approved.Approved);
+        var result = await pairing.WaitForApprovalAsync();
+        Assert.Equal(host, result.Host);
+        Assert.Equal("Reception tablet", result.TerminalName);
+        Assert.Equal(TerminalProtocol.CurrentVersion, result.ProtocolVersion);
+
+        using var api = new TerminalApiClient(
+            result.Host,
+            result.TerminalName,
+            result.Password,
+            result.CertificateFingerprint);
+        var login = await api.AuthenticateAsync();
+        Assert.Equal(result.TerminalId, login.TerminalId);
+        Assert.Equal(station.Id, Assert.Single((await api.GetSnapshotAsync()).Stations).Id);
+
+        var audit = await fixture.Security.GetPairingAuditAsync();
+        Assert.Equal(["Approved", "Created"], audit.Select(entry => entry.Result).ToArray());
+        var serializedAudit = JsonSerializer.Serialize(audit);
+        Assert.DoesNotContain(pairing.VerificationCode, serializedAudit, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Password, serializedAudit, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.CertificateFingerprint, serializedAudit, StringComparison.Ordinal);
+
+        await api.DisconnectAsync();
+        Assert.Null(await fixture.Security.VerifyAsync(
+            result.TerminalName,
+            result.Password,
+            TerminalProtocol.CurrentVersion));
+    }
+
+    [Fact]
+    public async Task Incorrect_pairing_code_is_single_attempt_and_replay_safe()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var server = new TerminalHostServer(
+            fixture.Security,
+            fixture.Executor,
+            new TerminalHostServerOptions(IPAddress.Loopback));
+        var access = await server.StartAsync();
+        using var pairing = await TerminalPairingClient.StartAsync(
+            new Uri(Assert.Single(access.Addresses)),
+            "Wrong code terminal",
+            "0.11.0-DEV");
+        var request = Assert.Single(server.GetPendingPairings());
+        var incorrect = pairing.VerificationCode == "000000" ? "000001" : "000000";
+
+        var rejected = await server.ApprovePairingAsync(request.PairingId, incorrect);
+        Assert.False(rejected.Approved);
+        var exception = await Assert.ThrowsAsync<TerminalPairingException>(() => pairing.WaitForApprovalAsync());
+        Assert.Equal("verification_failed", exception.Code);
+
+        var replay = await server.ApprovePairingAsync(request.PairingId, pairing.VerificationCode);
+        Assert.False(replay.Approved);
+        Assert.DoesNotContain(
+            await fixture.Security.GetRegistrationsAsync(),
+            registration => registration.IsActive);
+        Assert.Equal(
+            "Rejected",
+            Assert.Single(
+                await fixture.Security.GetPairingAuditAsync(),
+                entry => entry.Result != "Created").Result);
+    }
+
+    [Fact]
+    public async Task Pairing_expires_and_never_exposes_a_bootstrap_secret_before_approval()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var server = new TerminalHostServer(
+            fixture.Security,
+            fixture.Executor,
+            new TerminalHostServerOptions(
+                IPAddress.Loopback,
+                PairingLifetime: TimeSpan.FromMilliseconds(150)));
+        var access = await server.StartAsync();
+        var host = new Uri(Assert.Single(access.Addresses));
+        using var key = new TerminalPairingKeyExchange();
+        var request = new TerminalPairingStartRequest(
+            Guid.NewGuid(),
+            "Expiring terminal",
+            "0.11.0-DEV",
+            TerminalProtocol.CurrentVersion,
+            key.PublicKey,
+            key.Nonce);
+        using var rawClient = new HttpClient(new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+        }) { BaseAddress = host };
+
+        using var startResponse = await rawClient.PostAsJsonAsync(
+            $"{TerminalProtocol.PairingApiRoot}/start",
+            request);
+        var startJson = await startResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("password", startJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("verificationCode", startJson, StringComparison.OrdinalIgnoreCase);
+        var started = JsonSerializer.Deserialize<TerminalPairingStartResponse>(
+            startJson,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        using var pendingResponse = await rawClient.GetAsync(
+            $"{TerminalProtocol.PairingApiRoot}/{started.PairingId:N}");
+        var pendingJson = await pendingResponse.Content.ReadAsStringAsync();
+        Assert.Contains("\"status\":\"Pending\"", pendingJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("encryptedCredential\":\"", pendingJson, StringComparison.Ordinal);
+
+        await Task.Delay(250);
+        using var expiredResponse = await rawClient.GetAsync(
+            $"{TerminalProtocol.PairingApiRoot}/{started.PairingId:N}");
+        var expired = await expiredResponse.Content.ReadFromJsonAsync<TerminalPairingStatusResponse>();
+        Assert.Equal(TerminalPairingStatus.Expired, expired!.Status);
+    }
+
+    [Fact]
+    public async Task Discovery_supports_address_only_lookup_without_exposing_credentials()
+    {
+        var portProbe = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        var discoveryPort = ((IPEndPoint)portProbe.Client.LocalEndPoint!).Port;
+        portProbe.Dispose();
+        var options = new TerminalDiscoveryOptions(
+            discoveryPort,
+            IPAddress.Parse(TerminalProtocol.DiscoveryMulticastAddress),
+            JoinMulticast: false,
+            SendBroadcast: false);
+        var advertisement = new TerminalDiscoveryAdvertisement(
+            TerminalProtocol.DiscoveryMagic,
+            TerminalProtocol.CurrentVersion,
+            Guid.NewGuid(),
+            "A7K9",
+            41234,
+            "0.11.0-DEV");
+        await using var responder = new TerminalDiscoveryResponder(advertisement, options);
+        await responder.StartAsync();
+
+        var host = Assert.Single(await TerminalDiscoveryClient.ResolveAsync(
+            "127.0.0.1",
+            TimeSpan.FromMilliseconds(500),
+            options));
+        Assert.Equal("A7K9", host.HostCode);
+        Assert.Equal(new Uri("https://127.0.0.1:41234"), host.Host);
+        var json = JsonSerializer.Serialize(advertisement);
+        Assert.DoesNotContain("password", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fingerprint", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("patient", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Pairing_crypto_detects_tampering_and_key_substitution()
+    {
+        using var clientKey = new TerminalPairingKeyExchange();
+        using var hostKey = new TerminalPairingKeyExchange();
+        var request = new TerminalPairingStartRequest(
+            Guid.NewGuid(),
+            "Crypto terminal",
+            "0.11.0-DEV",
+            TerminalProtocol.CurrentVersion,
+            clientKey.PublicKey,
+            clientKey.Nonce);
+        var response = new TerminalPairingStartResponse(
+            Guid.NewGuid(),
+            hostKey.PublicKey,
+            hostKey.Nonce,
+            new string('A', 64),
+            DateTimeOffset.UtcNow.AddMinutes(2),
+            TerminalProtocol.CurrentVersion);
+        using var clientSecrets = clientKey.DeriveAsClient(request, response);
+        using var hostSecrets = hostKey.DeriveAsHost(request, response);
+        Assert.Equal(clientSecrets.VerificationCode, hostSecrets.VerificationCode);
+
+        var encrypted = hostSecrets.Encrypt(new TerminalPairingBootstrapCredential(
+            Guid.NewGuid(),
+            "Crypto terminal",
+            "not-human-readable",
+            new string('A', 64),
+            TerminalProtocol.CurrentVersion));
+        var tamperedBytes = Convert.FromBase64String(encrypted.Ciphertext);
+        tamperedBytes[0] ^= 0x40;
+        Assert.Throws<InvalidOperationException>(() => clientSecrets.Decrypt(
+            encrypted with { Ciphertext = Convert.ToBase64String(tamperedBytes) }));
+
+        using var attackerKey = new TerminalPairingKeyExchange();
+        using var substituted = clientKey.DeriveAsClient(
+            request,
+            response with { HostPublicKey = attackerKey.PublicKey });
+        Assert.Throws<InvalidOperationException>(() => substituted.Decrypt(encrypted));
+    }
+
+    [Fact]
+    public async Task Pairing_start_is_rate_limited_per_source()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var server = new TerminalHostServer(
+            fixture.Security,
+            fixture.Executor,
+            new TerminalHostServerOptions(IPAddress.Loopback));
+        var access = await server.StartAsync();
+        var host = new Uri(Assert.Single(access.Addresses));
+        for (var index = 0; index < 3; index++)
+        {
+            using var pairing = await TerminalPairingClient.StartAsync(
+                host,
+                $"Rate terminal {index}",
+                "0.11.0-DEV");
+        }
+
+        var exception = await Assert.ThrowsAsync<TerminalPairingException>(() =>
+            TerminalPairingClient.StartAsync(host, "Rate terminal blocked", "0.11.0-DEV"));
+        Assert.Equal("rate_limited", exception.Code);
+        Assert.Equal(HttpStatusCode.TooManyRequests, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task Legacy_v1_operational_clients_remain_compatible()
+    {
+        var fixture = await CreateFixtureAsync();
+        await fixture.Service.AddStationAsync("Legacy bay", "Bed");
+        await using var server = new TerminalHostServer(
+            fixture.Security,
+            fixture.Executor,
+            new TerminalHostServerOptions(IPAddress.Loopback));
+        var access = await server.StartAsync();
+        var credential = await fixture.Security.CreateAsync(
+            "Legacy terminal",
+            DateTimeOffset.UtcNow.AddHours(8),
+            TerminalProtocol.LegacyVersion);
+        using var client = new HttpClient(new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+        }) { BaseAddress = new Uri(Assert.Single(access.Addresses)) };
+
+        using var loginResponse = await client.PostAsJsonAsync(
+            $"{TerminalProtocol.ApiRoot}/auth/token",
+            new TerminalLoginRequest(
+                credential.Registration.Name,
+                credential.Password,
+                TerminalProtocol.LegacyVersion));
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        var login = await loginResponse.Content.ReadFromJsonAsync<TerminalLoginResponse>();
+        Assert.Equal(TerminalProtocol.LegacyVersion, login!.ProtocolVersion);
+
+        using var snapshotRequest = new HttpRequestMessage(HttpMethod.Get, $"{TerminalProtocol.ApiRoot}/snapshot");
+        snapshotRequest.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login.AccessToken);
+        snapshotRequest.Headers.Add(TerminalProtocol.VersionHeader, TerminalProtocol.LegacyVersion.ToString());
+        using var snapshotResponse = await client.SendAsync(snapshotRequest);
+        Assert.Equal(HttpStatusCode.OK, snapshotResponse.StatusCode);
+        Assert.Single((await snapshotResponse.Content.ReadFromJsonAsync<TerminalSnapshotResponse>())!.Stations);
+    }
+
+    [Fact]
     public async Task Host_shutdown_revokes_every_temporary_terminal()
     {
         var fixture = await CreateFixtureAsync();
-        var first = await fixture.Security.CreateAsync("First", DateTimeOffset.UtcNow.AddHours(8));
-        var second = await fixture.Security.CreateAsync("Second", DateTimeOffset.UtcNow.AddHours(8));
+        var stale = await fixture.Security.CreateAsync("Stale", DateTimeOffset.UtcNow.AddHours(8));
         await using var server = new TerminalHostServer(
             fixture.Security,
             fixture.Executor,
             new TerminalHostServerOptions(IPAddress.Loopback));
         await server.StartAsync();
+        Assert.Null(await fixture.Security.VerifyAsync(
+            stale.Registration.Name,
+            stale.Password,
+            TerminalProtocol.CurrentVersion));
+        var first = await fixture.Security.CreateAsync("First", DateTimeOffset.UtcNow.AddHours(8));
+        var second = await fixture.Security.CreateAsync("Second", DateTimeOffset.UtcNow.AddHours(8));
 
         await server.StopAsync();
 
@@ -305,6 +586,12 @@ public sealed class TerminalNetworkingTests : IDisposable
             ThrowIfOffline();
             Login = new TerminalLoginResponse("token", DateTimeOffset.UtcNow.AddMinutes(15), Guid.NewGuid(), "Fake", Snapshot.ShiftName, TerminalProtocol.CurrentVersion);
             return Task.FromResult(Login);
+        }
+
+        public Task DisconnectAsync(CancellationToken cancellationToken = default)
+        {
+            Login = null;
+            return Task.CompletedTask;
         }
 
         public Task<TerminalSnapshotResponse> GetSnapshotAsync(CancellationToken cancellationToken = default)

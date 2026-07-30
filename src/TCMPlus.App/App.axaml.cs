@@ -167,7 +167,7 @@ public partial class App : Application
         try
         {
             apiClient = new TerminalApiClient(draft.Host, draft.TerminalName, draft.Password, draft.CertificateFingerprint);
-            queue = new EncryptedTerminalCommandQueue(draft.Host, draft.TerminalName, draft.Password);
+            queue = new EncryptedTerminalCommandQueue(draft.Host, draft.TerminalName);
             remoteService = new RemoteTreatmentCentreService(apiClient, queue);
             var login = await remoteService.ConnectAsync();
             var session = new SessionDescriptor(
@@ -338,6 +338,17 @@ public partial class App : Application
         try
         {
             await activeSession.ViewModel.StopLanDisplayForSessionAsync();
+            if (activeSession.Runtime.RemoteService is not null)
+            {
+                try
+                {
+                    await activeSession.Runtime.RemoteService.DisconnectAsync();
+                }
+                catch
+                {
+                    // Closing remains safe when the host is already unavailable.
+                }
+            }
             if (activeSession.Runtime.HostServer is not null)
             {
                 await activeSession.Runtime.HostServer.StopAsync();

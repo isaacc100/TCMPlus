@@ -59,6 +59,11 @@ public partial class MainViewModel : ViewModelBase
         {
             _runtime.RemoteService.QueueChanged += (_, _) => Dispatcher.UIThread.Post(() => _ = UpdateTerminalQueueStateAsync());
         }
+        if (_runtime.HostServer is not null)
+        {
+            _runtime.HostServer.PairingRequested += (_, request) =>
+                TerminalPairingRequested?.Invoke(request);
+        }
         RefreshClock();
     }
 
@@ -81,6 +86,7 @@ public partial class MainViewModel : ViewModelBase
     public event Action<ExternalDisplayMode>? ExternalDisplayRequested;
     public event EventHandler? SessionLockRequested;
     public event EventHandler? SessionUnlockRequested;
+    public event Action<TerminalPairingRequestInfo>? TerminalPairingRequested;
 
     public SessionDescriptor Session { get; }
     public ObservableCollection<StationViewModel> Stations { get; } = [];
@@ -95,7 +101,6 @@ public partial class MainViewModel : ViewModelBase
     public IReadOnlyList<string> DischargeOutcomes { get; } = DischargeOutcomeOptions.Defaults;
     public ObservableCollection<PatientViewModel> Patients { get; } = [];
     public ObservableCollection<LanDisplayAddress> LanDisplayAddresses { get; } = [];
-    public ObservableCollection<string> TerminalHostAddresses { get; } = [];
     public ObservableCollection<TerminalRegistration> RegisteredTerminals { get; } = [];
     public ObservableCollection<TerminalAuditEntry> TerminalAuditEntries { get; } = [];
 
@@ -138,9 +143,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private string _lanDisplayStatus = "The LAN web display is off.";
     [ObservableProperty] private bool _isTerminalHostRunning;
     [ObservableProperty] private string _terminalHostStatus = "App-to-app terminal hosting is off.";
-    [ObservableProperty] private string _terminalCertificateFingerprint = "";
-    [ObservableProperty] private string _newTerminalName = "";
-    [ObservableProperty] private string _newTerminalPassword = "";
+    [ObservableProperty] private string _terminalHostCode = "";
     [ObservableProperty] private int _pendingTerminalCommands;
     [ObservableProperty] private int _rejectedTerminalCommands;
     [ObservableProperty] private string _terminalConnectionStatus = "";
@@ -214,6 +217,7 @@ public partial class MainViewModel : ViewModelBase
             }
             else
             {
+                await StartTerminalHostAsync();
                 await RefreshRegisteredTerminalsAsync();
             }
         }
@@ -311,11 +315,9 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var access = await _runtime.HostServer.StartAsync();
-            TerminalHostAddresses.Clear();
-            foreach (var address in access.Addresses) TerminalHostAddresses.Add(address);
-            TerminalCertificateFingerprint = access.CertificateFingerprint;
+            TerminalHostCode = access.HostCode;
             IsTerminalHostRunning = true;
-            TerminalHostStatus = $"Secure app-to-app hosting is running with protocol v{access.ProtocolVersion}.";
+            TerminalHostStatus = $"Terminal connections are available. Host code: {access.HostCode}.";
             OnPropertyChanged(nameof(IsTerminalHostStopped));
             await RefreshRegisteredTerminalsAsync();
             Notify("Secure terminal hosting started.");
@@ -332,36 +334,11 @@ public partial class MainViewModel : ViewModelBase
     {
         if (_runtime.HostServer is null) return;
         await _runtime.HostServer.StopAsync();
-        TerminalHostAddresses.Clear();
-        TerminalCertificateFingerprint = "";
-        NewTerminalPassword = "";
+        TerminalHostCode = "";
         IsTerminalHostRunning = false;
         TerminalHostStatus = "App-to-app terminal hosting is off. All temporary terminal sessions were revoked.";
         OnPropertyChanged(nameof(IsTerminalHostStopped));
         await RefreshRegisteredTerminalsAsync();
-    }
-
-    [RelayCommand]
-    private async Task CreateTerminalCredentialAsync()
-    {
-        if (_runtime.HostServer is null || !IsTerminalHostRunning)
-        {
-            Notify("Start terminal hosting before creating a terminal credential.", true);
-            return;
-        }
-
-        try
-        {
-            var credential = await _runtime.HostServer.CreateTerminalAsync(NewTerminalName);
-            NewTerminalName = "";
-            NewTerminalPassword = credential.Password;
-            await RefreshRegisteredTerminalsAsync();
-            Notify($"Temporary access created for {credential.Registration.Name}. The password is shown once.");
-        }
-        catch (Exception exception)
-        {
-            Notify(exception.Message, true);
-        }
     }
 
     [RelayCommand]
@@ -379,6 +356,34 @@ public partial class MainViewModel : ViewModelBase
         if (_runtime.HostServer is null) return;
         TerminalAuditEntries.Clear();
         foreach (var entry in await _runtime.HostServer.GetAuditAsync()) TerminalAuditEntries.Add(entry);
+    }
+
+    public async Task<TerminalPairingApprovalResult> ApproveTerminalPairingAsync(
+        Guid pairingId,
+        string verificationCode)
+    {
+        if (_runtime.HostServer is null)
+        {
+            return new TerminalPairingApprovalResult(false, "Terminal hosting is not available.");
+        }
+
+        var result = await _runtime.HostServer.ApprovePairingAsync(pairingId, verificationCode);
+        await RefreshRegisteredTerminalsAsync();
+        Notify(result.Message, !result.Approved);
+        return result;
+    }
+
+    public async Task DenyTerminalPairingAsync(
+        Guid pairingId,
+        string reason = "Denied by the host operator.")
+    {
+        if (_runtime.HostServer is null)
+        {
+            return;
+        }
+
+        await _runtime.HostServer.DenyPairingAsync(pairingId, reason);
+        Notify(reason);
     }
 
     [RelayCommand]
@@ -959,7 +964,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        foreach (var terminal in await _runtime.HostServer.GetTerminalsAsync())
+        foreach (var terminal in (await _runtime.HostServer.GetTerminalsAsync()).Where(terminal => terminal.IsActive))
         {
             RegisteredTerminals.Add(terminal);
         }

@@ -1,8 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="TCMPlus.App.Views.TerminalConnectWindow"
-        Width="620"
-        Height="610"
+        Width="650"
+        Height="690"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Title="Connect terminal"
@@ -19,25 +19,56 @@
   <Border Margin="24" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="14" Padding="28">
     <StackPanel Spacing="12">
       <TextBlock Text="Connect this TCM+ app" FontSize="24" FontWeight="Bold" Foreground="#364958"/>
-      <TextBlock Text="Enter the HTTPS address, terminal credentials, and certificate fingerprint exactly as shown on the authoritative host."
+      <TextBlock Text="Choose the authoritative host. The host operator will approve this terminal using a six-digit verification code."
                  Foreground="#60737A" TextWrapping="Wrap"/>
-      <TextBlock Text="Host address" FontWeight="SemiBold" Foreground="#364958"/>
-      <TextBox Name="HostInput" PlaceholderText="https://192.168.1.20:12345"/>
+
+      <TextBlock Text="Nearby TCM+ hosts" FontWeight="SemiBold" Foreground="#364958"/>
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <ComboBox Name="HostList" PlaceholderText="Searching for hosts…"/>
+        <Button Name="RefreshButton" Grid.Column="1" Content="Refresh" Click="OnRefresh"/>
+      </Grid>
+      <TextBlock Name="DiscoveryMessage" Foreground="#60737A" TextWrapping="Wrap"/>
+
+      <Border Background="#F5F8F4" BorderBrush="#D6E5DC" BorderThickness="1" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Can’t find the host?" FontWeight="SemiBold" Foreground="#364958"/>
+          <TextBlock Text="Enter the four-character host code, IP address, computer name, or optional host:port."
+                     Foreground="#60737A" TextWrapping="Wrap"/>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBox Name="ManualHostInput" PlaceholderText="e.g. A7K9 or 192.168.1.20"/>
+            <Button Name="FindButton" Grid.Column="1" Content="Find host" Click="OnFindHost"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
       <TextBlock Text="Terminal name" FontWeight="SemiBold" Foreground="#364958"/>
       <TextBox Name="TerminalNameInput" PlaceholderText="e.g. Reception 1"/>
-      <TextBlock Text="Temporary terminal password" FontWeight="SemiBold" Foreground="#364958"/>
-      <TextBox Name="PasswordInput" PasswordChar="*" PlaceholderText="XXXX-XXXX-XXXX"/>
-      <TextBlock Text="Host certificate SHA-256 fingerprint" FontWeight="SemiBold" Foreground="#364958"/>
-      <TextBox Name="FingerprintInput" AcceptsReturn="True" TextWrapping="Wrap" Height="74"
-               PlaceholderText="Paste the full fingerprint shown on the host"/>
-      <Border Background="#FFF7D9" BorderBrush="#D39B28" BorderThickness="1" CornerRadius="6" Padding="10">
-        <TextBlock Text="Verify the fingerprint using the host screen or another trusted channel. A matching fingerprint prevents an impersonating machine from reading terminal credentials."
-                   Foreground="#765617" TextWrapping="Wrap"/>
+
+      <Border Name="PairingCodePanel"
+              IsVisible="False"
+              Background="#EAF5EF"
+              BorderBrush="#87BBA2"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="14">
+        <StackPanel Spacing="5" HorizontalAlignment="Center">
+          <TextBlock Text="Tell the host operator this code" Foreground="#364958" FontWeight="SemiBold"/>
+          <TextBlock Name="PairingCodeText"
+                     FontFamily="Consolas"
+                     FontSize="38"
+                     FontWeight="Bold"
+                     Foreground="#3B6064"
+                     HorizontalAlignment="Center"/>
+          <TextBlock Text="The host operator must type it into the approval window."
+                     Foreground="#60737A"
+                     TextAlignment="Center"/>
+        </StackPanel>
       </Border>
+
       <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
         <Button Content="Cancel" Click="OnCancel"/>
-        <Button Name="ConnectButton" Classes="primary" Content="Connect" Click="OnConnect"/>
+        <Button Name="ConnectButton" Classes="primary" Content="Request access" Click="OnConnect"/>
       </StackPanel>
     </StackPanel>
   </Border>
