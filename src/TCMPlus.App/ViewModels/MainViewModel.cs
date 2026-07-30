@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TCMPlus.App.LanDisplay;
 using TCMPlus.App.TerminalNetworking;
+using TCMPlus.App.Updates;
 using TCMPlus.Domain.Models;
 using TCMPlus.Domain.Persistence;
 using TCMPlus.Domain.Services;
@@ -20,6 +21,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly IAppSettingsRepository _appSettingsRepository;
     private readonly LanDisplayServer _lanDisplayServer;
     private readonly TerminalRuntimeContext _runtime;
+    private readonly IAppUpdateService _appUpdateService;
     private AppSettings? _appSettings;
     private TcSessionSettings? _sessionSettings;
     private readonly DispatcherTimer _clockTimer;
@@ -33,6 +35,7 @@ public partial class MainViewModel : ViewModelBase
         IShiftPinService shiftPinService,
         IAppSettingsRepository appSettingsRepository,
         LanDisplayServer lanDisplayServer,
+        IAppUpdateService appUpdateService,
         SessionDescriptor session,
         TerminalRuntimeContext runtime)
     {
@@ -41,6 +44,7 @@ public partial class MainViewModel : ViewModelBase
         _shiftPinService = shiftPinService;
         _appSettingsRepository = appSettingsRepository;
         _lanDisplayServer = lanDisplayServer;
+        _appUpdateService = appUpdateService;
         _runtime = runtime;
         Session = session;
         _shiftName = session.ShiftName;
@@ -141,6 +145,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private int _rejectedTerminalCommands;
     [ObservableProperty] private string _terminalConnectionStatus = "";
     [ObservableProperty] private string _terminalQueueReviewText = "";
+    [ObservableProperty] private string _updateStatusText = "Updates can be installed from the Start Shift screen.";
 
     public bool HasNoStations => Stations.Count == 0;
     public bool HasNoMobileTeams => MobileTeams.Count == 0;
@@ -249,6 +254,18 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand] private void ShowSettingsGeneral() => SettingsPage = SettingsPage.General;
     [RelayCommand] private void ShowSettingsOperations() => SettingsPage = SettingsPage.Operations;
     [RelayCommand] private void ShowSettingsDisplays() => SettingsPage = SettingsPage.Displays;
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        UpdateStatusText = "Checking for updates...";
+        var result = await _appUpdateService.CheckForUpdatesAsync();
+        UpdateStatusText = result.StatusText;
+        if (result.Status == AppUpdateStatus.Available)
+        {
+            Notify($"TCM+ {result.Version} is available. Safely exit this session, then update from the Start Shift screen.");
+        }
+    }
 
     [RelayCommand]
     private async Task AddDischargeRouteAsync()

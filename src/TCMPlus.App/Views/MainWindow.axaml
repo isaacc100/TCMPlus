@@ -563,6 +563,9 @@
                             <Slider Minimum="4" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding LockBlurRadius, Mode=TwoWay}"/>
                             <TextBlock Grid.Column="1" Text="{Binding LockBlurRadius, StringFormat={}{0:0}px}" Foreground="{StaticResource DeepSeaBrush}" VerticalAlignment="Center"/>
                         </Grid>
+                        <TextBlock Text="Updates" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding UpdateStatusText}" Classes="muted" TextWrapping="Wrap"/>
+                        <Button Classes="secondary" Content="Check for updates" Command="{Binding CheckForUpdatesCommand}" HorizontalAlignment="Left"/>
                         <TextBlock Text="{Binding ApplicationVersion, StringFormat=TCM+ {0}}" Foreground="{StaticResource DeepSeaBrush}"/>
                     </StackPanel>
                     <StackPanel IsVisible="{Binding IsSettingsOperations}" Spacing="12">

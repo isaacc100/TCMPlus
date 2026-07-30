@@ -1,0 +1,99 @@
+name: Publish TCM+
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish-windows:
+    name: Publish Windows x64
+    runs-on: windows-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      VPK_VERSION: "1.2.0"
+      APP_ID: "TCMPlus"
+      REPOSITORY_URL: "https://github.com/${{ github.repository }}"
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Validate release version and select channel
+        id: release
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content Directory.Build.props
+          $version = $props.Project.PropertyGroup.TCMVersion
+          $tagVersion = "${{ github.ref_name }}".Substring(1)
+          if ($version -ne $tagVersion) {
+            throw "Tag ${{ github.ref_name }} does not match Directory.Build.props version $version."
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+(-DEV)?$') {
+            throw "Tag ${{ github.ref_name }} is not a supported TCM+ release tag."
+          }
+
+          $isDev = $version.EndsWith("-DEV", [System.StringComparison]::Ordinal)
+          $track = if ($isDev) { 'dev' } else { 'stable' }
+          $lines = Get-Content CHANGELOG.md
+          $start = [Array]::IndexOf($lines, "## $version")
+          if ($start -lt 0) {
+            throw "CHANGELOG.md has no section for $version."
+          }
+          $end = $start + 1
+          while ($end -lt $lines.Count -and -not $lines[$end].StartsWith('## ')) { $end++ }
+          $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          $lines[($start + 1)..($end - 1)] | Set-Content -Path $notesPath
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$isDev" >> $env:GITHUB_OUTPUT
+          "channel=win-x64-$track" >> $env:GITHUB_OUTPUT
+          "release_notes=$notesPath" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore TCMPlus.slnx
+
+      - name: Test
+        run: dotnet test TCMPlus.slnx --configuration Release --no-restore
+
+      - name: Publish self-contained app
+        run: dotnet publish src/TCMPlus.App/TCMPlus.App.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output publish
+
+      - name: Install Velopack CLI
+        run: dotnet tool install --global vpk --version $env:VPK_VERSION
+
+      - name: Package and publish GitHub Release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+          CHANNEL: ${{ steps.release.outputs.channel }}
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+          RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}
+        run: |
+          $env:PATH = "${env:USERPROFILE}\.dotnet\tools;$env:PATH"
+          $downloadArgs = @('download', 'github', '--repoUrl', $env:REPOSITORY_URL, '--token', $env:GITHUB_TOKEN, '--channel', $env:CHANNEL)
+          if ($env:PRERELEASE -eq 'True') { $downloadArgs += '--pre' }
+          & vpk @downloadArgs
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning 'No prior updater feed was available; publishing a full package without a delta update.'
+            $global:LASTEXITCODE = 0
+          }
+
+          vpk pack --packId $env:APP_ID --packVersion $env:VERSION --packDir publish --mainExe TCMPlus.App.exe --channel $env:CHANNEL --releaseNotes $env:RELEASE_NOTES
+
+          $uploadArgs = @('upload', 'github', '--repoUrl', $env:REPOSITORY_URL, '--token', $env:GITHUB_TOKEN, '--channel', $env:CHANNEL, '--publish', '--tag', "v$env:VERSION", '--releaseName', "TCM+ $env:VERSION")
+          if ($env:PRERELEASE -eq 'True') { $uploadArgs += '--pre' }
+          & vpk @uploadArgs
+
+      # Optional signing is intentionally deferred. When credentials are available, configure
+      # WINDOWS_SIGN_CERT_BASE64 and WINDOWS_SIGN_CERT_PASSWORD, then pass the decoded PFX to
+      # Velopack's --signTemplate option. Future macOS signing uses APPLE_SIGNING_CERT_BASE64,
+      # APPLE_SIGNING_CERT_PASSWORD, APPLE_ID, APPLE_TEAM_ID, and APPLE_APP_PASSWORD.

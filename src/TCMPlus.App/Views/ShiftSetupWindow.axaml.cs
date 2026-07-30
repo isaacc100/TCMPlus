@@ -10,13 +10,24 @@ public partial class ShiftSetupWindow : Window
     public ShiftSetupWindow()
     {
         InitializeComponent();
-        Opened += (_, _) => ShiftNameInput.Focus();
+        Opened += (_, _) =>
+        {
+            ShiftNameInput.Focus();
+            UpdateCheckRequested?.Invoke(this, EventArgs.Empty);
+        };
     }
 
     public event EventHandler<ShiftSetupDraft>? ShiftStarted;
     public event EventHandler? LoadExistingRequested;
     public event EventHandler? TerminalConnectionRequested;
-    public void ShowError(string message) => ValidationMessage.Text = message;
+    public event EventHandler? UpdateCheckRequested;
+    public bool IsOpeningSession { get; private set; }
+    public void ShowError(string message)
+    {
+        IsOpeningSession = false;
+        ValidationMessage.Text = message;
+    }
+    public void SetUpdateStatus(string message) => UpdateStatus.Text = message;
 
     private void OnStartShift(object? sender, RoutedEventArgs e)
     {
@@ -36,11 +47,13 @@ public partial class ShiftSetupWindow : Window
         }
         if (password.Length < 8 || password != (ConfirmSessionPasswordInput.Text ?? string.Empty)) { ValidationMessage.Text = "Use and confirm a session password of at least eight characters."; return; }
 
+        IsOpeningSession = true;
         ShiftStarted?.Invoke(this, new ShiftSetupDraft(shiftName, pin, password, (GridDensity)Math.Clamp(GridDensityInput.SelectedIndex, 0, 2)));
     }
 
     private void OnLoadExistingShift(object? sender, RoutedEventArgs e) => LoadExistingRequested?.Invoke(this, EventArgs.Empty);
     private void OnConnectTerminal(object? sender, RoutedEventArgs e) => TerminalConnectionRequested?.Invoke(this, EventArgs.Empty);
+    private void OnCheckForUpdates(object? sender, RoutedEventArgs e) => UpdateCheckRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnPinDigitChanged(object? sender, TextChangedEventArgs e)
     {

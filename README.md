@@ -11,6 +11,10 @@ dotnet run --project src/TCMPlus.App
 
 The app starts by naming the shift and setting its required six-digit PIN. It then creates a session database in a safely named shift folder under the platform local application-data directory. Existing sessions are retained for the forthcoming open-session workflow.
 
+## Updates
+
+Installed releases check the public GitHub Releases feed for an update at the Start Shift screen and can be checked manually from Settings. TCM+ always asks before downloading, installing, and restarting; it never applies an update while a host or terminal session is active. The first updater-enabled release must be installed manually because earlier ZIP distributions cannot self-update. See [release instructions](docs/RELEASING.md).
+
 ## Current TCM scope
 
 - Fixed-aspect Map view that scales with its window, uses grid-unit geometry, and supports move plus four-corner resize in edit mode.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0-DEV
+
+- Added consent-based automatic updates from GitHub Releases, including platform- and architecture-specific release channels, development prerelease support, and safe pre-shift update prompts.
+- Added a tag-driven GitHub Actions release workflow that tests, packages, and publishes self-contained Windows Velopack installers and update feeds.
+- Existing ZIP-based installations must install the first Velopack release manually; subsequent installed releases update in place.
+
 ## 0.10.0-DEV
 
 - Added authoritative-host and desktop-terminal modes for secure multi-app operation over the LAN while keeping SQLite host-only.

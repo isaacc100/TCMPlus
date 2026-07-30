@@ -14,6 +14,7 @@ using TCMPlus.App.ViewModels;
 using TCMPlus.App.Views;
 using TCMPlus.App.LanDisplay;
 using TCMPlus.App.TerminalNetworking;
+using TCMPlus.App.Updates;
 
 namespace TCMPlus.App;
 
@@ -25,6 +26,7 @@ public partial class App : Application
     private static ActiveSession? _activeSession;
     private static Mutex? _hostMutex;
     private static bool _hostMutexOwned;
+    private static readonly IAppUpdateService UpdateService = new VelopackAppUpdateService();
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -47,8 +49,42 @@ public partial class App : Application
         shiftSetup.ShiftStarted += async (_, draft) => await OpenShiftAsync(desktop, shiftSetup, draft);
         shiftSetup.LoadExistingRequested += (_, _) => ShowRecentSessions(shiftSetup);
         shiftSetup.TerminalConnectionRequested += (_, _) => ShowTerminalConnection(shiftSetup);
+        shiftSetup.UpdateCheckRequested += async (_, _) => await CheckForUpdatesAtStartAsync(shiftSetup);
         desktop.MainWindow = shiftSetup;
         if (show) shiftSetup.Show();
+    }
+
+    private static async Task CheckForUpdatesAtStartAsync(ShiftSetupWindow shiftSetup)
+    {
+        shiftSetup.SetUpdateStatus("Checking for updates...");
+        var result = await UpdateService.CheckForUpdatesAsync();
+        shiftSetup.SetUpdateStatus(result.StatusText);
+        if (result.Status != AppUpdateStatus.Available || !shiftSetup.IsVisible || shiftSetup.IsOpeningSession || _activeSession is not null)
+        {
+            return;
+        }
+
+        var releaseNotes = result.ReleaseNotes?.Trim();
+        if (releaseNotes?.Length > 500)
+        {
+            releaseNotes = $"{releaseNotes[..500].TrimEnd()}…";
+        }
+
+        var notes = string.IsNullOrWhiteSpace(releaseNotes) ? string.Empty : $"\n\n{releaseNotes}";
+        var confirmed = await new MessageWindow(
+            "Update available",
+            $"TCM+ {result.Version} is ready. Updating will download the release and restart TCM+.{notes}",
+            true,
+            "Update & restart",
+            "Later").ShowDialog<bool>(shiftSetup);
+        if (!confirmed)
+        {
+            return;
+        }
+
+        shiftSetup.SetUpdateStatus($"Downloading TCM+ {result.Version}...");
+        var applyResult = await UpdateService.DownloadAndRestartAsync();
+        shiftSetup.SetUpdateStatus(applyResult.StatusText);
     }
 
     private static async Task OpenShiftAsync(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
@@ -341,6 +377,7 @@ public partial class App : Application
         await new DatabaseInitializer(connectionFactory).InitializeAsync();
 
         services.AddSingleton(session);
+        services.AddSingleton<IAppUpdateService>(UpdateService);
         services.AddSingleton(connectionFactory);
         services.AddSingleton<IStationRepository, SqliteStationRepository>();
         services.AddSingleton<IMobileTeamRepository, SqliteMobileTeamRepository>();
