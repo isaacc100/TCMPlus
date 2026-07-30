@@ -91,7 +91,7 @@ jobs:
             $global:LASTEXITCODE = 0
           }
 
-          vpk pack --packId $env:APP_ID --packVersion $env:VERSION --packDir publish --mainExe TCMPlus.App.exe --channel $env:CHANNEL --releaseNotes $env:RELEASE_NOTES
+          vpk pack --packId $env:APP_ID --packTitle "TCM+" --packAuthors "TCM+" --packVersion $env:VERSION --packDir publish --mainExe TCMPlus.App.exe --channel $env:CHANNEL --releaseNotes $env:RELEASE_NOTES
 
           $uploadArgs = @('upload', 'github', '--repoUrl', $env:REPOSITORY_URL, '--token', $env:GITHUB_TOKEN, '--channel', $env:CHANNEL, '--publish', '--tag', "v$env:VERSION", '--releaseName', "TCM+ $env:VERSION")
           if ($env:PRERELEASE -eq 'True') { $uploadArgs += '--pre' }
