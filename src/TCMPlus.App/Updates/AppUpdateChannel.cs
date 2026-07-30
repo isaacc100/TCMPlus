@@ -9,7 +9,13 @@ public static class AppUpdateChannel
     {
         var informationalVersion = (assembly ?? typeof(AppUpdateChannel).Assembly)
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        return informationalVersion?.EndsWith("-DEV", StringComparison.OrdinalIgnoreCase) == true;
+        return IsDevelopmentVersion(informationalVersion);
+    }
+
+    internal static bool IsDevelopmentVersion(string? informationalVersion)
+    {
+        var versionWithoutBuildMetadata = informationalVersion?.Split('+', 2)[0];
+        return versionWithoutBuildMetadata?.EndsWith("-DEV", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     public static string Current => For(GetPlatform(), RuntimeInformation.ProcessArchitecture, IsDevelopmentBuild());

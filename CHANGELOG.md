@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.2-DEV
+
+- Fixed development update-channel detection for packaged builds whose informational version includes commit metadata.
+- Added regression coverage so `-DEV+commit` builds continue reading the anonymous `win-x64-dev` feed.
+
 ## 0.11.1-DEV
 
 - Fixed terminal-mode startup after secure host approval by registering the updater service required by the shared main screen.

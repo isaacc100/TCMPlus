@@ -21,6 +21,16 @@ public sealed class AppUpdateChannelTests
         Assert.Throws<PlatformNotSupportedException>(() => AppUpdateChannel.For("win", Architecture.X86, false));
     }
 
+    [Theory]
+    [InlineData("0.11.2-DEV", true)]
+    [InlineData("0.11.2-DEV+b2f73e2a8e2a77eafbb26de4dddf9d31468d5ac4", true)]
+    [InlineData("0.11.2", false)]
+    [InlineData("0.11.2+b2f73e2a8e2a77eafbb26de4dddf9d31468d5ac4", false)]
+    public void Detects_development_channel_before_optional_build_metadata(string version, bool expected)
+    {
+        Assert.Equal(expected, AppUpdateChannel.IsDevelopmentVersion(version));
+    }
+
     [Fact]
     public void Update_result_models_keep_unavailable_checks_non_fatal()
     {
