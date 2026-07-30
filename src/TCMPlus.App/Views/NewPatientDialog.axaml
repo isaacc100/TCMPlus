@@ -1,23 +1,28 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="TCMPlus.App.Views.NewPatientDialog"
-        Width="440" Height="270" CanResize="False" WindowStartupLocation="CenterOwner"
-        Title="New patient" Background="#F5F8F4">
-    <Window.Styles>
-        <Style Selector="Button.primary"><Setter Property="Background" Value="#3B6064" /><Setter Property="Foreground" Value="White" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="14,9" /><Setter Property="CornerRadius" Value="6" /></Style>
-        <Style Selector="Button.secondary"><Setter Property="Background" Value="#E7F5EC" /><Setter Property="Foreground" Value="#245A42" /><Setter Property="BorderBrush" Value="#87BBA2" /><Setter Property="Padding" Value="13,8" /><Setter Property="CornerRadius" Value="6" /></Style>
-    </Window.Styles>
-    <Border Margin="18" Background="White" BorderBrush="#D5E2DA" BorderThickness="1" CornerRadius="10" Padding="20">
-        <StackPanel Spacing="12">
-            <TextBlock Text="New patient" FontSize="19" FontWeight="Bold" Foreground="#364958" />
-            <TextBlock Name="StationText" Foreground="#60737A" />
-            <TextBlock Text="Presenting complaint" FontWeight="SemiBold" Foreground="#364958" />
-            <TextBox Name="ComplaintInput" PlaceholderText="Optional" KeyDown="OnComplaintKeyDown" />
-            <TextBlock Text="No details are required to add the patient." Foreground="#60737A" FontSize="11" />
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
-                <Button Classes="secondary" Content="Cancel" Click="OnCancel" />
-                <Button Classes="primary" Content="Add patient" Click="OnAddPatient" />
-            </StackPanel>
+<views:ResponsiveDialogWindow xmlns="https://github.com/avaloniaui"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:views="using:TCMPlus.App.Views"
+                              x:Class="TCMPlus.App.Views.NewPatientDialog"
+                              Width="440"
+                              Height="270"
+                              CanResize="False"
+                              WindowStartupLocation="CenterOwner"
+                              Title="New patient"
+                              Background="#F5F8F4">
+  <Border Classes="dialog-card">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <TextBlock Classes="dialog-header" Text="New patient"/>
+      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+        <StackPanel Spacing="11">
+          <TextBlock Name="StationText" Foreground="#60737A" TextWrapping="Wrap"/>
+          <TextBlock Text="Presenting complaint" FontWeight="SemiBold" Foreground="#364958"/>
+          <TextBox Name="ComplaintInput" PlaceholderText="Optional" KeyDown="OnComplaintKeyDown"/>
+          <TextBlock Text="No details are required to add the patient." Foreground="#60737A" FontSize="11" TextWrapping="Wrap"/>
         </StackPanel>
-    </Border>
-</Window>
+      </ScrollViewer>
+      <StackPanel Grid.Row="2" Classes="dialog-footer">
+        <Button Classes="secondary" Content="Cancel" Click="OnCancel"/>
+        <Button Classes="primary" Content="Add patient" Click="OnAddPatient"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</views:ResponsiveDialogWindow>

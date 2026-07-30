@@ -4,7 +4,7 @@ using Avalonia.Interactivity;
 
 namespace TCMPlus.App.Views;
 
-public partial class MobileTeamDeploymentDialog : Window
+public partial class MobileTeamDeploymentDialog : ResponsiveDialogWindow
 {
     public MobileTeamDeploymentDialog() : this("")
     {

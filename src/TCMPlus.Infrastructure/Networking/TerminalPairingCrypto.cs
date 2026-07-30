@@ -108,6 +108,7 @@ public sealed class TerminalPairingKeyExchange : IDisposable
             new PairingTranscript(
                 request.RequestId,
                 response.PairingId,
+                response.HostInstanceId,
                 request.TerminalName,
                 request.ClientVersion,
                 request.ProtocolVersion,
@@ -125,6 +126,7 @@ public sealed class TerminalPairingKeyExchange : IDisposable
     private sealed record PairingTranscript(
         Guid RequestId,
         Guid PairingId,
+        Guid HostInstanceId,
         string TerminalName,
         string ClientVersion,
         int ProtocolVersion,

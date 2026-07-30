@@ -22,12 +22,14 @@ public partial class MainViewModel : ViewModelBase
     private readonly LanDisplayServer _lanDisplayServer;
     private readonly TerminalRuntimeContext _runtime;
     private readonly IAppUpdateService _appUpdateService;
+    private readonly TerminalOperatorPreferencesStore _terminalOperatorPreferencesStore;
     private AppSettings? _appSettings;
     private TcSessionSettings? _sessionSettings;
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _bannerTimer;
     private readonly DispatcherTimer _terminalRefreshTimer;
     private bool _terminalRefreshInProgress;
+    private bool _isInitializingQuickEntry;
 
     public MainViewModel(
         ITreatmentCentreService treatmentCentreService,
@@ -36,6 +38,7 @@ public partial class MainViewModel : ViewModelBase
         IAppSettingsRepository appSettingsRepository,
         LanDisplayServer lanDisplayServer,
         IAppUpdateService appUpdateService,
+        TerminalOperatorPreferencesStore terminalOperatorPreferencesStore,
         SessionDescriptor session,
         TerminalRuntimeContext runtime)
     {
@@ -45,6 +48,7 @@ public partial class MainViewModel : ViewModelBase
         _appSettingsRepository = appSettingsRepository;
         _lanDisplayServer = lanDisplayServer;
         _appUpdateService = appUpdateService;
+        _terminalOperatorPreferencesStore = terminalOperatorPreferencesStore;
         _runtime = runtime;
         Session = session;
         _shiftName = session.ShiftName;
@@ -87,6 +91,7 @@ public partial class MainViewModel : ViewModelBase
     public event EventHandler? SessionLockRequested;
     public event EventHandler? SessionUnlockRequested;
     public event Action<TerminalPairingRequestInfo>? TerminalPairingRequested;
+    public event EventHandler? TerminalPairingReturnRequested;
 
     public SessionDescriptor Session { get; }
     public ObservableCollection<StationViewModel> Stations { get; } = [];
@@ -146,8 +151,13 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private string _terminalHostCode = "";
     [ObservableProperty] private int _pendingTerminalCommands;
     [ObservableProperty] private int _rejectedTerminalCommands;
+    [ObservableProperty] private int _unresolvedTerminalCommands;
     [ObservableProperty] private string _terminalConnectionStatus = "";
     [ObservableProperty] private string _terminalQueueReviewText = "";
+    [ObservableProperty] private string _terminalEndedMessage = "";
+    [ObservableProperty] private bool _isTerminalSnapshotStale;
+    [ObservableProperty] private bool _isTerminalEnding;
+    [ObservableProperty] private TerminalConnectionState _terminalConnectionState = TerminalConnectionState.Connected;
     [ObservableProperty] private string _updateStatusText = "Updates can be installed from the Start Shift screen.";
 
     public bool HasNoStations => Stations.Count == 0;
@@ -179,6 +189,18 @@ public partial class MainViewModel : ViewModelBase
     public bool CanLock => !_runtime.IsTerminal;
     public bool HasRejectedTerminalCommands => RejectedTerminalCommands > 0;
     public bool HasPendingTerminalCommands => PendingTerminalCommands > 0;
+    public bool HasUnresolvedTerminalCommands => UnresolvedTerminalCommands > 0;
+    public bool CanReturnToPairing =>
+        UnresolvedTerminalCommands == 0
+        && PendingTerminalCommands == 0
+        && !IsTerminalEnding;
+    public bool IsTerminalReconnecting =>
+        IsTerminal && TerminalConnectionState == TerminalConnectionState.Reconnecting;
+    public bool IsTerminalEnded =>
+        IsTerminal && TerminalConnectionState is
+            TerminalConnectionState.HostClosed
+            or TerminalConnectionState.AccessRevoked
+            or TerminalConnectionState.UpdateRequired;
     public string InstanceModeText => IsTerminal
         ? $"Terminal: {_runtime.TerminalName} - {_runtime.HostAddress}"
         : "Authoritative host";
@@ -201,7 +223,17 @@ public partial class MainViewModel : ViewModelBase
             _sessionSettings = settings;
             ShiftName = string.IsNullOrWhiteSpace(settings.ShiftName) ? Session.ShiftName : settings.ShiftName;
             PinStatusText = settings.HasShiftPin ? "A shift PIN is stored for this session." : "No shift PIN set.";
-            QuickEntry = settings.QuickEntry;
+            _isInitializingQuickEntry = true;
+            try
+            {
+                QuickEntry = _runtime.IsTerminal
+                    ? (await _terminalOperatorPreferencesStore.LoadAsync()).QuickEntry
+                    : settings.QuickEntry;
+            }
+            finally
+            {
+                _isInitializingQuickEntry = false;
+            }
             GridDensity = settings.GridDensity;
             _appSettings = await _appSettingsRepository.GetAsync();
             LockBlurRadius = Math.Clamp(_appSettings.LockBlurRadius, 4d, 20d);
@@ -212,6 +244,8 @@ public partial class MainViewModel : ViewModelBase
             if (_runtime.IsTerminal)
             {
                 await UpdateTerminalQueueStateAsync();
+                TerminalConnectionState = TerminalConnectionState.Connected;
+                IsTerminalSnapshotStale = false;
                 TerminalConnectionStatus = $"Connected securely to {_runtime.HostAddress}.";
                 _terminalRefreshTimer.Start();
             }
@@ -221,7 +255,21 @@ public partial class MainViewModel : ViewModelBase
                 await RefreshRegisteredTerminalsAsync();
             }
         }
-        catch (Exception exception) { Notify($"Unable to load this session: {exception.Message}", true); }
+        catch (Exception exception)
+        {
+            if (_runtime.IsTerminal)
+            {
+                await HandleTerminalFailureAsync(exception);
+                if (!IsTerminalEnded)
+                {
+                    _terminalRefreshTimer.Start();
+                }
+            }
+            else
+            {
+                Notify($"Unable to load this session: {exception.Message}", true);
+            }
+        }
     }
 
     [RelayCommand] private async Task ShowDashboardAsync() { ClearPatientEdits(); SelectedArea = TcArea.Dashboard; await RefreshDashboardAsync(); }
@@ -392,6 +440,54 @@ public partial class MainViewModel : ViewModelBase
         if (_runtime.RemoteService is null) return;
         await _runtime.RemoteService.AcknowledgeRejectedCommandsAsync();
         await UpdateTerminalQueueStateAsync();
+    }
+
+    [RelayCommand]
+    private async Task AcknowledgeUnresolvedTerminalCommandsAsync()
+    {
+        if (_runtime.RemoteService is null)
+        {
+            return;
+        }
+
+        await _runtime.RemoteService.AcknowledgeUnresolvedCommandsAsync();
+        await UpdateTerminalQueueStateAsync();
+    }
+
+    [RelayCommand]
+    private async Task RetryTerminalConnectionAsync()
+    {
+        if (!IsTerminalReconnecting)
+        {
+            return;
+        }
+
+        await RefreshTerminalAsync();
+    }
+
+    [RelayCommand]
+    private async Task LeaveTerminalAsync()
+    {
+        if (!IsTerminalReconnecting)
+        {
+            return;
+        }
+
+        await EndTerminalSessionAsync(
+            TerminalConnectionState.HostClosed,
+            "You left the disconnected terminal session. Any queued commands are unresolved and will not be replayed.");
+    }
+
+    [RelayCommand]
+    private void ReturnToPairing()
+    {
+        if (!IsTerminalEnded || !CanReturnToPairing)
+        {
+            return;
+        }
+
+        _terminalRefreshTimer.Stop();
+        TerminalPairingReturnRequested?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand] private void RequestSessionSwitch() => SessionSwitchRequested?.Invoke(this, EventArgs.Empty);
@@ -602,8 +698,24 @@ public partial class MainViewModel : ViewModelBase
     partial void OnSelectedAreaChanged(TcArea value) => RefreshAreaProperties();
     partial void OnIsLanDisplayRunningChanged(bool value) => OnPropertyChanged(nameof(IsLanDisplayStopped));
     partial void OnIsTerminalHostRunningChanged(bool value) => OnPropertyChanged(nameof(IsTerminalHostStopped));
-    partial void OnPendingTerminalCommandsChanged(int value) => OnPropertyChanged(nameof(HasPendingTerminalCommands));
+    partial void OnPendingTerminalCommandsChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasPendingTerminalCommands));
+        OnPropertyChanged(nameof(CanReturnToPairing));
+    }
     partial void OnRejectedTerminalCommandsChanged(int value) => OnPropertyChanged(nameof(HasRejectedTerminalCommands));
+    partial void OnUnresolvedTerminalCommandsChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasUnresolvedTerminalCommands));
+        OnPropertyChanged(nameof(CanReturnToPairing));
+    }
+    partial void OnTerminalConnectionStateChanged(TerminalConnectionState value)
+    {
+        OnPropertyChanged(nameof(IsTerminalReconnecting));
+        OnPropertyChanged(nameof(IsTerminalEnded));
+    }
+    partial void OnIsTerminalEndingChanged(bool value) =>
+        OnPropertyChanged(nameof(CanReturnToPairing));
     partial void OnIsLockedChanged(bool value) => OnPropertyChanged(nameof(ActiveBlurRadius));
     partial void OnLockBlurRadiusChanged(double value)
     {
@@ -630,7 +742,19 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnQuickEntryChanged(bool value)
     {
-        if (CanAdministerHost) _ = SaveSessionOptionsAsync();
+        if (_isInitializingQuickEntry)
+        {
+            return;
+        }
+
+        if (CanAdministerHost)
+        {
+            _ = SaveSessionOptionsAsync();
+        }
+        else
+        {
+            _ = SaveTerminalOperatorPreferencesAsync(value);
+        }
     }
     partial void OnGridDensityChanged(GridDensity value) { foreach (var station in Stations) station.GridSizePixels = GridPixelSize; OnPropertyChanged(nameof(GridPixelSize)); }
 
@@ -910,11 +1034,37 @@ public partial class MainViewModel : ViewModelBase
     public void CompleteUnlock() { IsLocked = false; ClearUnlockPin(); }
     public void ReportPersistenceFailure(string message) => Notify(message, true);
 
+    public async Task PrepareForTerminalExitAsync()
+    {
+        if (_runtime.RemoteService is null
+            || _runtime.RemoteService.PendingCommandCount == 0)
+        {
+            return;
+        }
+
+        await _runtime.RemoteService.MarkPendingCommandsUnresolvedAsync(
+            "The operator left while these commands were still awaiting host confirmation.");
+        await UpdateTerminalQueueStateAsync();
+    }
+
     private async Task SaveSessionOptionsAsync()
     {
         var settings = await _settingsRepository.GetAsync();
         _sessionSettings = settings with { QuickEntry = QuickEntry, GridDensity = GridDensity };
         await _settingsRepository.SaveAsync(_sessionSettings);
+    }
+
+    private async Task SaveTerminalOperatorPreferencesAsync(bool quickEntry)
+    {
+        try
+        {
+            await _terminalOperatorPreferencesStore.SaveAsync(
+                new TerminalOperatorPreferences(quickEntry));
+        }
+        catch (Exception exception)
+        {
+            Notify($"Unable to save this terminal's Quick Entry preference: {exception.Message}", true);
+        }
     }
 
     private async Task CommitGeometryAsync(StationViewModel station, StationGeometry originalGeometry)
@@ -932,7 +1082,7 @@ public partial class MainViewModel : ViewModelBase
 
     private async Task RefreshTerminalAsync()
     {
-        if (!_runtime.IsTerminal || _terminalRefreshInProgress)
+        if (!_runtime.IsTerminal || _terminalRefreshInProgress || IsTerminalEnded)
         {
             return;
         }
@@ -942,13 +1092,14 @@ public partial class MainViewModel : ViewModelBase
         {
             await RefreshAssignmentsAsync();
             await RefreshOperationalDataAsync();
+            TerminalConnectionState = TerminalConnectionState.Connected;
+            IsTerminalSnapshotStale = false;
             TerminalConnectionStatus = $"Connected securely to {_runtime.HostAddress}.";
             await UpdateTerminalQueueStateAsync();
         }
         catch (Exception exception)
         {
-            TerminalConnectionStatus = $"Connection unavailable: {exception.Message}";
-            await UpdateTerminalQueueStateAsync();
+            await HandleTerminalFailureAsync(exception);
         }
         finally
         {
@@ -976,20 +1127,83 @@ public partial class MainViewModel : ViewModelBase
         {
             PendingTerminalCommands = 0;
             RejectedTerminalCommands = 0;
+            UnresolvedTerminalCommands = 0;
             TerminalQueueReviewText = "";
             return;
         }
 
         PendingTerminalCommands = _runtime.RemoteService.PendingCommandCount;
         RejectedTerminalCommands = _runtime.RemoteService.RejectedCommandCount;
-        var rejected = (await _runtime.RemoteService.GetQueuedCommandsAsync())
-            .Where(command => command.State == QueuedTerminalCommandState.Rejected)
-            .Take(3)
-            .Select(command => $"{command.Command.Kind}: {command.RejectionReason}")
+        UnresolvedTerminalCommands = _runtime.RemoteService.UnresolvedCommandCount;
+        var review = (await _runtime.RemoteService.GetQueuedCommandsAsync())
+            .Where(command => command.State is
+                QueuedTerminalCommandState.Rejected
+                or QueuedTerminalCommandState.Unresolved)
+            .Take(5)
+            .Select(command =>
+                $"{command.State} {command.Command.Kind}: {command.RejectionReason}")
             .ToList();
-        TerminalQueueReviewText = rejected.Count == 0
+        TerminalQueueReviewText = review.Count == 0
             ? ""
-            : string.Join(Environment.NewLine, rejected);
+            : string.Join(Environment.NewLine, review);
+    }
+
+    private async Task HandleTerminalFailureAsync(Exception exception)
+    {
+        var failure = TerminalConnectionFailureClassifier.Classify(exception);
+        if (failure.State == TerminalConnectionState.Reconnecting)
+        {
+            if (IsTerminalEnded)
+            {
+                return;
+            }
+
+            TerminalConnectionState = TerminalConnectionState.Reconnecting;
+            IsTerminalSnapshotStale = true;
+            TerminalConnectionStatus =
+                $"Stale snapshot — reconnecting to {_runtime.HostAddress}.";
+            await UpdateTerminalQueueStateAsync();
+            return;
+        }
+
+        await EndTerminalSessionAsync(failure.State, failure.Message);
+    }
+
+    private async Task EndTerminalSessionAsync(
+        TerminalConnectionState state,
+        string message)
+    {
+        TerminalConnectionState = state;
+        IsTerminalEnding = true;
+        IsTerminalSnapshotStale = true;
+        TerminalConnectionStatus = message;
+        TerminalEndedMessage = message;
+        _terminalRefreshTimer.Stop();
+        try
+        {
+            if (_runtime.RemoteService is not null)
+            {
+                await _runtime.RemoteService.MarkPendingCommandsUnresolvedAsync(
+                    "The terminal session ended before the host could confirm these commands.");
+            }
+
+            await UpdateTerminalQueueStateAsync();
+        }
+        catch (Exception exception)
+        {
+            if (_runtime.RemoteService is not null)
+            {
+                PendingTerminalCommands = _runtime.RemoteService.PendingCommandCount;
+                RejectedTerminalCommands = _runtime.RemoteService.RejectedCommandCount;
+                UnresolvedTerminalCommands = _runtime.RemoteService.UnresolvedCommandCount;
+            }
+            TerminalEndedMessage =
+                $"{message} The local queue could not be updated: {exception.Message}";
+        }
+        finally
+        {
+            IsTerminalEnding = false;
+        }
     }
 
     private async Task RefreshAssignmentsAsync()

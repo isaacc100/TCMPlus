@@ -81,6 +81,7 @@ public static class TerminalPairingClient
             var start = await response.Content.ReadFromJsonAsync<TerminalPairingStartResponse>(JsonOptions, cancellationToken)
                 ?? throw new InvalidOperationException("The host returned an empty pairing response.");
             if (start.PairingId == Guid.Empty
+                || start.HostInstanceId == Guid.Empty
                 || start.ProtocolVersion != TerminalProtocol.CurrentVersion
                 || start.ExpiresAt <= DateTimeOffset.UtcNow
                 || string.IsNullOrWhiteSpace(start.HostPublicKey)
@@ -213,6 +214,8 @@ public sealed class TerminalPairingSession : IDisposable
                         status.AuthenticationTag));
                     var bootstrapFingerprint = NormalizeFingerprint(bootstrap.CertificateFingerprint);
                     if (bootstrap.TerminalId == Guid.Empty
+                        || bootstrap.HostInstanceId == Guid.Empty
+                        || bootstrap.HostInstanceId != _start.HostInstanceId
                         || bootstrap.ProtocolVersion != TerminalProtocol.CurrentVersion
                         || string.IsNullOrWhiteSpace(bootstrap.TerminalName)
                         || string.IsNullOrWhiteSpace(bootstrap.Password)
@@ -227,6 +230,7 @@ public sealed class TerminalPairingSession : IDisposable
                     return new TerminalPairingResult(
                         Host,
                         bootstrap.TerminalId,
+                        bootstrap.HostInstanceId,
                         bootstrap.TerminalName,
                         bootstrap.Password,
                         bootstrap.CertificateFingerprint,
@@ -286,6 +290,7 @@ public sealed class TerminalPairingSession : IDisposable
 public sealed record TerminalPairingResult(
     Uri Host,
     Guid TerminalId,
+    Guid HostInstanceId,
     string TerminalName,
     string Password,
     string CertificateFingerprint,

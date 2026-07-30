@@ -5,7 +5,7 @@ using TCMPlus.Domain.Models;
 
 namespace TCMPlus.App.Views;
 
-public partial class AppSettingsWindow : Window
+public partial class AppSettingsWindow : ResponsiveDialogWindow
 {
     private readonly ObservableCollection<string> _routes;
     public AppSettingsWindow(IEnumerable<string> routes, ExternalDisplayMode displayMode = ExternalDisplayMode.Dashboard)

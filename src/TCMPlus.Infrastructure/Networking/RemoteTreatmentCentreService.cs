@@ -17,6 +17,7 @@ public sealed class RemoteTreatmentCentreService(
 
     public int PendingCommandCount => queue.PendingCount;
     public int RejectedCommandCount => queue.RejectedCount;
+    public int UnresolvedCommandCount => queue.UnresolvedCount;
     public TerminalSnapshotResponse? LastSnapshot => _snapshot;
 
     public async Task<TerminalLoginResponse> ConnectAsync(CancellationToken cancellationToken = default)
@@ -201,6 +202,20 @@ public sealed class RemoteTreatmentCentreService(
     public async Task AcknowledgeRejectedCommandsAsync(CancellationToken cancellationToken = default)
     {
         await queue.AcknowledgeRejectedAsync(cancellationToken);
+        QueueChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public async Task MarkPendingCommandsUnresolvedAsync(
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        await queue.MarkPendingUnresolvedAsync(reason, cancellationToken);
+        QueueChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public async Task AcknowledgeUnresolvedCommandsAsync(CancellationToken cancellationToken = default)
+    {
+        await queue.AcknowledgeUnresolvedAsync(cancellationToken);
         QueueChanged?.Invoke(this, EventArgs.Empty);
     }
 

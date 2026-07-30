@@ -150,16 +150,18 @@
                     <Button Classes="sub-nav" Classes.active="{Binding IsPatientsPage}" Content="Patients" Command="{Binding ShowPatientsCommand}" IsVisible="{Binding CanAdministerHost}" />
                     <Button Classes="sub-nav" Classes.active="{Binding IsSetupPage}" Content="Setup" Command="{Binding ShowSetupCommand}" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding CanAdministerHost}">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <TextBlock Text="Quick entry" Classes="muted" VerticalAlignment="Center" />
                     <ToggleSwitch IsChecked="{Binding QuickEntry, Mode=TwoWay}" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" IsVisible="{Binding IsTerminal}">
-                    <TextBlock Text="{Binding TerminalConnectionStatus}" Classes="muted" MaxWidth="420" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding PendingTerminalCommands, StringFormat=Queued: {0}}" Foreground="#765617" IsVisible="{Binding HasPendingTerminalCommands}"/>
-                    <TextBlock Text="{Binding RejectedTerminalCommands, StringFormat=Rejected: {0}}" Foreground="#963D3D"
-                               IsVisible="{Binding HasRejectedTerminalCommands}" ToolTip.Tip="{Binding TerminalQueueReviewText}"/>
-                    <Button Content="Acknowledge" Command="{Binding AcknowledgeRejectedTerminalCommandsCommand}" IsVisible="{Binding HasRejectedTerminalCommands}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" IsVisible="{Binding IsTerminal}">
+                        <TextBlock Text="{Binding TerminalConnectionStatus}" Classes="muted" MaxWidth="360" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding PendingTerminalCommands, StringFormat=Queued: {0}}" Foreground="#765617" IsVisible="{Binding HasPendingTerminalCommands}"/>
+                        <TextBlock Text="{Binding RejectedTerminalCommands, StringFormat=Rejected: {0}}" Foreground="#963D3D"
+                                   IsVisible="{Binding HasRejectedTerminalCommands}" ToolTip.Tip="{Binding TerminalQueueReviewText}"/>
+                        <Button Content="Acknowledge" Command="{Binding AcknowledgeRejectedTerminalCommandsCommand}" IsVisible="{Binding HasRejectedTerminalCommands}"/>
+                        <TextBlock Text="{Binding UnresolvedTerminalCommands, StringFormat=Unresolved: {0}}" Foreground="#963D3D"
+                                   IsVisible="{Binding HasUnresolvedTerminalCommands}" ToolTip.Tip="{Binding TerminalQueueReviewText}"/>
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>
@@ -690,8 +692,80 @@
             </Grid>
         </Border>
 
+        <Border IsVisible="{Binding IsTerminalReconnecting}"
+                ZIndex="95"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="20,72,20,0"
+                Padding="16,10"
+                Background="#FFF5D9"
+                BorderBrush="#D39B28"
+                BorderThickness="1"
+                CornerRadius="8"
+                BoxShadow="0 6 20 0 #00000033">
+            <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
+                <StackPanel>
+                    <TextBlock Text="Host connection interrupted" FontWeight="Bold" Foreground="#765617"/>
+                    <TextBlock Text="{Binding TerminalConnectionStatus}" Foreground="#765617" TextWrapping="Wrap" MaxWidth="620"/>
+                    <TextBlock Text="The displayed data is stale. Eligible commands remain encrypted locally with their original request IDs."
+                               Foreground="#765617" FontSize="12" TextWrapping="Wrap" MaxWidth="620"/>
+                </StackPanel>
+                <Button Grid.Column="1" Classes="secondary" Content="Retry now" Command="{Binding RetryTerminalConnectionCommand}" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Classes="danger" Content="Leave terminal" Command="{Binding LeaveTerminalCommand}" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
         <Border Classes="banner" IsVisible="{Binding IsBannerVisible}" ZIndex="90" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Padding="16,8">
             <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="{Binding BannerText}" Foreground="#364958" FontWeight="SemiBold" VerticalAlignment="Center" /><Ellipse Classes="notification-info" Classes.notification-info="{Binding IsNotificationInfo}" Classes.notification-warning="{Binding IsNotificationWarning}" Classes.notification-error="{Binding IsNotificationError}" Width="10" Height="10" VerticalAlignment="Center" /></StackPanel>
+        </Border>
+
+        <Border IsVisible="{Binding IsTerminalEnded}" ZIndex="110" Background="#364958D9">
+            <Border Width="560"
+                    MaxWidth="720"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="White"
+                    BorderBrush="#87BBA2"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    Padding="30"
+                    BoxShadow="0 16 48 0 #00000055">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Terminal session ended" FontSize="22" FontWeight="Bold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding TerminalEndedMessage}" Classes="muted" TextWrapping="Wrap" TextAlignment="Center"/>
+                    <Border IsVisible="{Binding HasUnresolvedTerminalCommands}"
+                            Background="#FFF5D9"
+                            BorderBrush="#D39B28"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="14">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding UnresolvedTerminalCommands, StringFormat={}{0} command(s) could not be confirmed.}"
+                                       FontWeight="SemiBold"
+                                       Foreground="#765617"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding TerminalQueueReviewText}"
+                                       Foreground="#765617"
+                                       FontFamily="Consolas"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="These operation-only records will never be replayed. Acknowledge them before returning to pairing."
+                                       Foreground="#765617"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"/>
+                            <Button Classes="secondary"
+                                    Content="Acknowledge unresolved commands"
+                                    Command="{Binding AcknowledgeUnresolvedTerminalCommandsCommand}"
+                                    HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </Border>
+                    <Button Classes="primary"
+                            Content="Return to terminal pairing"
+                            Command="{Binding ReturnToPairingCommand}"
+                            IsEnabled="{Binding CanReturnToPairing}"
+                            HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
         </Border>
 
         <Border IsVisible="{Binding IsLocked}" ZIndex="100" Background="#364958B8">

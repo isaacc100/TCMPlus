@@ -4,7 +4,7 @@ using TCMPlus.App.ViewModels;
 
 namespace TCMPlus.App.Views;
 
-public partial class StandDownMobileTeamDialog : Window
+public partial class StandDownMobileTeamDialog : ResponsiveDialogWindow
 {
     public StandDownMobileTeamDialog() : this("", [])
     {

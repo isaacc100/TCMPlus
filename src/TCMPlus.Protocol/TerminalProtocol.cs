@@ -50,6 +50,7 @@ public sealed record TerminalPairingStartRequest(
 
 public sealed record TerminalPairingStartResponse(
     Guid PairingId,
+    Guid HostInstanceId,
     string HostPublicKey,
     string HostNonce,
     string CertificateFingerprint,
@@ -77,6 +78,7 @@ public sealed record TerminalPairingStatusResponse(
 
 public sealed record TerminalPairingBootstrapCredential(
     Guid TerminalId,
+    Guid HostInstanceId,
     string TerminalName,
     string Password,
     string CertificateFingerprint,

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0-DEV
+
+- Added a visible Quick Entry switch for terminals that defaults off and is stored only in the local Windows operator preferences; terminal changes never alter the host shift setting.
+- Added terminal connection states for connected, reconnecting, host-closed, revoked, and update-required sessions, with a persistent stale-snapshot banner, manual retry, safe leave, and automatic recovery when the same host returns.
+- Graceful host shutdown now stops discovery immediately and returns structured `410 host_session_closed` responses for three seconds before credentials are revoked and HTTPS stops.
+- Bound encrypted offline queues to the pairing-authenticated host instance and added non-replayable unresolved command records with operation-only review and explicit acknowledgement.
+- Legacy endpoint-keyed queues import as unresolved, and pending work is made unresolved when a disconnected terminal session ends.
+- Added a monitor-aware responsive dialog base that constrains every secondary window to the active monitor's scaled working area, clamps its position, scrolls long content, and keeps action footers reachable.
+- Added architecture and scaling regression coverage to require the responsive base for future popup windows and verify placement at 100%, 150%, and 200% scaling.
+
 ## 0.11.2-DEV
 
 - Fixed development update-channel detection for packaged builds whose informational version includes commit metadata.

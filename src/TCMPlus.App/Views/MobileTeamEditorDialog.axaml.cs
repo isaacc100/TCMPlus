@@ -5,7 +5,7 @@ using TCMPlus.App.ViewModels;
 
 namespace TCMPlus.App.Views;
 
-public partial class MobileTeamEditorDialog : Window
+public partial class MobileTeamEditorDialog : ResponsiveDialogWindow
 {
     public MobileTeamEditorDialog() : this(null, null)
     {

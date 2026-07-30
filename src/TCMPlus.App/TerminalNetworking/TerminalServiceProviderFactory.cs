@@ -23,6 +23,7 @@ internal static class TerminalServiceProviderFactory
         services.AddSingleton(session);
         services.AddSingleton(updateService);
         services.AddSingleton(remoteService);
+        services.AddSingleton<TerminalOperatorPreferencesStore>();
         services.AddSingleton<ITreatmentCentreService>(remoteService);
         services.AddSingleton<ITcSettingsRepository>(new RemoteTcSettingsRepository(remoteService));
         services.AddSingleton<IAppSettingsRepository>(new RemoteAppSettingsRepository(remoteService));
@@ -30,7 +31,8 @@ internal static class TerminalServiceProviderFactory
         services.AddSingleton(TerminalRuntimeContext.Terminal(
             remoteService,
             draft.TerminalName,
-            draft.Host.GetLeftPart(UriPartial.Authority)));
+            draft.Host.GetLeftPart(UriPartial.Authority),
+            draft.HostInstanceId));
         services.AddSingleton<LanDisplaySnapshotProvider>();
         services.AddSingleton<LanDisplayServer>();
         services.AddSingleton<MainViewModel>();

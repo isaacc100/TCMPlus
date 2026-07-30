@@ -5,7 +5,7 @@ using TCMPlus.Domain.Models;
 
 namespace TCMPlus.App.Views;
 
-public partial class ShiftSetupWindow : Window
+public partial class ShiftSetupWindow : ResponsiveDialogWindow
 {
     public ShiftSetupWindow()
     {

@@ -7,13 +7,20 @@ public sealed record TerminalRuntimeContext(
     TerminalHostServer? HostServer = null,
     RemoteTreatmentCentreService? RemoteService = null,
     string? TerminalName = null,
-    string? HostAddress = null)
+    string? HostAddress = null,
+    Guid? HostInstanceId = null)
 {
     public static TerminalRuntimeContext Host(TerminalHostServer server) => new(false, HostServer: server);
 
     public static TerminalRuntimeContext Terminal(
         RemoteTreatmentCentreService service,
         string terminalName,
-        string hostAddress) =>
-        new(true, RemoteService: service, TerminalName: terminalName, HostAddress: hostAddress);
+        string hostAddress,
+        Guid hostInstanceId) =>
+        new(
+            true,
+            RemoteService: service,
+            TerminalName: terminalName,
+            HostAddress: hostAddress,
+            HostInstanceId: hostInstanceId);
 }

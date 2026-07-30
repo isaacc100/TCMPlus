@@ -43,7 +43,9 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static void CreateShiftSetup(IClassicDesktopStyleApplicationLifetime desktop, bool show)
+    private static ShiftSetupWindow CreateShiftSetup(
+        IClassicDesktopStyleApplicationLifetime desktop,
+        bool show)
     {
         var shiftSetup = new ShiftSetupWindow();
         shiftSetup.ShiftStarted += async (_, draft) => await OpenShiftAsync(desktop, shiftSetup, draft);
@@ -52,6 +54,7 @@ public partial class App : Application
         shiftSetup.UpdateCheckRequested += async (_, _) => await CheckForUpdatesAtStartAsync(shiftSetup);
         desktop.MainWindow = shiftSetup;
         if (show) shiftSetup.Show();
+        return shiftSetup;
     }
 
     private static async Task CheckForUpdatesAtStartAsync(ShiftSetupWindow shiftSetup)
@@ -167,7 +170,10 @@ public partial class App : Application
         try
         {
             apiClient = new TerminalApiClient(draft.Host, draft.TerminalName, draft.Password, draft.CertificateFingerprint);
-            queue = new EncryptedTerminalCommandQueue(draft.Host, draft.TerminalName);
+            queue = new EncryptedTerminalCommandQueue(
+                draft.HostInstanceId,
+                draft.Host,
+                draft.TerminalName);
             remoteService = new RemoteTreatmentCentreService(apiClient, queue);
             var login = await remoteService.ConnectAsync();
             var session = new SessionDescriptor(
@@ -238,6 +244,8 @@ public partial class App : Application
         var window = new MainWindow { DataContext = viewModel };
         var activeSession = new ActiveSession(session, password, window, viewModel, runtime, services);
         _activeSession = activeSession;
+        viewModel.TerminalPairingReturnRequested += async (_, _) =>
+            await ReturnTerminalToPairingAsync(activeSession);
         if (!runtime.IsTerminal)
         {
             StartAutosave(activeSession);
@@ -262,6 +270,31 @@ public partial class App : Application
         };
         desktop.MainWindow = window;
         window.Show();
+    }
+
+    private static async Task ReturnTerminalToPairingAsync(ActiveSession activeSession)
+    {
+        if (_desktop is null
+            || !activeSession.Runtime.IsTerminal
+            || activeSession.ReturnToPairingInProgress
+            || !ReferenceEquals(_activeSession, activeSession))
+        {
+            return;
+        }
+
+        activeSession.ReturnToPairingInProgress = true;
+        try
+        {
+            await CloseActiveSessionAsync(activeSession);
+            var shiftSetup = CreateShiftSetup(_desktop, true);
+            ShowTerminalConnection(shiftSetup);
+        }
+        catch (Exception exception)
+        {
+            activeSession.ReturnToPairingInProgress = false;
+            activeSession.ViewModel.ReportPersistenceFailure(
+                $"Unable to leave this terminal session: {exception.Message}");
+        }
     }
 
     private static void StartAutosave(ActiveSession activeSession)
@@ -340,6 +373,7 @@ public partial class App : Application
             await activeSession.ViewModel.StopLanDisplayForSessionAsync();
             if (activeSession.Runtime.RemoteService is not null)
             {
+                await activeSession.ViewModel.PrepareForTerminalExitAsync();
                 try
                 {
                     await activeSession.Runtime.RemoteService.DisconnectAsync();
@@ -389,6 +423,7 @@ public partial class App : Application
 
         services.AddSingleton(session);
         services.AddSingleton<IAppUpdateService>(UpdateService);
+        services.AddSingleton<TerminalOperatorPreferencesStore>();
         services.AddSingleton(connectionFactory);
         services.AddSingleton<IStationRepository, SqliteStationRepository>();
         services.AddSingleton<IMobileTeamRepository, SqliteMobileTeamRepository>();
@@ -478,5 +513,6 @@ public partial class App : Application
         public bool IsSealed { get; set; }
         public bool CloseAllowed { get; set; }
         public bool CloseInProgress { get; set; }
+        public bool ReturnToPairingInProgress { get; set; }
     }
 }

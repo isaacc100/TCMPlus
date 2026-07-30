@@ -19,7 +19,7 @@ public sealed class RemoteTcSettingsRepository : ITcSettingsRepository
             snapshot.ShiftName,
             null,
             null,
-            true,
+            snapshot.QuickEntry,
             (GridDensity)(int)snapshot.GridDensity);
     }
 

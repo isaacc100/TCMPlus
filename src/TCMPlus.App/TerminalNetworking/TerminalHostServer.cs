@@ -38,6 +38,7 @@ public sealed class TerminalHostServer : IAsyncDisposable
     private X509Certificate2? _certificate;
     private TerminalHostAccess? _access;
     private TerminalDiscoveryResponder? _discoveryResponder;
+    private volatile bool _isClosing;
 
     public TerminalHostServer(
         TerminalSecurityStore securityStore,
@@ -50,6 +51,7 @@ public sealed class TerminalHostServer : IAsyncDisposable
     }
 
     public bool IsRunning => _application is not null;
+    internal bool IsClosing => _isClosing;
     public TerminalHostAccess? Access => _access;
     public event EventHandler<TerminalPairingRequestInfo>? PairingRequested;
 
@@ -63,6 +65,7 @@ public sealed class TerminalHostServer : IAsyncDisposable
                 return _access;
             }
 
+            _isClosing = false;
             // A previous process may have terminated before it could revoke its in-memory
             // credentials. Nothing from that process is allowed to become valid again.
             await _securityStore.RevokeAllAsync(cancellationToken);
@@ -157,6 +160,32 @@ public sealed class TerminalHostServer : IAsyncDisposable
         string verificationCode,
         CancellationToken cancellationToken = default)
     {
+        await _lifecycleGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await ApprovePairingCoreAsync(
+                pairingId,
+                verificationCode,
+                cancellationToken);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    private async Task<TerminalPairingApprovalResult> ApprovePairingCoreAsync(
+        Guid pairingId,
+        string verificationCode,
+        CancellationToken cancellationToken)
+    {
+        if (_isClosing)
+        {
+            return new TerminalPairingApprovalResult(
+                false,
+                "The host is closing and cannot approve new terminal access.");
+        }
+
         await CleanupExpiredPairingsAsync(cancellationToken);
         if (!_pendingPairings.TryGetValue(pairingId, out var pairing))
         {
@@ -166,6 +195,13 @@ public sealed class TerminalHostServer : IAsyncDisposable
         await pairing.Gate.WaitAsync(cancellationToken);
         try
         {
+            if (_isClosing)
+            {
+                return new TerminalPairingApprovalResult(
+                    false,
+                    "The host is closing and cannot approve new terminal access.");
+            }
+
             if (pairing.Status != TerminalPairingStatus.Pending)
             {
                 return new TerminalPairingApprovalResult(false, "This terminal request has already been handled.");
@@ -223,6 +259,7 @@ public sealed class TerminalHostServer : IAsyncDisposable
                 cancellationToken);
             var encrypted = pairing.Secrets.Encrypt(new TerminalPairingBootstrapCredential(
                 credential.Registration.Id,
+                _hostInstanceId,
                 credential.Registration.Name,
                 credential.Password,
                 _access!.CertificateFingerprint,
@@ -242,6 +279,22 @@ public sealed class TerminalHostServer : IAsyncDisposable
         Guid pairingId,
         string reason = "Denied by the host operator.",
         CancellationToken cancellationToken = default)
+    {
+        await _lifecycleGate.WaitAsync(cancellationToken);
+        try
+        {
+            await DenyPairingCoreAsync(pairingId, reason, cancellationToken);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    private async Task DenyPairingCoreAsync(
+        Guid pairingId,
+        string reason,
+        CancellationToken cancellationToken)
     {
         await CleanupExpiredPairingsAsync(cancellationToken);
         if (!_pendingPairings.TryGetValue(pairingId, out var pairing))
@@ -277,10 +330,13 @@ public sealed class TerminalHostServer : IAsyncDisposable
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
-            await _securityStore.RevokeAllAsync(cancellationToken);
-            _accessSessions.Clear();
-            _loginAttempts.Clear();
-            _pairingAttempts.Clear();
+            _isClosing = true;
+            if (_discoveryResponder is not null)
+            {
+                await _discoveryResponder.DisposeAsync();
+                _discoveryResponder = null;
+            }
+
             foreach (var pairing in _pendingPairings.Values)
             {
                 if (pairing.Status == TerminalPairingStatus.Pending)
@@ -288,16 +344,26 @@ public sealed class TerminalHostServer : IAsyncDisposable
                     pairing.Status = TerminalPairingStatus.Denied;
                     pairing.ErrorCode = "host_stopped";
                     pairing.Message = "The host stopped accepting terminal connections.";
-                    await RecordPairingAuditOnceAsync(pairing, "Denied", "host_stopped", cancellationToken);
+                    await RecordPairingAuditOnceAsync(
+                        pairing,
+                        "Denied",
+                        "host_stopped",
+                        CancellationToken.None);
                 }
                 pairing.Dispose();
             }
             _pendingPairings.Clear();
-            if (_discoveryResponder is not null)
+
+            if (_application is not null
+                && _options.ShutdownNotificationDelay > TimeSpan.Zero)
             {
-                await _discoveryResponder.DisposeAsync();
-                _discoveryResponder = null;
+                await Task.Delay(_options.ShutdownNotificationDelay, CancellationToken.None);
             }
+
+            await _securityStore.RevokeAllAsync(CancellationToken.None);
+            _accessSessions.Clear();
+            _loginAttempts.Clear();
+            _pairingAttempts.Clear();
             await DisposeApplicationAsync();
         }
         finally
@@ -329,6 +395,17 @@ public sealed class TerminalHostServer : IAsyncDisposable
                 return;
             }
 
+            if (_isClosing)
+            {
+                context.Response.StatusCode = StatusCodes.Status410Gone;
+                await context.Response.WriteAsJsonAsync(
+                    new TerminalApiError(
+                        "host_session_closed",
+                        "The authoritative host has closed this terminal session."),
+                    context.RequestAborted);
+                return;
+            }
+
             await next(context);
         });
 
@@ -344,6 +421,24 @@ public sealed class TerminalHostServer : IAsyncDisposable
 
     private async Task<IResult> StartPairingAsync(HttpContext context)
     {
+        await _lifecycleGate.WaitAsync(context.RequestAborted);
+        try
+        {
+            return await StartPairingCoreAsync(context);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    private async Task<IResult> StartPairingCoreAsync(HttpContext context)
+    {
+        if (_isClosing)
+        {
+            return HostSessionClosed();
+        }
+
         await CleanupExpiredPairingsAsync(context.RequestAborted);
         if (!HasSupportedContentType(context.Request))
         {
@@ -408,6 +503,7 @@ public sealed class TerminalHostServer : IAsyncDisposable
         var keyExchange = new TerminalPairingKeyExchange();
         var response = new TerminalPairingStartResponse(
             pairingId,
+            _hostInstanceId,
             keyExchange.PublicKey,
             keyExchange.Nonce,
             _access!.CertificateFingerprint,
@@ -450,6 +546,24 @@ public sealed class TerminalHostServer : IAsyncDisposable
     }
 
     private async Task<IResult> GetPairingStatusAsync(HttpContext context, Guid pairingId)
+    {
+        await _lifecycleGate.WaitAsync(context.RequestAborted);
+        try
+        {
+            if (_isClosing)
+            {
+                return HostSessionClosed();
+            }
+
+            return await GetPairingStatusCoreAsync(context, pairingId);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    private async Task<IResult> GetPairingStatusCoreAsync(HttpContext context, Guid pairingId)
     {
         await CleanupExpiredPairingsAsync(context.RequestAborted);
         if (!_pendingPairings.TryGetValue(pairingId, out var pairing))
@@ -777,6 +891,12 @@ public sealed class TerminalHostServer : IAsyncDisposable
             $"Supported protocol versions are {TerminalProtocol.LegacyVersion} and {TerminalProtocol.CurrentVersion}."),
         statusCode: StatusCodes.Status426UpgradeRequired);
 
+    private static IResult HostSessionClosed() => Results.Json(
+        new TerminalApiError(
+            "host_session_closed",
+            "The authoritative host has closed this terminal session."),
+        statusCode: StatusCodes.Status410Gone);
+
     private static bool HasSupportedProtocol(HttpRequest request) =>
         int.TryParse(request.Headers[TerminalProtocol.VersionHeader], out var version)
         && TerminalProtocol.IsSupported(version);
@@ -961,11 +1081,13 @@ public sealed record TerminalHostServerOptions(
     X509Certificate2? Certificate = null,
     bool EnableDiscovery = false,
     TerminalDiscoveryOptions? DiscoveryOptions = null,
-    TimeSpan? PairingLifetime = null)
+    TimeSpan? PairingLifetime = null,
+    TimeSpan ShutdownNotificationDelay = default)
 {
     public static TerminalHostServerOptions Lan { get; } = new(
         IPAddress.Any,
-        EnableDiscovery: true);
+        EnableDiscovery: true,
+        ShutdownNotificationDelay: TimeSpan.FromSeconds(3));
 }
 
 public sealed record TerminalPairingApprovalResult(bool Approved, string Message);

@@ -5,7 +5,7 @@ using TCMPlus.Domain.Models;
 
 namespace TCMPlus.App.Views;
 
-public partial class DischargePatientDialog : Window
+public partial class DischargePatientDialog : ResponsiveDialogWindow
 {
     public DischargePatientDialog(string station, IEnumerable<string> routes, IEnumerable<string> outcomes)
     {

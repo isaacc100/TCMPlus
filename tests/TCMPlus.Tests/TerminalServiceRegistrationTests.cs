@@ -22,9 +22,14 @@ public sealed class TerminalServiceRegistrationTests
         try
         {
             var host = new Uri("https://127.0.0.1:49321");
+            var hostInstanceId = Guid.NewGuid();
             using var remoteService = new RemoteTreatmentCentreService(
                 new StubTerminalApiClient(host),
-                new EncryptedTerminalCommandQueue(host, "Regression terminal", applicationDataRoot));
+                new EncryptedTerminalCommandQueue(
+                    hostInstanceId,
+                    host,
+                    "Regression terminal",
+                    applicationDataRoot));
             var session = new SessionDescriptor(
                 Guid.NewGuid(),
                 DateTimeOffset.UtcNow,
@@ -32,6 +37,7 @@ public sealed class TerminalServiceRegistrationTests
                 applicationDataRoot,
                 Path.Combine(applicationDataRoot, "session.db"));
             var draft = new TerminalConnectionDraft(
+                hostInstanceId,
                 host,
                 "Regression terminal",
                 "temporary-credential",

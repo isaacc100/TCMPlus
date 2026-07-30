@@ -7,7 +7,8 @@ namespace TCMPlus.Infrastructure.Networking;
 
 public sealed class EncryptedTerminalCommandQueue : IDisposable
 {
-    private static readonly byte[] Magic = "TCQ2"u8.ToArray();
+    private static readonly byte[] Magic = "TCQ3"u8.ToArray();
+    private static readonly byte[] LegacyMagic = "TCQ2"u8.ToArray();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string _path;
     private readonly byte[] _key;
@@ -15,6 +16,7 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
     private List<QueuedTerminalCommand> _commands;
 
     public EncryptedTerminalCommandQueue(
+        Guid hostInstanceId,
         Uri host,
         string terminalName,
         string? applicationDataRoot = null)
@@ -24,9 +26,11 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
             "TCMPlus");
         var directory = Path.Combine(applicationDataRoot, "TerminalQueues");
         Directory.CreateDirectory(directory);
-        var identity = SHA256.HashData(Encoding.UTF8.GetBytes($"{host.GetLeftPart(UriPartial.Authority)}|{terminalName.Trim().ToUpperInvariant()}"));
+        var normalizedTerminalName = terminalName.Trim().ToUpperInvariant();
+        var identity = SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"{hostInstanceId:N}|{normalizedTerminalName}"));
         var identityText = Convert.ToHexString(identity)[..24];
-        _path = Path.Combine(directory, $"{identityText}.v2.tcq");
+        _path = Path.Combine(directory, $"{identityText}.v3.tcq");
         _key = TerminalQueueKeyStore.GetOrCreate(identityText, identity, applicationDataRoot);
 
         if (File.Exists(_path))
@@ -42,11 +46,13 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
         else
         {
             _commands = [];
+            ImportLegacyQueue(host, normalizedTerminalName, applicationDataRoot, directory);
         }
     }
 
     public int PendingCount => _commands.Count(command => command.State == QueuedTerminalCommandState.Pending);
     public int RejectedCount => _commands.Count(command => command.State == QueuedTerminalCommandState.Rejected);
+    public int UnresolvedCount => _commands.Count(command => command.State == QueuedTerminalCommandState.Unresolved);
 
     public async Task<IReadOnlyList<QueuedTerminalCommand>> GetAsync(CancellationToken cancellationToken = default)
     {
@@ -133,6 +139,70 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
         }
     }
 
+    public async Task MarkPendingUnresolvedAsync(
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        var safeReason = NormalizeReason(reason);
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var original = _commands;
+            var updated = _commands
+                .Select(command => command.State == QueuedTerminalCommandState.Pending
+                    ? command with
+                    {
+                        State = QueuedTerminalCommandState.Unresolved,
+                        RejectionReason = safeReason
+                    }
+                    : command)
+                .ToList();
+            if (!updated.SequenceEqual(original))
+            {
+                _commands = updated;
+                try
+                {
+                    await SaveAsync(cancellationToken);
+                }
+                catch
+                {
+                    _commands = original;
+                    throw;
+                }
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task AcknowledgeUnresolvedAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var original = _commands;
+            var updated = _commands
+                .Where(item => item.State != QueuedTerminalCommandState.Unresolved)
+                .ToList();
+            _commands = updated;
+            try
+            {
+                await SaveAsync(cancellationToken);
+            }
+            catch
+            {
+                _commands = original;
+                throw;
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public void Dispose()
     {
         CryptographicOperations.ZeroMemory(_key);
@@ -150,34 +220,140 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
             return;
         }
 
-        var plaintext = JsonSerializer.SerializeToUtf8Bytes(_commands, JsonOptions);
-        var nonce = RandomNumberGenerator.GetBytes(12);
-        var ciphertext = new byte[plaintext.Length];
-        var tag = new byte[16];
-        using (var aes = new AesGcm(_key, tag.Length))
+        var contents = Encrypt(_commands, _key, Magic);
+        var temporaryPath = _path + $".{Guid.NewGuid():N}.tmp";
+        try
         {
-            aes.Encrypt(nonce, plaintext, ciphertext, tag, Magic);
+            await File.WriteAllBytesAsync(temporaryPath, contents, cancellationToken);
+            File.Move(temporaryPath, _path, true);
         }
-
-        CryptographicOperations.ZeroMemory(plaintext);
-        var contents = new byte[Magic.Length + nonce.Length + tag.Length + ciphertext.Length];
-        var offset = 0;
-        Magic.CopyTo(contents, offset);
-        offset += Magic.Length;
-        nonce.CopyTo(contents, offset);
-        offset += nonce.Length;
-        tag.CopyTo(contents, offset);
-        offset += tag.Length;
-        ciphertext.CopyTo(contents, offset);
-
-        var temporaryPath = _path + ".tmp";
-        await File.WriteAllBytesAsync(temporaryPath, contents, cancellationToken);
-        File.Move(temporaryPath, _path, true);
+        finally
+        {
+            CryptographicOperations.ZeroMemory(contents);
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
     }
 
     private List<QueuedTerminalCommand> Decrypt(byte[] contents)
+        => Decrypt(contents, _key, Magic);
+
+    private void ImportLegacyQueue(
+        Uri host,
+        string normalizedTerminalName,
+        string applicationDataRoot,
+        string queueDirectory)
     {
-        var offset = Magic.Length;
+        var legacyIdentity = SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"{host.GetLeftPart(UriPartial.Authority)}|{normalizedTerminalName}"));
+        var legacyIdentityText = Convert.ToHexString(legacyIdentity)[..24];
+        var legacyPath = Path.Combine(queueDirectory, $"{legacyIdentityText}.v2.tcq");
+        if (!File.Exists(legacyPath))
+        {
+            return;
+        }
+
+        var legacyKey = TerminalQueueKeyStore.OpenExisting(
+            legacyIdentityText,
+            legacyIdentity,
+            applicationDataRoot);
+        if (legacyKey is null)
+        {
+            throw new InvalidOperationException(
+                "A legacy terminal command queue exists, but its protected key is unavailable.");
+        }
+
+        try
+        {
+            var legacyContents = File.ReadAllBytes(legacyPath);
+            if (legacyContents.Length < LegacyMagic.Length + 12 + 16
+                || !legacyContents.AsSpan(0, LegacyMagic.Length).SequenceEqual(LegacyMagic))
+            {
+                throw new InvalidOperationException("The legacy local terminal command queue is damaged.");
+            }
+
+            _commands = Decrypt(legacyContents, legacyKey, LegacyMagic)
+                .Select(command => command with
+                {
+                    State = QueuedTerminalCommandState.Unresolved,
+                    RejectionReason = "Imported from an earlier terminal queue whose host session could not be verified."
+                })
+                .ToList();
+
+            SaveImportedQueue();
+            File.Delete(legacyPath);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(legacyKey);
+        }
+    }
+
+    private void SaveImportedQueue()
+    {
+        if (_commands.Count == 0)
+        {
+            return;
+        }
+
+        var contents = Encrypt(_commands, _key, Magic);
+        var temporaryPath = _path + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            File.WriteAllBytes(temporaryPath, contents);
+            File.Move(temporaryPath, _path, true);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(contents);
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
+    }
+
+    private static byte[] Encrypt(
+        IReadOnlyList<QueuedTerminalCommand> commands,
+        byte[] key,
+        byte[] magic)
+    {
+        var plaintext = JsonSerializer.SerializeToUtf8Bytes(commands, JsonOptions);
+        try
+        {
+            var nonce = RandomNumberGenerator.GetBytes(12);
+            var ciphertext = new byte[plaintext.Length];
+            var tag = new byte[16];
+            using (var aes = new AesGcm(key, tag.Length))
+            {
+                aes.Encrypt(nonce, plaintext, ciphertext, tag, magic);
+            }
+
+            var contents = new byte[magic.Length + nonce.Length + tag.Length + ciphertext.Length];
+            var offset = 0;
+            magic.CopyTo(contents, offset);
+            offset += magic.Length;
+            nonce.CopyTo(contents, offset);
+            offset += nonce.Length;
+            tag.CopyTo(contents, offset);
+            offset += tag.Length;
+            ciphertext.CopyTo(contents, offset);
+            return contents;
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(plaintext);
+        }
+    }
+
+    private static List<QueuedTerminalCommand> Decrypt(
+        byte[] contents,
+        byte[] key,
+        byte[] magic)
+    {
+        var offset = magic.Length;
         var nonce = contents.AsSpan(offset, 12);
         offset += 12;
         var tag = contents.AsSpan(offset, 16);
@@ -186,8 +362,8 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
         var plaintext = new byte[ciphertext.Length];
         try
         {
-            using var aes = new AesGcm(_key, tag.Length);
-            aes.Decrypt(nonce, ciphertext, tag, plaintext, Magic);
+            using var aes = new AesGcm(key, tag.Length);
+            aes.Decrypt(nonce, ciphertext, tag, plaintext, magic);
             return JsonSerializer.Deserialize<List<QueuedTerminalCommand>>(plaintext, JsonOptions) ?? [];
         }
         catch (CryptographicException exception)
@@ -200,6 +376,17 @@ public sealed class EncryptedTerminalCommandQueue : IDisposable
         }
     }
 
+    private static string NormalizeReason(string reason)
+    {
+        var normalized = new string(reason
+            .Where(character => !char.IsControl(character) || char.IsWhiteSpace(character))
+            .Select(character => char.IsWhiteSpace(character) ? ' ' : character)
+            .ToArray());
+        normalized = string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        return string.IsNullOrWhiteSpace(normalized)
+            ? "This queued command cannot be safely replayed."
+            : normalized[..Math.Min(normalized.Length, 240)];
+    }
 }
 
 internal static class TerminalQueueKeyStore
@@ -256,6 +443,20 @@ internal static class TerminalQueueKeyStore
         return key;
     }
 
+    public static byte[]? OpenExisting(
+        string identityText,
+        byte[] entropy,
+        string applicationDataRoot)
+    {
+        var path = Path.Combine(
+            applicationDataRoot,
+            "TerminalQueueKeys",
+            $"{identityText}.key");
+        return File.Exists(path)
+            ? Unprotect(File.ReadAllBytes(path), entropy)
+            : null;
+    }
+
     private static byte[] Unprotect(byte[] contents, byte[] entropy)
     {
         if (!OperatingSystem.IsWindows())
@@ -300,4 +501,9 @@ public sealed record QueuedTerminalCommand(
     long? HostSequence = null,
     string? RejectionReason = null);
 
-public enum QueuedTerminalCommandState { Pending, Rejected }
+public enum QueuedTerminalCommandState
+{
+    Pending,
+    Rejected,
+    Unresolved
+}

@@ -5,7 +5,7 @@ using TCMPlus.App.ViewModels;
 
 namespace TCMPlus.App.Views;
 
-public partial class NewPatientDialog : Window
+public partial class NewPatientDialog : ResponsiveDialogWindow
 {
     public NewPatientDialog() : this(string.Empty)
     {

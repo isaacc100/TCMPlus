@@ -5,7 +5,7 @@ using TCMPlus.Domain.Models;
 using TCMPlus.Infrastructure.Sessions;
 
 namespace TCMPlus.App.Views;
-public partial class RecentSessionsWindow : Window
+public partial class RecentSessionsWindow : ResponsiveDialogWindow
 {
     private readonly EncryptedSessionStore _store;
     public RecentSessionsWindow(EncryptedSessionStore store) { _store = store; InitializeComponent(); Opened += async (_, _) => await ReloadAsync(); }

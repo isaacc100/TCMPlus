@@ -5,7 +5,7 @@ using TCMPlus.App.ViewModels;
 
 namespace TCMPlus.App.Views;
 
-public partial class AddStationDialog : Window
+public partial class AddStationDialog : ResponsiveDialogWindow
 {
     public AddStationDialog()
     {

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Sockets;
+using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using TCMPlus.App.TerminalNetworking;
@@ -93,13 +95,18 @@ public sealed class TerminalNetworkingTests : IDisposable
     public async Task Offline_queue_is_encrypted_and_retains_rejections_for_acknowledgement()
     {
         var host = new Uri("https://127.0.0.1:41234");
+        var hostInstanceId = Guid.NewGuid();
         var request = new TerminalCommandRequest(
             Guid.NewGuid(),
             TerminalCommandKind.AddMobileTeam,
             Name: "Sensitive callsign",
             CreatedAt: DateTimeOffset.UtcNow);
 
-        using (var queue = new EncryptedTerminalCommandQueue(host, "Reception", _root))
+        using (var queue = new EncryptedTerminalCommandQueue(
+                   hostInstanceId,
+                   host,
+                   "Reception",
+                   _root))
         {
             await queue.EnqueueAsync(request);
             await queue.RejectAsync(request.RequestId, 7, "Host state changed.");
@@ -111,7 +118,11 @@ public sealed class TerminalNetworkingTests : IDisposable
         var keyFile = Assert.Single(Directory.GetFiles(Path.Combine(_root, "TerminalQueueKeys"), "*.key"));
         Assert.DoesNotContain("Sensitive callsign", Encoding.UTF8.GetString(await File.ReadAllBytesAsync(keyFile)), StringComparison.Ordinal);
 
-        using (var reopened = new EncryptedTerminalCommandQueue(host, "Reception", _root))
+        using (var reopened = new EncryptedTerminalCommandQueue(
+                   hostInstanceId,
+                   host,
+                   "Reception",
+                   _root))
         {
             var rejected = Assert.Single(await reopened.GetAsync());
             Assert.Equal(QueuedTerminalCommandState.Rejected, rejected.State);
@@ -137,6 +148,234 @@ public sealed class TerminalNetworkingTests : IDisposable
     }
 
     [Fact]
+    public async Task Terminal_quick_entry_preferences_default_off_and_persist_locally()
+    {
+        var store = new TerminalOperatorPreferencesStore(_root);
+
+        Assert.False((await store.LoadAsync()).QuickEntry);
+
+        await store.SaveAsync(new TerminalOperatorPreferences(true));
+        Assert.True((await store.LoadAsync()).QuickEntry);
+
+        var json = await File.ReadAllTextAsync(Path.Combine(_root, "terminal-operator.json"));
+        Assert.Contains("\"quickEntry\": true", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("host", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("password", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Remote_settings_adapter_uses_the_host_snapshot_instead_of_forcing_quick_entry_on()
+    {
+        var host = new Uri("https://127.0.0.1:42344");
+        var api = new FakeTerminalApiClient(host)
+        {
+            Snapshot = CreateTerminalSnapshot() with { QuickEntry = false }
+        };
+        using var remote = new RemoteTreatmentCentreService(
+            api,
+            new EncryptedTerminalCommandQueue(
+                Guid.NewGuid(),
+                host,
+                "Settings test",
+                _root));
+        var repository = new RemoteTcSettingsRepository(remote);
+
+        Assert.False((await repository.GetAsync()).QuickEntry);
+
+        api.Snapshot = api.Snapshot with { QuickEntry = true };
+        await remote.RefreshAsync();
+        Assert.True((await repository.GetAsync()).QuickEntry);
+    }
+
+    [Fact]
+    public async Task Offline_queues_are_bound_to_the_running_host_instance()
+    {
+        var host = new Uri("https://127.0.0.1:42346");
+        var firstHostInstance = Guid.NewGuid();
+        var secondHostInstance = Guid.NewGuid();
+        var request = new TerminalCommandRequest(
+            Guid.NewGuid(),
+            TerminalCommandKind.AddMobileTeam,
+            Name: "Team 1",
+            CreatedAt: DateTimeOffset.UtcNow);
+
+        using (var first = new EncryptedTerminalCommandQueue(
+                   firstHostInstance,
+                   host,
+                   "Reception",
+                   _root))
+        {
+            await first.EnqueueAsync(request);
+        }
+
+        using (var reopened = new EncryptedTerminalCommandQueue(
+                   firstHostInstance,
+                   host,
+                   "Reception",
+                   _root))
+        {
+            Assert.Equal(1, reopened.PendingCount);
+            Assert.Equal(request.RequestId, Assert.Single(await reopened.GetAsync()).Command.RequestId);
+        }
+
+        using var restartedHost = new EncryptedTerminalCommandQueue(
+            secondHostInstance,
+            host,
+            "Reception",
+            _root);
+        Assert.Empty(await restartedHost.GetAsync());
+    }
+
+    [Fact]
+    public async Task Unresolved_commands_survive_restart_and_are_never_replayed()
+    {
+        var host = new Uri("https://127.0.0.1:42347");
+        var hostInstance = Guid.NewGuid();
+        var station = Guid.NewGuid();
+        var request = new TerminalCommandRequest(
+            Guid.NewGuid(),
+            TerminalCommandKind.AddPatientToStation,
+            TargetId: station,
+            CreatedAt: DateTimeOffset.UtcNow);
+
+        using (var queue = new EncryptedTerminalCommandQueue(
+                   hostInstance,
+                   host,
+                   "Reception",
+                   _root))
+        {
+            await queue.EnqueueAsync(request);
+            await queue.MarkPendingUnresolvedAsync("The previous host session ended.");
+            Assert.Equal(0, queue.PendingCount);
+            Assert.Equal(1, queue.UnresolvedCount);
+        }
+
+        var api = new FakeTerminalApiClient(host)
+        {
+            Snapshot = CreateTerminalSnapshot(station, Guid.NewGuid()),
+            IsOnline = true
+        };
+        using var remote = new RemoteTreatmentCentreService(
+            api,
+            new EncryptedTerminalCommandQueue(
+                hostInstance,
+                host,
+                "Reception",
+                _root));
+
+        await remote.RefreshAsync();
+
+        Assert.Empty(api.Commands);
+        Assert.Equal(1, remote.UnresolvedCommandCount);
+        var unresolved = Assert.Single(await remote.GetQueuedCommandsAsync());
+        Assert.Equal(QueuedTerminalCommandState.Unresolved, unresolved.State);
+        Assert.Equal(request.RequestId, unresolved.Command.RequestId);
+
+        await remote.AcknowledgeUnresolvedCommandsAsync();
+        Assert.Empty(await remote.GetQueuedCommandsAsync());
+    }
+
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public async Task Legacy_endpoint_queues_import_as_unresolved_instead_of_replaying()
+    {
+        var host = new Uri("https://127.0.0.1:42348");
+        var request = new TerminalCommandRequest(
+            Guid.NewGuid(),
+            TerminalCommandKind.AddMobileTeam,
+            Name: "Legacy team",
+            CreatedAt: DateTimeOffset.UtcNow);
+        WriteLegacyQueue(host, "Reception", request);
+
+        using var migrated = new EncryptedTerminalCommandQueue(
+            Guid.NewGuid(),
+            host,
+            "Reception",
+            _root);
+
+        Assert.Equal(0, migrated.PendingCount);
+        Assert.Equal(1, migrated.UnresolvedCount);
+        var imported = Assert.Single(await migrated.GetAsync());
+        Assert.Equal(QueuedTerminalCommandState.Unresolved, imported.State);
+        Assert.Equal(request.RequestId, imported.Command.RequestId);
+        Assert.Contains("could not be verified", imported.RejectionReason);
+        Assert.Empty(Directory.GetFiles(
+            Path.Combine(_root, "TerminalQueues"),
+            "*.v2.tcq"));
+        Assert.Single(Directory.GetFiles(
+            Path.Combine(_root, "TerminalQueues"),
+            "*.v3.tcq"));
+    }
+
+    [Theory]
+    [InlineData("host_session_closed", HttpStatusCode.Gone, TerminalConnectionState.HostClosed)]
+    [InlineData("unauthorized", HttpStatusCode.Unauthorized, TerminalConnectionState.AccessRevoked)]
+    [InlineData("protocol_mismatch", HttpStatusCode.UpgradeRequired, TerminalConnectionState.UpdateRequired)]
+    public void Terminal_failures_are_classified_without_treating_host_closure_as_a_transient_outage(
+        string code,
+        HttpStatusCode statusCode,
+        TerminalConnectionState expected)
+    {
+        var result = TerminalConnectionFailureClassifier.Classify(
+            new TerminalApiException(code, "Test failure", statusCode));
+
+        Assert.Equal(expected, result.State);
+    }
+
+    [Fact]
+    public void Network_loss_is_classified_as_reconnecting()
+    {
+        var result = TerminalConnectionFailureClassifier.Classify(
+            new HttpRequestException("Cable disconnected"));
+
+        Assert.Equal(TerminalConnectionState.Reconnecting, result.State);
+        Assert.False(result.IsTerminalEnded);
+    }
+
+    [Fact]
+    public async Task Graceful_host_shutdown_notifies_terminals_before_revoking_access()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var server = new TerminalHostServer(
+            fixture.Security,
+            fixture.Executor,
+            new TerminalHostServerOptions(
+                IPAddress.Loopback,
+                ShutdownNotificationDelay: TimeSpan.FromMilliseconds(750)));
+        var access = await server.StartAsync();
+        var host = new Uri(Assert.Single(access.Addresses));
+        var credential = await fixture.Security.CreateAsync(
+            "Closing host terminal",
+            DateTimeOffset.UtcNow.AddHours(8));
+        using var client = new TerminalApiClient(
+            host,
+            credential.Registration.Name,
+            credential.Password,
+            access.CertificateFingerprint);
+        await client.AuthenticateAsync();
+
+        var stopping = server.StopAsync();
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(2);
+        while (!server.IsClosing && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        Assert.True(server.IsClosing);
+        var exception = await Assert.ThrowsAsync<TerminalApiException>(
+            () => client.GetSnapshotAsync());
+        Assert.Equal(HttpStatusCode.Gone, exception.StatusCode);
+        Assert.Equal("host_session_closed", exception.Code);
+
+        await stopping;
+        Assert.False(server.IsRunning);
+        Assert.All(
+            await fixture.Security.GetRegistrationsAsync(),
+            registration => Assert.False(registration.IsActive));
+    }
+
+    [Fact]
     public async Task Remote_service_replays_offline_commands_and_retains_host_rejections()
     {
         var host = new Uri("https://127.0.0.1:42345");
@@ -149,7 +388,11 @@ public sealed class TerminalNetworkingTests : IDisposable
         };
         using var remote = new RemoteTreatmentCentreService(
             api,
-            new EncryptedTerminalCommandQueue(host, "Queue test", _root));
+            new EncryptedTerminalCommandQueue(
+                Guid.NewGuid(),
+                host,
+                "Queue test",
+                _root));
 
         await Assert.ThrowsAsync<TerminalCommandQueuedException>(() =>
             remote.AddPatientAsync(firstStation, null));
@@ -253,6 +496,7 @@ public sealed class TerminalNetworkingTests : IDisposable
         Assert.True(approved.Approved);
         var result = await pairing.WaitForApprovalAsync();
         Assert.Equal(host, result.Host);
+        Assert.Equal(access.HostInstanceId, result.HostInstanceId);
         Assert.Equal("Reception tablet", result.TerminalName);
         Assert.Equal(TerminalProtocol.CurrentVersion, result.ProtocolVersion);
 
@@ -407,6 +651,7 @@ public sealed class TerminalNetworkingTests : IDisposable
             clientKey.Nonce);
         var response = new TerminalPairingStartResponse(
             Guid.NewGuid(),
+            Guid.NewGuid(),
             hostKey.PublicKey,
             hostKey.Nonce,
             new string('A', 64),
@@ -418,6 +663,7 @@ public sealed class TerminalNetworkingTests : IDisposable
 
         var encrypted = hostSecrets.Encrypt(new TerminalPairingBootstrapCredential(
             Guid.NewGuid(),
+            response.HostInstanceId,
             "Crypto terminal",
             "not-human-readable",
             new string('A', 64),
@@ -432,6 +678,11 @@ public sealed class TerminalNetworkingTests : IDisposable
             request,
             response with { HostPublicKey = attackerKey.PublicKey });
         Assert.Throws<InvalidOperationException>(() => substituted.Decrypt(encrypted));
+
+        using var substitutedHostIdentity = clientKey.DeriveAsClient(
+            request,
+            response with { HostInstanceId = Guid.NewGuid() });
+        Assert.Throws<InvalidOperationException>(() => substitutedHostIdentity.Decrypt(encrypted));
     }
 
     [Fact]
@@ -547,6 +798,64 @@ public sealed class TerminalNetworkingTests : IDisposable
         stationIds.Select((id, index) => new TerminalStation(id, $"Bay {index + 1}", "Bed", index * 8, 0, 7, 7, null)).ToList(),
         [],
         new TerminalDashboard(stationIds.Length, 0, 0, null, [], []));
+
+    [SupportedOSPlatform("windows")]
+    private void WriteLegacyQueue(
+        Uri host,
+        string terminalName,
+        TerminalCommandRequest request)
+    {
+        var identity = SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"{host.GetLeftPart(UriPartial.Authority)}|{terminalName.Trim().ToUpperInvariant()}"));
+        var identityText = Convert.ToHexString(identity)[..24];
+        var key = RandomNumberGenerator.GetBytes(32);
+        try
+        {
+            var keyDirectory = Path.Combine(_root, "TerminalQueueKeys");
+            Directory.CreateDirectory(keyDirectory);
+            var protectedKey = ProtectedData.Protect(
+                key,
+                identity,
+                DataProtectionScope.CurrentUser);
+            File.WriteAllBytes(
+                Path.Combine(keyDirectory, $"{identityText}.key"),
+                "TQK1"u8.ToArray().Concat(protectedKey).ToArray());
+
+            var plaintext = JsonSerializer.SerializeToUtf8Bytes(
+                new[]
+                {
+                    new QueuedTerminalCommand(
+                        request,
+                        QueuedTerminalCommandState.Pending)
+                },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            try
+            {
+                var magic = "TCQ2"u8.ToArray();
+                var nonce = RandomNumberGenerator.GetBytes(12);
+                var ciphertext = new byte[plaintext.Length];
+                var tag = new byte[16];
+                using (var aes = new AesGcm(key, tag.Length))
+                {
+                    aes.Encrypt(nonce, plaintext, ciphertext, tag, magic);
+                }
+
+                var queueDirectory = Path.Combine(_root, "TerminalQueues");
+                Directory.CreateDirectory(queueDirectory);
+                File.WriteAllBytes(
+                    Path.Combine(queueDirectory, $"{identityText}.v2.tcq"),
+                    magic.Concat(nonce).Concat(tag).Concat(ciphertext).ToArray());
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(plaintext);
+            }
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(key);
+        }
+    }
 
     public void Dispose()
     {

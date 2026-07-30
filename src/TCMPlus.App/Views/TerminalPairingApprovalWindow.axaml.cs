@@ -4,7 +4,7 @@ using TCMPlus.Protocol;
 
 namespace TCMPlus.App.Views;
 
-public partial class TerminalPairingApprovalWindow : Window
+public partial class TerminalPairingApprovalWindow : ResponsiveDialogWindow
 {
     public TerminalPairingApprovalWindow(TerminalPairingRequestInfo request)
     {

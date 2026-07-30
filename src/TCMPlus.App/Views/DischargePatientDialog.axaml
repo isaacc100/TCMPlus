@@ -1,22 +1,30 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="TCMPlus.App.Views.DischargePatientDialog"
-        Width="440"
-        Height="330"
-        CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Title="Discharge patient"
-        KeyDown="OnKeyDown">
-  <StackPanel Margin="24" Spacing="12">
-    <TextBlock Text="Discharge patient" FontSize="20" FontWeight="Bold" />
-    <TextBlock Name="StationText" />
-    <TextBlock Text="Discharge route" FontWeight="SemiBold" />
-    <ComboBox Name="RouteInput" />
-    <TextBlock Text="Outcome (optional)" FontWeight="SemiBold" />
-    <ComboBox Name="OutcomeInput" />
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
-      <Button Content="Cancel" Click="OnCancel" />
-      <Button Content="Discharge" Click="OnDischarge" />
-    </StackPanel>
-  </StackPanel>
-</Window>
+<views:ResponsiveDialogWindow xmlns="https://github.com/avaloniaui"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:views="using:TCMPlus.App.Views"
+                              x:Class="TCMPlus.App.Views.DischargePatientDialog"
+                              Width="440"
+                              Height="330"
+                              CanResize="False"
+                              WindowStartupLocation="CenterOwner"
+                              Title="Discharge patient"
+                              KeyDown="OnKeyDown"
+                              Background="#F5F8F4">
+  <Border Classes="dialog-card">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <TextBlock Classes="dialog-header" Text="Discharge patient"/>
+      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+        <StackPanel Spacing="12">
+          <TextBlock Name="StationText" Foreground="#60737A" TextWrapping="Wrap"/>
+          <TextBlock Text="Discharge route" FontWeight="SemiBold"/>
+          <ComboBox Name="RouteInput"/>
+          <TextBlock Text="Outcome (optional)" FontWeight="SemiBold"/>
+          <ComboBox Name="OutcomeInput"/>
+        </StackPanel>
+      </ScrollViewer>
+      <StackPanel Grid.Row="2" Classes="dialog-footer">
+        <Button Content="Cancel" Click="OnCancel"/>
+        <Button Classes="primary" Content="Discharge" Click="OnDischarge"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</views:ResponsiveDialogWindow>

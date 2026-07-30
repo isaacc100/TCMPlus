@@ -5,7 +5,7 @@ using TCMPlus.Infrastructure.Networking;
 
 namespace TCMPlus.App.Views;
 
-public partial class TerminalConnectWindow : Window
+public partial class TerminalConnectWindow : ResponsiveDialogWindow
 {
     private readonly TerminalConnectionPreferencesStore _preferencesStore = new();
     private readonly List<TerminalDiscoveredHost> _hosts = [];
@@ -136,6 +136,12 @@ public partial class TerminalConnectWindow : Window
             ValidationMessage.Text = "Waiting for the host operator to enter this code and approve the terminal…";
 
             var result = await _pairingSession.WaitForApprovalAsync(_operationCancellation.Token);
+            if (result.HostInstanceId != host.HostInstanceId)
+            {
+                throw new InvalidOperationException(
+                    "The host identity changed during pairing. Refresh the host list and try again.");
+            }
+
             await _preferencesStore.SaveAsync(
                 new TerminalConnectionPreferences(terminalName, host.Address),
                 _operationCancellation.Token);
@@ -143,6 +149,7 @@ public partial class TerminalConnectWindow : Window
             ConnectionRequested?.Invoke(
                 this,
                 new TerminalConnectionDraft(
+                    result.HostInstanceId,
                     result.Host,
                     result.TerminalName,
                     result.Password,
@@ -200,6 +207,7 @@ public partial class TerminalConnectWindow : Window
 }
 
 public sealed record TerminalConnectionDraft(
+    Guid HostInstanceId,
     Uri Host,
     string TerminalName,
     string Password,

@@ -31,12 +31,56 @@
             <Setter Property="Padding" Value="13,8"/>
             <Setter Property="CornerRadius" Value="6"/>
         </Style>
-        <Style Selector="Button.danger">
+    <Style Selector="Button.danger">
             <Setter Property="Background" Value="#FCEAEA"/>
             <Setter Property="Foreground" Value="#963D3D"/>
             <Setter Property="BorderBrush" Value="#E5A0A0"/>
             <Setter Property="Padding" Value="13,8"/>
             <Setter Property="CornerRadius" Value="6"/>
-        </Style>
+    </Style>
+    <Style Selector="Border.dialog-card">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#87BBA2" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="22" />
+      <Setter Property="Margin" Value="20" />
+    </Style>
+    <Style Selector="TextBlock.dialog-header">
+      <Setter Property="FontSize" Value="21" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="#364958" />
+    </Style>
+    <Style Selector="ScrollViewer.dialog-body">
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+      <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+    </Style>
+    <Style Selector="StackPanel.dialog-footer">
+      <Setter Property="Orientation" Value="Horizontal" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="Spacing" Value="8" />
+      <Setter Property="Margin" Value="0,12,0,0" />
+    </Style>
+    <Style Selector="WrapPanel.dialog-footer">
+      <Setter Property="Orientation" Value="Horizontal" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="ItemsAlignment" Value="End" />
+      <Setter Property="ItemSpacing" Value="8" />
+      <Setter Property="LineSpacing" Value="8" />
+      <Setter Property="Margin" Value="0,12,0,0" />
+    </Style>
+    <Style Selector="Window.compact-dialog Border.dialog-card">
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="Margin" Value="10" />
+    </Style>
+    <Style Selector="Window.compact-dialog TextBlock.dialog-header">
+      <Setter Property="FontSize" Value="19" />
+    </Style>
+    <Style Selector="Window.compact-dialog StackPanel.dialog-footer">
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="Window.compact-dialog WrapPanel.dialog-footer">
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
     </Application.Styles>
 </Application>

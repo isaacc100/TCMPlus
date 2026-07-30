@@ -1,1 +1,25 @@
-<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="TCMPlus.App.Views.TextEntryWindow" Width="420" Height="220" CanResize="False" WindowStartupLocation="CenterOwner" Background="#F5F8F4"><Border Margin="20" Padding="22" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="12"><StackPanel Spacing="12"><TextBlock Name="Heading" FontSize="20" FontWeight="Bold" Foreground="#364958"/><TextBlock Name="Label" Foreground="#364958"/><TextBox Name="Input"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8"><Button Content="Cancel" Click="OnCancel"/><Button Content="Save" Background="#3B6064" Foreground="White" Click="OnSave"/></StackPanel></StackPanel></Border></Window>
+<views:ResponsiveDialogWindow xmlns="https://github.com/avaloniaui"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:views="using:TCMPlus.App.Views"
+                              x:Class="TCMPlus.App.Views.TextEntryWindow"
+                              Width="420"
+                              Height="220"
+                              CanResize="False"
+                              WindowStartupLocation="CenterOwner"
+                              Background="#F5F8F4">
+  <Border Classes="dialog-card">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <TextBlock Name="Heading" Classes="dialog-header"/>
+      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+        <StackPanel Spacing="10">
+          <TextBlock Name="Label" Foreground="#364958" TextWrapping="Wrap"/>
+          <TextBox Name="Input"/>
+        </StackPanel>
+      </ScrollViewer>
+      <StackPanel Grid.Row="2" Classes="dialog-footer">
+        <Button Content="Cancel" Click="OnCancel"/>
+        <Button Classes="primary" Content="Save" Click="OnSave"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</views:ResponsiveDialogWindow>

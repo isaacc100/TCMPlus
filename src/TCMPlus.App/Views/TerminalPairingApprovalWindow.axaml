@@ -1,49 +1,39 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="TCMPlus.App.Views.TerminalPairingApprovalWindow"
-        Width="520"
-        Height="430"
-        CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Title="Approve terminal"
-        Background="#F5F8F4">
-  <Window.Styles>
-    <Style Selector="Button.primary">
-      <Setter Property="Background" Value="#3B6064"/>
-      <Setter Property="Foreground" Value="White"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding" Value="16,10"/>
-      <Setter Property="CornerRadius" Value="6"/>
-    </Style>
-    <Style Selector="Button.danger">
-      <Setter Property="Background" Value="#963D3D"/>
-      <Setter Property="Foreground" Value="White"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding" Value="16,10"/>
-      <Setter Property="CornerRadius" Value="6"/>
-    </Style>
-  </Window.Styles>
-  <Border Margin="24" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="14" Padding="28">
-    <StackPanel Spacing="13">
-      <TextBlock Text="Terminal access request" FontSize="24" FontWeight="Bold" Foreground="#364958"/>
-      <TextBlock Name="TerminalNameText" FontSize="18" FontWeight="SemiBold" Foreground="#3B6064"/>
-      <TextBlock Name="RequestDetailsText" Foreground="#60737A" TextWrapping="Wrap"/>
-      <Border Background="#FFF7D9" BorderBrush="#D39B28" BorderThickness="1" CornerRadius="6" Padding="12">
-        <TextBlock Text="Read the six-digit code from the terminal screen and enter it here. TCM+ deliberately does not show the code on this host, which protects the pairing from an impersonating device."
-                   Foreground="#765617" TextWrapping="Wrap"/>
-      </Border>
-      <TextBlock Text="Terminal verification code" FontWeight="SemiBold" Foreground="#364958"/>
-      <TextBox Name="CodeInput"
-               MaxLength="6"
-               FontFamily="Consolas"
-               FontSize="28"
-               HorizontalContentAlignment="Center"
-               PlaceholderText="000000"/>
-      <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+<views:ResponsiveDialogWindow xmlns="https://github.com/avaloniaui"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:views="using:TCMPlus.App.Views"
+                              x:Class="TCMPlus.App.Views.TerminalPairingApprovalWindow"
+                              Width="520"
+                              Height="430"
+                              CanResize="False"
+                              WindowStartupLocation="CenterOwner"
+                              Title="Approve terminal"
+                              Background="#F5F8F4">
+  <Border Classes="dialog-card" CornerRadius="14">
+    <Grid RowDefinitions="Auto,*,Auto">
+      <TextBlock Classes="dialog-header" Text="Terminal access request" FontSize="24"/>
+      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+        <StackPanel Spacing="12">
+          <TextBlock Name="TerminalNameText" FontSize="18" FontWeight="SemiBold" Foreground="#3B6064"/>
+          <TextBlock Name="RequestDetailsText" Foreground="#60737A" TextWrapping="Wrap"/>
+          <Border Background="#FFF7D9" BorderBrush="#D39B28" BorderThickness="1" CornerRadius="6" Padding="12">
+            <TextBlock Text="Read the six-digit code from the terminal screen and enter it here. TCM+ deliberately does not show the code on this host, which protects the pairing from an impersonating device."
+                       Foreground="#765617"
+                       TextWrapping="Wrap"/>
+          </Border>
+          <TextBlock Text="Terminal verification code" FontWeight="SemiBold" Foreground="#364958"/>
+          <TextBox Name="CodeInput"
+                   MaxLength="6"
+                   FontFamily="Consolas"
+                   FontSize="28"
+                   HorizontalContentAlignment="Center"
+                   PlaceholderText="000000"/>
+          <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
+        </StackPanel>
+      </ScrollViewer>
+      <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Classes="danger" Content="Deny" Click="OnDeny"/>
         <Button Classes="primary" Content="Approve terminal" Click="OnApprove"/>
       </StackPanel>
-    </StackPanel>
+    </Grid>
   </Border>
-</Window>
+</views:ResponsiveDialogWindow>

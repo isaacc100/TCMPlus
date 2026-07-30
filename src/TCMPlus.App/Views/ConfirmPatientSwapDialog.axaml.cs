@@ -3,7 +3,7 @@ using Avalonia.Interactivity;
 
 namespace TCMPlus.App.Views;
 
-public partial class ConfirmPatientSwapDialog : Window
+public partial class ConfirmPatientSwapDialog : ResponsiveDialogWindow
 {
     public ConfirmPatientSwapDialog() : this(string.Empty, string.Empty)
     {
