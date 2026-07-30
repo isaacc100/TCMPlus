@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1-DEV
+
+- Fixed terminal-mode startup after secure host approval by registering the updater service required by the shared main screen.
+- Added regression coverage for terminal application service registration.
+
 ## 0.11.0-DEV
 
 - Replaced manual terminal URLs, passwords, and certificate fingerprints with Bluetooth-style LAN discovery and host-approved six-digit pairing.

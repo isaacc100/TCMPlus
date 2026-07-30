@@ -176,7 +176,7 @@ public partial class App : Application
                 login.ShiftName,
                 string.Empty,
                 string.Empty);
-            var services = ConfigureTerminalServices(session, draft, remoteService);
+            var services = TerminalServiceProviderFactory.Create(session, draft, remoteService, UpdateService);
             if (_desktop is null)
             {
                 throw new InvalidOperationException("The desktop application is not available.");
@@ -417,28 +417,6 @@ public partial class App : Application
             await provider.GetRequiredService<ITcSettingsRepository>().SaveAsync(settings);
         }
         return provider;
-    }
-
-    private static ServiceProvider ConfigureTerminalServices(
-        SessionDescriptor session,
-        TerminalConnectionDraft draft,
-        RemoteTreatmentCentreService remoteService)
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton(session);
-        services.AddSingleton(remoteService);
-        services.AddSingleton<ITreatmentCentreService>(remoteService);
-        services.AddSingleton<ITcSettingsRepository>(new RemoteTcSettingsRepository(remoteService));
-        services.AddSingleton<IAppSettingsRepository>(new RemoteAppSettingsRepository(remoteService));
-        services.AddSingleton<IShiftPinService, ShiftPinService>();
-        services.AddSingleton(TerminalRuntimeContext.Terminal(
-            remoteService,
-            draft.TerminalName,
-            draft.Host.GetLeftPart(UriPartial.Authority)));
-        services.AddSingleton<LanDisplaySnapshotProvider>();
-        services.AddSingleton<LanDisplayServer>();
-        services.AddSingleton<MainViewModel>();
-        return services.BuildServiceProvider();
     }
 
     private static bool TryAcquireHost()
