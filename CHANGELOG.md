@@ -11,6 +11,7 @@
 - Added consent-based automatic updates from GitHub Releases, including platform- and architecture-specific release channels, development prerelease support, and safe pre-shift update prompts.
 - Added a tag-driven GitHub Actions release workflow that tests, packages, and publishes self-contained Windows Velopack installers and update feeds.
 - Existing ZIP-based installations must install the first Velopack release manually; subsequent installed releases update in place.
+- Velopack installs under the isolated `TCMPlusDesktop` application identity so installing or uninstalling the app cannot remove the existing `TCMPlus` session-data directory.
 - This is an unsigned development prerelease and may trigger a Windows publisher warning during its first manual installation.
 
 ## 0.10.0-DEV
