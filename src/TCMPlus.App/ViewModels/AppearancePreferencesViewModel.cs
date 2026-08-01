@@ -242,7 +242,7 @@ public partial class AppearancePreferencesViewModel(DevicePreferencesStore store
         }
         else
         {
-            SetBrush(application, "CanvasBrush", preferences.EasyRead ? "#FFF9E8" : "#F5F8F4");
+            SetBrush(application, "CanvasBrush", preferences.EasyRead ? "#F0F7F3" : "#F5F8F4");
             SetBrush(application, "InkBrush", "#364958");
         }
 

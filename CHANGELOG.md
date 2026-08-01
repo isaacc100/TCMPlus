@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.2-DEV
+
+- Changed the start screen navigation to swap Create, saved-shift, and terminal-connection pages within one window instead of opening secondary dialogs.
+- Fixed custom close controls, removed window controls from active shifts, and made Close Shift seal the session before returning to the start screen.
+- Fixed disappearing button labels across hover states, added subtle hover fades, improved light dropdown contrast, and added spacing between menu content and scrollbars.
+- Standardised side-menu action widths with left-aligned labels and replaced map-side mobile-team creation prompts with links to the Teams view.
+- Restored the compact single Discharge action on station cards while retaining drag/drop and keyboard transfer access.
+- Reworked layout editing around prominent Add, Undo/Redo, Save, Discard, and selectable map-size cards; map-size increases now require confirmation.
+- Kept the default and easy-read palettes within the teal/green visual system instead of introducing yellow editing surfaces.
+
 ## 0.13.1-DEV
 
 - Keep the Treatment Centre station canvas at its intended 5:3 aspect ratio while allowing its surrounding card and contextual control bar to fill the height beside operational panels.

@@ -32,7 +32,7 @@ public partial class WindowControlButtons : UserControl
         set => SetValue(ShowMaximizeProperty, value);
     }
 
-    private Window? OwnerWindow => VisualRoot as Window;
+    private Window? OwnerWindow => TopLevel.GetTopLevel(this) as Window;
     private Window? _subscribedWindow;
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

@@ -22,6 +22,7 @@ public partial class App : Application
 {
     private static readonly TimeSpan AutosaveInterval = TimeSpan.FromSeconds(30);
     private static readonly EncryptedSessionStore SessionStore = new();
+    private static readonly List<Avalonia.Controls.Window> RetiredSessionWindows = [];
     private static IClassicDesktopStyleApplicationLifetime? _desktop;
     private static ActiveSession? _activeSession;
     private static Mutex? _hostMutex;
@@ -37,6 +38,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _desktop = desktop;
+            desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
             CreateShiftSetup(desktop, false);
         }
 
@@ -49,11 +51,23 @@ public partial class App : Application
     {
         var shiftSetup = new ShiftSetupWindow();
         shiftSetup.ShiftStarted += async (_, draft) => await OpenShiftAsync(desktop, shiftSetup, draft);
-        shiftSetup.LoadExistingRequested += (_, _) => ShowRecentSessions(shiftSetup);
-        shiftSetup.TerminalConnectionRequested += (_, _) => ShowTerminalConnection(shiftSetup);
+        shiftSetup.ExistingShiftRequested += async (_, request) =>
+            await OpenRecentSessionAsync(shiftSetup, request, shiftSetup.ShowRecentSessionError);
+        shiftSetup.TerminalConnectionRequested += async (_, draft) =>
+            await ConnectTerminalAsync(shiftSetup, draft, shiftSetup.ShowTerminalError);
         shiftSetup.UpdateCheckRequested += async (_, _) => await CheckForUpdatesAtStartAsync(shiftSetup);
         shiftSetup.Opened += async (_, _) =>
             await AppearancePreferencesViewModel.InitializeApplicationAsync(new DevicePreferencesStore());
+        shiftSetup.Closed += (_, _) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_activeSession is null)
+                {
+                    desktop.Shutdown();
+                }
+            });
+        };
         desktop.MainWindow = shiftSetup;
         if (show) shiftSetup.Show();
         return shiftSetup;
@@ -114,6 +128,7 @@ public partial class App : Application
             await SessionStore.SealAsync(session, draft.SessionPassword);
             session = await SessionStore.OpenAsync((await SessionStore.GetRecentAsync()).Single(item => item.Id == session.Id), draft.SessionPassword);
             var services = await ConfigureServicesAsync(session, null);
+            shiftSetup.Hide();
             ShowSessionWindow(desktop, session, draft.SessionPassword, services);
             shiftSetup.Close();
         }
@@ -128,6 +143,19 @@ public partial class App : Application
     {
         var request = await new RecentSessionsWindow(SessionStore).ShowDialog<SessionOpenRequest?>(owner);
         if (request is null || _desktop is null) return;
+        string? error = null;
+        await OpenRecentSessionAsync(owner, request, message => error = message);
+        if (error is not null)
+        {
+            await new MessageWindow("Unable to load shift", error).ShowDialog(owner);
+        }
+    }
+
+    private static async Task OpenRecentSessionAsync(
+        Avalonia.Controls.Window owner,
+        SessionOpenRequest request,
+        Action<string> showError)
+    {
         try
         {
             if (_activeSession?.Session.Id == request.Entry.Id)
@@ -151,27 +179,22 @@ public partial class App : Application
                 await CloseActiveSessionAsync(_activeSession, releaseHostMutex: false);
             }
 
+            if (_desktop is null) return;
+            if (owner is ShiftSetupWindow) owner.Hide();
             ShowSessionWindow(_desktop, session, request.Password, services);
             if (owner is ShiftSetupWindow) owner.Close();
         }
         catch (Exception exception)
         {
             ReleaseHostIfInactive();
-            await new MessageWindow("Unable to load shift", exception.Message).ShowDialog(owner);
+            showError(exception.Message);
         }
     }
 
-    private static void ShowTerminalConnection(Avalonia.Controls.Window owner)
-    {
-        var window = new TerminalConnectWindow();
-        window.ConnectionRequested += async (_, draft) => await ConnectTerminalAsync(owner, window, draft);
-        _ = window.ShowDialog(owner);
-    }
-
     private static async Task ConnectTerminalAsync(
-        Avalonia.Controls.Window owner,
-        TerminalConnectWindow connectionWindow,
-        TerminalConnectionDraft draft)
+        ShiftSetupWindow owner,
+        TerminalConnectionDraft draft,
+        Action<string> showError)
     {
         ITerminalApiClient? apiClient = null;
         EncryptedTerminalCommandQueue? queue = null;
@@ -197,8 +220,8 @@ public partial class App : Application
                 throw new InvalidOperationException("The desktop application is not available.");
             }
 
+            owner.Hide();
             ShowSessionWindow(_desktop, session, string.Empty, services);
-            connectionWindow.Close();
             owner.Close();
             apiClient = null;
             queue = null;
@@ -212,7 +235,7 @@ public partial class App : Application
                 queue?.Dispose();
                 apiClient?.Dispose();
             }
-            connectionWindow.ShowError($"Unable to connect this terminal: {exception.Message}");
+            showError($"Unable to connect this terminal: {exception.Message}");
         }
     }
 
@@ -234,6 +257,17 @@ public partial class App : Application
                 throw;
             }
         }
+    }
+
+    public static async Task CloseActiveSessionAndReturnToStartAsync()
+    {
+        if (_activeSession is not { } activeSession || _desktop is null)
+        {
+            return;
+        }
+
+        await CloseActiveSessionAsync(activeSession, closeWindow: false);
+        CreateShiftSetup(_desktop, true).Activate();
     }
 
     public static async Task UnsealActiveSessionAsync()
@@ -270,7 +304,8 @@ public partial class App : Application
             activeSession.CloseInProgress = true;
             try
             {
-                await CloseActiveSessionAsync(activeSession);
+                await CloseActiveSessionAsync(activeSession, closeWindow: false);
+                CreateShiftSetup(desktop, true).Activate();
             }
             catch (Exception exception)
             {
@@ -280,6 +315,11 @@ public partial class App : Application
         };
         desktop.MainWindow = window;
         window.Show();
+        foreach (var retiredWindow in RetiredSessionWindows)
+        {
+            retiredWindow.Close();
+        }
+        RetiredSessionWindows.Clear();
     }
 
     private static async Task ReturnTerminalToPairingAsync(ActiveSession activeSession)
@@ -295,9 +335,9 @@ public partial class App : Application
         activeSession.ReturnToPairingInProgress = true;
         try
         {
-            await CloseActiveSessionAsync(activeSession);
+            await CloseActiveSessionAsync(activeSession, closeWindow: false);
             var shiftSetup = CreateShiftSetup(_desktop, true);
-            ShowTerminalConnection(shiftSetup);
+            await shiftSetup.ShowTerminalPageAsync();
         }
         catch (Exception exception)
         {
@@ -375,7 +415,10 @@ public partial class App : Application
         cancellation.Dispose();
     }
 
-    private static async Task CloseActiveSessionAsync(ActiveSession activeSession, bool releaseHostMutex = true)
+    private static async Task CloseActiveSessionAsync(
+        ActiveSession activeSession,
+        bool releaseHostMutex = true,
+        bool closeWindow = true)
     {
         await StopAutosaveAsync(activeSession);
         try
@@ -411,7 +454,16 @@ public partial class App : Application
                 _activeSession = null;
             }
 
-            activeSession.Window.Close();
+            if (closeWindow)
+            {
+                activeSession.Window.Close();
+            }
+            else
+            {
+                activeSession.Window.Hide();
+                activeSession.Window.DataContext = null;
+                RetiredSessionWindows.Add(activeSession.Window);
+            }
             activeSession.Services.Dispose();
             if (!activeSession.Runtime.IsTerminal && releaseHostMutex)
             {

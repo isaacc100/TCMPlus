@@ -581,10 +581,59 @@ public partial class MainWindow : Window
 
     private async void OnSafeExitClicked(object? sender, RoutedEventArgs e)
     {
-        var confirmed = await new MessageWindow("Exit TCM+", "The active shift will be sealed before TCM+ closes.", true, "Exit").ShowDialog<bool>(this);
+        var confirmed = await new MessageWindow(
+            "Close shift",
+            "The active shift will be sealed and the TCM+ start screen will reopen.",
+            true,
+            "Seal and close shift").ShowDialog<bool>(this);
         if (!confirmed) return;
         _externalDisplay?.Close();
-        Close();
+        try
+        {
+            await App.CloseActiveSessionAndReturnToStartAsync();
+        }
+        catch (Exception exception)
+        {
+            _viewModel?.ReportPersistenceFailure($"Unable to safely close the shift: {exception.Message}");
+        }
+    }
+
+    private async void OnMapDensityRequested(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is null || sender is not Button { Tag: string densityName }
+            || !Enum.TryParse<GridDensity>(densityName, out var density))
+        {
+            return;
+        }
+
+        if (density <= _viewModel.GridDensity)
+        {
+            ExecuteDensityCommand(density);
+            return;
+        }
+
+        var confirmed = await new MessageWindow(
+            "Increase map size",
+            $"Increase the map to {densityName}? Existing stations keep their positions. Map size cannot be reduced after stations have been placed.",
+            true,
+            "Increase map size").ShowDialog<bool>(this);
+        if (confirmed) ExecuteDensityCommand(density);
+    }
+
+    private void ExecuteDensityCommand(GridDensity density)
+    {
+        switch (density)
+        {
+            case GridDensity.Compact:
+                _viewModel?.SetCompactDensityCommand.Execute(null);
+                break;
+            case GridDensity.Standard:
+                _viewModel?.SetStandardDensityCommand.Execute(null);
+                break;
+            case GridDensity.Dense:
+                _viewModel?.SetDenseDensityCommand.Execute(null);
+                break;
+        }
     }
 
     private void OnToggleMobileTeamDrawer(object? sender, RoutedEventArgs e)
@@ -685,9 +734,9 @@ public partial class MainWindow : Window
         {
             var discard = await new MessageWindow(
                 "Unsaved layout changes",
-                "The Treatment Centre layout has not been saved. Discard the draft and close TCM+?",
+                "The Treatment Centre layout has not been saved. Discard the draft and close this shift?",
                 true,
-                "Discard and close").ShowDialog<bool>(this);
+                "Discard and close shift").ShowDialog<bool>(this);
             if (discard)
             {
                 _viewModel.DiscardLayoutCommand.Execute(null);

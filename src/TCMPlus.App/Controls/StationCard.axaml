@@ -56,7 +56,6 @@
                     <TextBlock Text="{Binding StatusText}" Foreground="#364958" FontSize="11" />
                     <TextBlock Text="{Binding PatientArrivalText}" IsVisible="{Binding IsOccupied}" Foreground="#50636B" FontSize="10" />
                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
-                        <Button Classes="station-action" Background="#DDEAF0" Foreground="#364958" Content="Transfer" Command="{Binding TransferPatientCommand}" IsVisible="{Binding IsOccupied}" />
                         <Button Classes="station-action" Background="#F5D5D5" Foreground="#843434" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding CanDischargePatient}" />
                     </StackPanel>
                 </StackPanel>

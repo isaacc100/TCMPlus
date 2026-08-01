@@ -8,64 +8,10 @@
                               WindowStartupLocation="CenterOwner"
                               Title="Connect terminal"
                               Background="#F5F8F4">
-  <Border Classes="dialog-card" CornerRadius="14">
-    <Grid RowDefinitions="Auto,*,Auto">
-      <StackPanel Spacing="5">
-        <TextBlock Classes="dialog-header" Text="Connect this TCM+ app" FontSize="24"/>
-        <TextBlock Text="Choose the authoritative host. The host operator will approve this terminal using a six-digit verification code."
-                   Foreground="#60737A"
-                   TextWrapping="Wrap"/>
-      </StackPanel>
-      <Border Grid.Row="1" Margin="0,14,0,0">
-        <StackPanel Spacing="12">
-          <TextBlock Text="Nearby TCM+ hosts" FontWeight="SemiBold" Foreground="#364958"/>
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <ComboBox Name="HostList" PlaceholderText="Searching for hosts…"/>
-            <Button Name="RefreshButton" Grid.Column="1" Content="Refresh" Click="OnRefresh"/>
-          </Grid>
-          <TextBlock Name="DiscoveryMessage" Foreground="#60737A" TextWrapping="Wrap"/>
-          <Border Background="#F5F8F4" BorderBrush="#D6E5DC" BorderThickness="1" CornerRadius="8" Padding="12">
-            <StackPanel Spacing="8">
-              <TextBlock Text="Can’t find the host?" FontWeight="SemiBold" Foreground="#364958"/>
-              <TextBlock Text="Enter the four-character host code, IP address, computer name, or optional host:port."
-                         Foreground="#60737A"
-                         TextWrapping="Wrap"/>
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBox Name="ManualHostInput" PlaceholderText="e.g. A7K9 or 192.168.1.20"/>
-                <Button Name="FindButton" Grid.Column="1" Content="Find host" Click="OnFindHost"/>
-              </Grid>
-            </StackPanel>
-          </Border>
-          <TextBlock Text="Terminal name" FontWeight="SemiBold" Foreground="#364958"/>
-          <TextBox Name="TerminalNameInput" PlaceholderText="e.g. Reception 1"/>
-          <Border Name="PairingCodePanel"
-                  IsVisible="False"
-                  Background="#EAF5EF"
-                  BorderBrush="#87BBA2"
-                  BorderThickness="1"
-                  CornerRadius="8"
-                  Padding="14">
-            <StackPanel Spacing="5" HorizontalAlignment="Center">
-              <TextBlock Text="Tell the host operator this code" Foreground="#364958" FontWeight="SemiBold"/>
-              <TextBlock Name="PairingCodeText"
-                         FontFamily="Consolas"
-                         FontSize="38"
-                         FontWeight="Bold"
-                         Foreground="#3B6064"
-                         HorizontalAlignment="Center"/>
-              <TextBlock Text="The host operator must type it into the approval window."
-                         Foreground="#60737A"
-                         TextWrapping="Wrap"
-                         TextAlignment="Center"/>
-            </StackPanel>
-          </Border>
-          <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
-        </StackPanel>
-      </Border>
-      <StackPanel Grid.Row="2" Classes="dialog-footer">
-        <Button Content="Cancel" Click="OnCancel"/>
-        <Button Name="ConnectButton" Classes="primary" Content="Request access" Click="OnConnect"/>
-      </StackPanel>
+  <Border Classes="dialog-card">
+    <Grid RowDefinitions="*,Auto">
+      <views:TerminalConnectView Name="ConnectView"/>
+      <Button Grid.Row="1" Content="Cancel" HorizontalAlignment="Left" Margin="0,12,0,0" Click="OnCancel"/>
     </Grid>
   </Border>
 </views:ResponsiveDialogWindow>

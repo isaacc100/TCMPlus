@@ -34,6 +34,16 @@
         <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundPressed" Color="#245A42" />
         <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocused" Color="#364958" />
         <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundDisabled" Color="#718087" />
+        <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#A9BBB2" />
+        <SolidColorBrush x:Key="ComboBoxItemBackground" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#E7F5EC" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#DCEEE4" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="#3B6064" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="#2F5155" />
+        <SolidColorBrush x:Key="ComboBoxItemForeground" Color="#364958" />
+        <SolidColorBrush x:Key="ComboBoxItemForegroundPointerOver" Color="#245A42" />
+        <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#FFFFFF" />
         <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUnchecked" Color="#FFFFFF" />
         <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver" Color="#EDF5F0" />
         <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPressed" Color="#DCEEE4" />
@@ -67,6 +77,28 @@
             <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.14"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
         </Style>
         <Style Selector="Button:focus-visible">
             <Setter Property="BorderBrush" Value="#5B21B6"/>
@@ -85,23 +117,9 @@
             <Setter Property="Foreground" Value="#718087"/>
             <Setter Property="BorderBrush" Value="#C7D3CD"/>
             <Setter Property="Opacity" Value="1"/>
-            <!-- Fluent's disabled-state presenter can become effectively transparent
-                 after device accessibility colours are applied. Use a small explicit
-                 template so disabled actions remain discoverable and readable. -->
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          ContentTemplate="{TemplateBinding ContentTemplate}"
-                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                    </Border>
-                </ControlTemplate>
-            </Setter>
+        </Style>
+        <Style Selector="Button TextBlock">
+            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
         </Style>
         <Style Selector="Button.primary:pointerover">
             <Setter Property="Background" Value="#2F5155"/>
@@ -134,6 +152,20 @@
             <Setter Property="Background" Value="White"/>
             <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
+        </Style>
+        <Style Selector="ComboBoxItem">
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+        </Style>
+        <Style Selector="ComboBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource OpenSoftBrush}"/>
+            <Setter Property="Foreground" Value="#245A42"/>
+        </Style>
+        <Style Selector="ComboBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource DeepSeaBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
         </Style>
         <Style Selector="PathIcon.dropdown-chevron">
             <Setter Property="Width" Value="18"/>

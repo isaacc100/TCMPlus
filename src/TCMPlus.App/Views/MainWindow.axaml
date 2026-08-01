@@ -72,6 +72,8 @@
             <Setter Property="Foreground" Value="#3B6064" />
             <Setter Property="Padding" Value="13,8" />
             <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
         </Style>
         <Style Selector="Button.sub-nav.active">
             <Setter Property="Background" Value="#E7F5EC" />
@@ -84,6 +86,26 @@
         <Style Selector="Button.sub-nav:pressed">
             <Setter Property="Background" Value="#E7F5EC" />
             <Setter Property="Foreground" Value="#245A42" />
+        </Style>
+        <Style Selector="Button.rail-action">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.density-option">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#C7D3CD" />
+            <Setter Property="Padding" Value="10,9" />
+        </Style>
+        <Style Selector="Button.density-option:pointerover">
+            <Setter Property="Background" Value="#EDF5F0" />
+            <Setter Property="BorderBrush" Value="#87BBA2" />
+        </Style>
+        <Style Selector="Button.density-option.active">
+            <Setter Property="Background" Value="#E7F5EC" />
+            <Setter Property="BorderBrush" Value="#3B6064" />
+            <Setter Property="BorderThickness" Value="2" />
         </Style>
         <Style Selector="ComboBox.settings-select">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -181,10 +203,9 @@
                     <Button Classes="icon" Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Application settings">
                         <PathIcon Data="M 3,4 L 6,4 L 6,2 L 8,2 L 8,4 L 17,4 L 17,6 L 8,6 L 8,8 L 6,8 L 6,6 L 3,6 Z M 3,9 L 12,9 L 12,7 L 14,7 L 14,9 L 17,9 L 17,11 L 14,11 L 14,13 L 12,13 L 12,11 L 3,11 Z M 3,14 L 7,14 L 7,12 L 9,12 L 9,14 L 17,14 L 17,16 L 9,16 L 9,18 L 7,18 L 7,16 L 3,16 Z" Foreground="White" Width="18" Height="18" />
                     </Button>
-                    <Button Classes="icon" Click="OnSafeExitClicked" ToolTip.Tip="Seal this shift and exit TCM+">
+                    <Button Classes="icon" Click="OnSafeExitClicked" ToolTip.Tip="Close and seal this shift">
                         <PathIcon Data="M 9,2 L 11,2 L 11,11 L 9,11 Z M 5.2,4.3 L 6.6,5.8 C 4.9,6.9 4,8.6 4,10.5 C 4,13.8 6.7,16.5 10,16.5 C 13.3,16.5 16,13.8 16,10.5 C 16,8.6 15.1,6.9 13.4,5.8 L 14.8,4.3 C 16.8,5.8 18,8 18,10.5 C 18,14.9 14.4,18.5 10,18.5 C 5.6,18.5 2,14.9 2,10.5 C 2,8 3.2,5.8 5.2,4.3 Z" Foreground="White" Width="18" Height="18" />
                     </Button>
-                    <controls:WindowControlButtons />
                 </StackPanel>
             </Grid>
         </Border>
@@ -221,8 +242,8 @@
                 <ColumnDefinition Width="320"/>
             </Grid.ColumnDefinitions>
             <Border Classes="card" Padding="18">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="18">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,4,0">
+                <StackPanel Spacing="18" Margin="0,0,10,0">
                     <TextBlock Text="Treatment centre" Classes="section-title" />
                     <StackPanel Spacing="8" IsVisible="{Binding IsOperationalMode}">
                         <TextBlock Text="{Binding AvailableStations}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource OpenBrush}" />
@@ -236,25 +257,27 @@
                         <TextBlock Text="{Binding PatientsSeenThisShift}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource DeepSeaBrush}" />
                         <TextBlock Text="Patients seen this shift" Classes="muted" TextWrapping="Wrap" />
                     </StackPanel>
-                    <Button Classes="secondary" Content="Edit Treatment Centre" Command="{Binding ToggleEditModeCommand}" Margin="0,10,0,0" IsVisible="{Binding IsOperationalMode}" />
-                    <Button Classes="primary" Content="Add station" Command="{Binding RequestAddStationCommand}" IsVisible="{Binding IsEditMode}" />
-                    <StackPanel Spacing="8" IsVisible="{Binding IsEditMode}">
-                        <Border Background="#FFF2C7" BorderBrush="#C78C1C" BorderThickness="1" CornerRadius="8" Padding="10">
-                            <TextBlock Text="LAYOUT EDITING — changes remain a draft until saved." TextWrapping="Wrap" FontWeight="Bold" Foreground="#614400"/>
+                    <Button Classes="secondary rail-action" Content="Edit Treatment Centre" Command="{Binding ToggleEditModeCommand}" Margin="0,10,0,0" IsVisible="{Binding IsOperationalMode}" />
+                    <StackPanel Spacing="10" IsVisible="{Binding IsEditMode}">
+                        <Button Classes="primary rail-action" Command="{Binding RequestAddStationCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><PathIcon Width="18" Height="18" Data="M 9,2 L 11,2 L 11,9 L 18,9 L 18,11 L 11,11 L 11,18 L 9,18 L 9,11 L 2,11 L 2,9 L 9,9 Z"/><TextBlock Text="Add station" Foreground="White" FontWeight="SemiBold"/></StackPanel>
+                        </Button>
+                        <Border Background="#E7F5EC" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="8" Padding="10">
+                            <StackPanel Spacing="2"><TextBlock Text="LAYOUT EDITING" FontWeight="Bold" Foreground="#245A42"/><TextBlock Text="Changes remain a draft until saved." TextWrapping="Wrap" Foreground="#3B6064" FontSize="11"/></StackPanel>
                         </Border>
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                            <Button Classes="secondary" Content="Undo" Command="{Binding UndoLayoutCommand}" IsEnabled="{Binding CanUndoLayout}"/>
-                            <Button Grid.Column="1" Classes="secondary" Content="Redo" Command="{Binding RedoLayoutCommand}" IsEnabled="{Binding CanRedoLayout}"/>
+                            <Button Classes="secondary" Command="{Binding UndoLayoutCommand}" IsEnabled="{Binding CanUndoLayout}"><StackPanel Orientation="Horizontal" Spacing="6"><PathIcon Width="16" Height="16" Data="M 8,4 L 3,9 L 8,14 M 4,9 L 11,9 C 15,9 17,12 17,16"/><TextBlock Text="Undo"/></StackPanel></Button>
+                            <Button Grid.Column="1" Classes="secondary" Command="{Binding RedoLayoutCommand}" IsEnabled="{Binding CanRedoLayout}"><StackPanel Orientation="Horizontal" Spacing="6"><PathIcon Width="16" Height="16" Data="M 12,4 L 17,9 L 12,14 M 16,9 L 9,9 C 5,9 3,12 3,16"/><TextBlock Text="Redo"/></StackPanel></Button>
                         </Grid>
-                        <Button Classes="primary" Content="Save layout" Command="{Binding SaveLayoutCommand}" />
-                        <Button Classes="secondary" Content="Discard changes" Command="{Binding DiscardLayoutCommand}" />
-                        <TextBlock Text="Map size" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
-                        <Button Classes="secondary" Content="Compact 50 by 30" Command="{Binding SetCompactDensityCommand}" />
-                        <Button Classes="secondary" Content="Standard 60 by 36" Command="{Binding SetStandardDensityCommand}" />
-                        <Button Classes="secondary" Content="Dense 75 by 45" Command="{Binding SetDenseDensityCommand}" />
+                        <Button Classes="primary rail-action" Command="{Binding SaveLayoutCommand}"><StackPanel Orientation="Horizontal" Spacing="10"><PathIcon Width="18" Height="18" Data="M 3,2 L 15,2 L 18,5 L 18,18 L 2,18 L 2,2 Z M 5,3 L 13,3 L 13,8 L 5,8 Z M 5,11 L 15,11 L 15,17 L 5,17 Z"/><TextBlock Text="Save layout" Foreground="White" FontWeight="SemiBold"/></StackPanel></Button>
+                        <Button Classes="secondary rail-action" Command="{Binding DiscardLayoutCommand}"><StackPanel Orientation="Horizontal" Spacing="10"><PathIcon Width="18" Height="18" Data="M 6,5 L 14,5 L 13,18 L 7,18 Z M 5,3 L 8,3 L 8,2 L 12,2 L 12,3 L 15,3 L 15,5 L 5,5 Z"/><TextBlock Text="Discard changes"/></StackPanel></Button>
+                        <Border Height="1" Background="#D5E2DA" Margin="0,4"/>
+                        <TextBlock Text="Map size" FontSize="16" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
+                        <Button Classes="density-option" Classes.active="{Binding IsCompactDensity}" Tag="Compact" Click="OnMapDensityRequested"><Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9"><PathIcon Width="24" Height="24" Foreground="#2F8F61" Data="M 2,2 H 7 V 7 H 2 Z M 9,2 H 14 V 7 H 9 Z M 2,9 H 7 V 14 H 2 Z M 9,9 H 14 V 14 H 9 Z"/><StackPanel Grid.Column="1"><TextBlock Text="Compact" FontWeight="Bold"/><TextBlock Text="50 by 30" Classes="muted" FontSize="11"/></StackPanel><Ellipse Grid.Column="2" Width="16" Height="16" Stroke="#6F8D80" StrokeThickness="2" Fill="Transparent" VerticalAlignment="Center"/></Grid></Button>
+                        <Button Classes="density-option" Classes.active="{Binding IsStandardDensity}" Tag="Standard" Click="OnMapDensityRequested"><Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9"><PathIcon Width="24" Height="24" Foreground="#2F8F61" Data="M 1,1 H 5 V 5 H 1 Z M 7,1 H 11 V 5 H 7 Z M 13,1 H 17 V 5 H 13 Z M 1,7 H 5 V 11 H 1 Z M 7,7 H 11 V 11 H 7 Z M 13,7 H 17 V 11 H 13 Z M 1,13 H 5 V 17 H 1 Z M 7,13 H 11 V 17 H 7 Z M 13,13 H 17 V 17 H 13 Z"/><StackPanel Grid.Column="1"><TextBlock Text="Standard" FontWeight="Bold"/><TextBlock Text="60 by 36" Classes="muted" FontSize="11"/></StackPanel><Ellipse Grid.Column="2" Width="16" Height="16" Stroke="#6F8D80" StrokeThickness="2" Fill="Transparent" VerticalAlignment="Center"/></Grid></Button>
+                        <Button Classes="density-option" Classes.active="{Binding IsDenseDensity}" Tag="Dense" Click="OnMapDensityRequested"><Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9"><PathIcon Width="24" Height="24" Foreground="#2F8F61" Data="M 1,1 H 4 V 4 H 1 Z M 6,1 H 9 V 4 H 6 Z M 11,1 H 14 V 4 H 11 Z M 16,1 H 19 V 4 H 16 Z M 1,6 H 4 V 9 H 1 Z M 6,6 H 9 V 9 H 6 Z M 11,6 H 14 V 9 H 11 Z M 16,6 H 19 V 9 H 16 Z M 1,11 H 4 V 14 H 1 Z M 6,11 H 9 V 14 H 6 Z M 11,11 H 14 V 14 H 11 Z M 16,11 H 19 V 14 H 16 Z M 1,16 H 4 V 19 H 1 Z M 6,16 H 9 V 19 H 6 Z M 11,16 H 14 V 19 H 11 Z M 16,16 H 19 V 19 H 16 Z"/><StackPanel Grid.Column="1"><TextBlock Text="Dense" FontWeight="Bold"/><TextBlock Text="75 by 45" Classes="muted" FontSize="11"/></StackPanel><Ellipse Grid.Column="2" Width="16" Height="16" Stroke="#6F8D80" StrokeThickness="2" Fill="Transparent" VerticalAlignment="Center"/></Grid></Button>
                     </StackPanel>
-                    <Button Classes="secondary" Content="View all teams" Command="{Binding ShowTeamsCommand}" IsVisible="{Binding IsOperationalMode}" />
-                    <Button Classes="primary" Content="Add mobile team" Command="{Binding RequestAddMobileTeamCommand}" IsVisible="{Binding IsOperationalMode}" />
+                    <Button Classes="secondary rail-action" Content="View all teams" Command="{Binding ShowTeamsCommand}" IsVisible="{Binding IsOperationalMode}" />
                 </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -286,7 +309,7 @@
                         <Viewbox x:Name="StationMapViewport" Grid.Row="1" Stretch="Uniform"
                                  HorizontalAlignment="Center" VerticalAlignment="Bottom">
                             <Grid Width="1200" Height="720">
-                                <Border Background="#FFF7D6" Opacity="0.62" IsVisible="{Binding IsEditMode}"/>
+                                <Border Background="#E7F5EC" Opacity="0.62" IsVisible="{Binding IsEditMode}"/>
                                 <controls:DotGridControl Spacing="{Binding GridPixelSize}" />
                                 <ItemsControl ItemsSource="{Binding Stations}">
                                     <ItemsControl.ItemsPanel>
@@ -306,7 +329,7 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <Border IsVisible="{Binding HasNoStations}" Width="320" Height="150" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#FFFFFFDD" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="10" Padding="20">
+                                <Border IsVisible="{Binding HasNoStations}" Width="320" Height="150" HorizontalAlignment="Center" VerticalAlignment="Center" Background="White" BorderBrush="#87BBA2" BorderThickness="1" CornerRadius="10" Padding="20">
                                     <StackPanel Spacing="8" HorizontalAlignment="Center">
                                         <TextBlock Text="No stations configured" FontWeight="Bold" FontSize="17" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
                                         <TextBlock Text="Edit the treatment centre to add and place the first station." Classes="muted" TextWrapping="Wrap" TextAlignment="Center" />
@@ -337,9 +360,9 @@
                             </ItemsControl>
                             <StackPanel IsVisible="{Binding HasNoMobileTeams}" Spacing="8" Margin="8,24" HorizontalAlignment="Center">
                         <TextBlock Text="No mobile teams configured" FontWeight="Bold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Add a team without leaving Treatment Centre." Classes="muted"
+                                <TextBlock Text="Configure mobile teams from the Teams tab." Classes="muted"
                                            TextAlignment="Center" TextWrapping="Wrap"/>
-                                <Button Classes="primary" Content="Add mobile team" Command="{Binding RequestAddMobileTeamCommand}"/>
+                                <Button Classes="secondary" Content="Open Teams" Command="{Binding ShowTeamsCommand}"/>
                             </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
@@ -368,7 +391,7 @@
                             </ItemsControl>
                             <StackPanel IsVisible="{Binding HasNoMobileTeams}" Spacing="8" Margin="8,24">
                                 <TextBlock Text="No mobile teams configured." Classes="muted" TextWrapping="Wrap" TextAlignment="Center"/>
-                                <Button Classes="primary" Content="Add mobile team" Command="{Binding RequestAddMobileTeamCommand}"/>
+                                <Button Classes="secondary" Content="Open Teams" Command="{Binding ShowTeamsCommand}"/>
                             </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
@@ -632,8 +655,8 @@
             <Border Classes="card" Padding="12"><StackPanel Spacing="5"><TextBlock Text="Settings" Classes="section-title" Margin="8,4,0,10"/><Button Classes="sub-nav" Content="Appearance &amp; accessibility" Command="{Binding ShowSettingsGeneralCommand}"/><Button Classes="sub-nav" Content="Operations" Command="{Binding ShowSettingsOperationsCommand}" IsVisible="{Binding CanAdminHost}"/><Button Classes="sub-nav" Content="Displays" Command="{Binding ShowSettingsDisplaysCommand}"/></StackPanel></Border>
             <Border Grid.Column="2" Classes="card" Padding="24">
                 <Grid>
-                    <ScrollViewer IsVisible="{Binding IsSettingsGeneral}" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Spacing="14">
+                    <ScrollViewer IsVisible="{Binding IsSettingsGeneral}" VerticalScrollBarVisibility="Auto" Margin="0,0,4,0">
+                        <StackPanel Spacing="14" Margin="0,0,10,0">
                             <TextBlock Text="Appearance and accessibility" Classes="section-title"/>
                             <TextBlock Text="These choices apply to this device only. Changes are previewed immediately and do not affect other terminals." Classes="muted" TextWrapping="Wrap"/>
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="18" RowDefinitions="Auto,Auto,Auto,Auto">
@@ -714,8 +737,8 @@
                         </StackPanel>
                         <TextBlock Text="Keep at least one route." Classes="muted"/>
                     </StackPanel>
-                    <ScrollViewer IsVisible="{Binding IsSettingsDisplays}" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Spacing="14">
+                    <ScrollViewer IsVisible="{Binding IsSettingsDisplays}" VerticalScrollBarVisibility="Auto" Margin="0,0,4,0">
+                        <StackPanel Spacing="14" Margin="0,0,10,0">
                             <TextBlock Text="Displays and terminals" Classes="section-title"/>
                             <StackPanel IsVisible="{Binding CanAdminHost}" Spacing="10">
                             <TextBlock Text="Secure app-to-app terminals" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>

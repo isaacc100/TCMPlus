@@ -122,8 +122,23 @@ public sealed class ResponsiveDialogTests
         Assert.Contains("ControlMinHeight", appStyles, StringComparison.Ordinal);
         Assert.Contains("WindowDecorations=\"None\"", main, StringComparison.Ordinal);
         Assert.Contains("WindowDecorations=\"None\"", external, StringComparison.Ordinal);
-        Assert.Contains("WindowControlButtons", main, StringComparison.Ordinal);
+        Assert.DoesNotContain("WindowControlButtons", main, StringComparison.Ordinal);
+        Assert.Contains("OnSafeExitClicked", main, StringComparison.Ordinal);
         Assert.Contains("WindowControlButtons", external, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Startup_choices_are_embedded_in_one_window()
+    {
+        var root = RepositoryRoot();
+        var setup = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "Views", "ShiftSetupWindow.axaml"));
+        var app = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "App.axaml.cs"));
+
+        Assert.Contains("RecentSessionsView", setup, StringComparison.Ordinal);
+        Assert.Contains("TerminalConnectView", setup, StringComparison.Ordinal);
+        Assert.Contains("OnShowSavedShifts", setup, StringComparison.Ordinal);
+        Assert.Contains("OnShowTerminal", setup, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowTerminalConnection", app, StringComparison.Ordinal);
     }
 
     [Fact]

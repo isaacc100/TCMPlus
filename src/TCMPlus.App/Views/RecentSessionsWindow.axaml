@@ -9,26 +9,9 @@
                               Title="Recent shifts"
                               Background="#F5F8F4">
   <Border Classes="dialog-card">
-    <Grid RowDefinitions="Auto,*,Auto">
-      <TextBlock Classes="dialog-header" Text="Recent shifts"/>
-      <Border Grid.Row="1" Margin="0,12,0,0">
-        <StackPanel Spacing="10">
-          <ListBox Name="SessionsList"
-                   Height="260"
-                   DisplayMemberBinding="{Binding ShiftName}"
-                   SelectionChanged="OnSelectionChanged"/>
-          <TextBlock Name="SessionDetails" Foreground="#60737A" TextWrapping="Wrap"/>
-          <TextBox Name="PasswordInput" PasswordChar="*" PlaceholderText="Session password"/>
-          <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
-        </StackPanel>
-      </Border>
-      <WrapPanel Grid.Row="2" Classes="dialog-footer">
-        <Button Content="Rename" Click="OnRename"/>
-        <Button Content="Delete" Click="OnDelete"/>
-        <Button Content="Export .tcm" Click="OnExport"/>
-        <Button Content="Cancel" Click="OnCancel"/>
-        <Button Classes="primary" Content="Load shift" Click="OnLoad"/>
-      </WrapPanel>
+    <Grid RowDefinitions="*,Auto">
+      <views:RecentSessionsView Name="SessionsView"/>
+      <Button Grid.Row="1" Content="Cancel" HorizontalAlignment="Right" Margin="0,12,0,0" Click="OnCancel"/>
     </Grid>
   </Border>
 </views:ResponsiveDialogWindow>

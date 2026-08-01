@@ -226,6 +226,9 @@ public partial class MainViewModel : ViewModelBase
     public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize, or delete an available station from its card." : "Click an available station to add a patient. Drag a patient counter to transfer.";
     public int TotalStations => AvailableStations + OccupiedStations;
     public double GridPixelSize => GridDensity switch { GridDensity.Standard => 20d, GridDensity.Dense => 16d, _ => 24d };
+    public bool IsCompactDensity => GridDensity == GridDensity.Compact;
+    public bool IsStandardDensity => GridDensity == GridDensity.Standard;
+    public bool IsDenseDensity => GridDensity == GridDensity.Dense;
 
     public async Task InitializeAsync()
     {
@@ -887,7 +890,14 @@ public partial class MainViewModel : ViewModelBase
             _ = SaveTerminalOperatorPreferencesAsync(value);
         }
     }
-    partial void OnGridDensityChanged(GridDensity value) { foreach (var station in Stations) station.GridSizePixels = GridPixelSize; OnPropertyChanged(nameof(GridPixelSize)); }
+    partial void OnGridDensityChanged(GridDensity value)
+    {
+        foreach (var station in Stations) station.GridSizePixels = GridPixelSize;
+        OnPropertyChanged(nameof(GridPixelSize));
+        OnPropertyChanged(nameof(IsCompactDensity));
+        OnPropertyChanged(nameof(IsStandardDensity));
+        OnPropertyChanged(nameof(IsDenseDensity));
+    }
 
     private void RefreshAreaProperties()
     {

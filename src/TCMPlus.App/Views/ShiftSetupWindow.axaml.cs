@@ -11,6 +11,8 @@ public partial class ShiftSetupWindow : ResponsiveDialogWindow
     public ShiftSetupWindow()
     {
         InitializeComponent();
+        RecentSessionsPage.OpenRequested += (_, request) => ExistingShiftRequested?.Invoke(this, request);
+        TerminalConnectPage.ConnectionRequested += (_, draft) => TerminalConnectionRequested?.Invoke(this, draft);
         var informationalVersion = typeof(ShiftSetupWindow).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         VersionLabel.Text = informationalVersion?.Split('+')[0] ?? "Development build";
@@ -22,8 +24,8 @@ public partial class ShiftSetupWindow : ResponsiveDialogWindow
     }
 
     public event EventHandler<ShiftSetupDraft>? ShiftStarted;
-    public event EventHandler? LoadExistingRequested;
-    public event EventHandler? TerminalConnectionRequested;
+    public event EventHandler<SessionOpenRequest>? ExistingShiftRequested;
+    public event EventHandler<TerminalConnectionDraft>? TerminalConnectionRequested;
     public event EventHandler? UpdateCheckRequested;
     public bool IsOpeningSession { get; private set; }
     public void ShowError(string message)
@@ -32,6 +34,14 @@ public partial class ShiftSetupWindow : ResponsiveDialogWindow
         ValidationMessage.Text = message;
     }
     public void SetUpdateStatus(string message) => UpdateStatus.Text = message;
+    public void ShowRecentSessionError(string message) => RecentSessionsPage.ShowError(message);
+    public void ShowTerminalError(string message) => TerminalConnectPage.ShowError(message);
+
+    public async Task ShowTerminalPageAsync()
+    {
+        SetPage(StartupPage.Terminal);
+        await TerminalConnectPage.ActivateAsync();
+    }
 
     private void OnStartShift(object? sender, RoutedEventArgs e)
     {
@@ -74,8 +84,13 @@ public partial class ShiftSetupWindow : ResponsiveDialogWindow
         ShiftStarted?.Invoke(this, new ShiftSetupDraft(shiftName, pin, password, GridDensity.Compact));
     }
 
-    private void OnLoadExistingShift(object? sender, RoutedEventArgs e) => LoadExistingRequested?.Invoke(this, EventArgs.Empty);
-    private void OnConnectTerminal(object? sender, RoutedEventArgs e) => TerminalConnectionRequested?.Invoke(this, EventArgs.Empty);
+    private void OnShowStartShift(object? sender, RoutedEventArgs e) => SetPage(StartupPage.Create);
+    private async void OnShowSavedShifts(object? sender, RoutedEventArgs e)
+    {
+        SetPage(StartupPage.Saved);
+        await RecentSessionsPage.ActivateAsync();
+    }
+    private async void OnShowTerminal(object? sender, RoutedEventArgs e) => await ShowTerminalPageAsync();
     private void OnCheckForUpdates(object? sender, RoutedEventArgs e) => UpdateCheckRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnPinKeyDown(object? sender, KeyEventArgs e)
@@ -104,6 +119,26 @@ public partial class ShiftSetupWindow : ResponsiveDialogWindow
         ConfirmPasswordError.Text = string.Empty;
         ValidationMessage.Text = string.Empty;
     }
+
+    private void SetPage(StartupPage page)
+    {
+        if (page != StartupPage.Terminal) TerminalConnectPage.Deactivate();
+        CreateShiftPage.IsVisible = page == StartupPage.Create;
+        RecentSessionsPage.IsVisible = page == StartupPage.Saved;
+        TerminalConnectPage.IsVisible = page == StartupPage.Terminal;
+        StartShiftNav.Classes.Set("active", page == StartupPage.Create);
+        OpenShiftNav.Classes.Set("active", page == StartupPage.Saved);
+        TerminalNav.Classes.Set("active", page == StartupPage.Terminal);
+        Title = page switch
+        {
+            StartupPage.Saved => "Open saved shift",
+            StartupPage.Terminal => "Connect terminal",
+            _ => "Start TCM+"
+        };
+        if (page == StartupPage.Create) ShiftNameInput.Focus();
+    }
+
+    private enum StartupPage { Create, Saved, Terminal }
 }
 
 public sealed record ShiftSetupDraft(string ShiftName, string Pin, string SessionPassword, GridDensity GridDensity);

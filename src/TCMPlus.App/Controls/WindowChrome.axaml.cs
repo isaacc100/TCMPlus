@@ -11,7 +11,7 @@ public partial class WindowChrome : UserControl
         AttachedToVisualTree += (_, _) => ConfigureForWindow();
     }
 
-    private Window? OwnerWindow => VisualRoot as Window;
+    private Window? OwnerWindow => TopLevel.GetTopLevel(this) as Window;
 
     private void ConfigureForWindow()
     {

@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TCMPlus.App.Views.RecentSessionsView"
+             x:CompileBindings="False">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="dialog-header" Text="Open a saved shift" FontSize="26"/>
+      <TextBlock Text="Select a saved shift, then enter its session password."
+                 Foreground="#60737A" TextWrapping="Wrap"/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Margin="0,18,0,0" Spacing="10">
+      <ListBox Name="SessionsList"
+               MinHeight="190"
+               MaxHeight="250"
+               DisplayMemberBinding="{Binding ShiftName}"
+               SelectionChanged="OnSelectionChanged"/>
+      <TextBlock Name="SessionDetails" Foreground="#60737A" TextWrapping="Wrap"/>
+      <TextBox Name="PasswordInput" PasswordChar="*" PlaceholderText="Session password"/>
+      <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
+    </StackPanel>
+
+    <WrapPanel Grid.Row="2" Classes="dialog-footer" Margin="0,14,0,0">
+      <Button Content="Rename" Click="OnRename"/>
+      <Button Content="Delete" Click="OnDelete"/>
+      <Button Content="Export .tcm" Click="OnExport"/>
+      <Button Classes="primary" Content="Load shift" Click="OnLoad"/>
+    </WrapPanel>
+  </Grid>
+</UserControl>
