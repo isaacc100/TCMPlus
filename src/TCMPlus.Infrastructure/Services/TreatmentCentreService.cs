@@ -29,17 +29,17 @@ public sealed class TreatmentCentreService(
 
     public async Task<Station> AddStationAsync(string name, string type, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type)) throw new InvalidOperationException("Stations require both a name and type.");
+        if (string.IsNullOrWhiteSpace(name)) throw new InvalidOperationException("Stations require a name.");
         var count = (await stationRepository.GetAllAsync(cancellationToken)).Count;
         var offset = (count % 5) * 2d;
-        var station = new Station(Guid.NewGuid(), name.Trim(), type.Trim(), 1 + offset, 1 + offset, 8, 7);
+        var station = new Station(Guid.NewGuid(), name.Trim(), NormalizeOptionalText(type) ?? string.Empty, 1 + offset, 1 + offset, 8, 7);
         await stationRepository.AddAsync(station, cancellationToken);
         return station;
     }
 
     public Task SaveStationAsync(Station station, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(station.Name) || string.IsNullOrWhiteSpace(station.Type)) throw new InvalidOperationException("Stations require both a name and type.");
+        if (string.IsNullOrWhiteSpace(station.Name)) throw new InvalidOperationException("Stations require a name.");
         if (station.GridWidth < 7 || station.GridHeight < 7) throw new InvalidOperationException("Stations must be at least 7 by 7 grid units.");
         return stationRepository.UpdateAsync(station, cancellationToken);
     }
@@ -161,6 +161,10 @@ public sealed class TreatmentCentreService(
         }
 
         var team = await FindMobileTeamAsync(teamId, cancellationToken);
+        if (!team.IsDeployed)
+        {
+            throw new InvalidOperationException("Deploy this mobile team before adding a patient to it.");
+        }
         var patient = new Patient(
             Guid.NewGuid(),
             await patientRepository.GetNextPatientNumberAsync(cancellationToken),
@@ -297,14 +301,9 @@ public sealed class TreatmentCentreService(
             throw new InvalidOperationException("Choose a different destination.");
         }
 
-        if (source.Kind == PatientAssignmentKind.MobileTeam && destination.Kind == PatientAssignmentKind.MobileTeam)
-        {
-            throw new InvalidOperationException("Move mobile-team patients through a treatment-centre station.");
-        }
-
         var sourceName = await AssignmentNameAsync(source, cancellationToken);
         var destinationName = await AssignmentNameAsync(destination, cancellationToken);
-        if (source.Kind == PatientAssignmentKind.Station && destination.Kind == PatientAssignmentKind.MobileTeam)
+        if (destination.Kind == PatientAssignmentKind.MobileTeam)
         {
             var team = await FindMobileTeamAsync(destination.Id, cancellationToken);
             if (!team.IsDeployed)
@@ -313,8 +312,16 @@ public sealed class TreatmentCentreService(
             }
         }
 
-        var allowSwap = swap && source.Kind == PatientAssignmentKind.Station && destination.Kind == PatientAssignmentKind.Station;
-        var result = await patientRepository.MoveAsync(patientUid, destination, allowSwap, cancellationToken);
+        if (swap && source.Kind == PatientAssignmentKind.MobileTeam)
+        {
+            var sourceTeam = await FindMobileTeamAsync(source.Id, cancellationToken);
+            if (!sourceTeam.IsDeployed)
+            {
+                throw new InvalidOperationException("Deploy the source mobile team before swapping patients into it.");
+            }
+        }
+
+        var result = await patientRepository.MoveAsync(patientUid, destination, swap, cancellationToken);
         await AddEventAsync(result.SourcePatient, PatientEventType.Transferred, sourceName, destinationName, source.Kind, destination.Kind, cancellationToken);
         if (result.SwappedPatient is not null)
         {

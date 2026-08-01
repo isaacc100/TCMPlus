@@ -176,6 +176,8 @@ public sealed class TreatmentCentreServiceTests
         var service = new TreatmentCentreService(new InMemoryStationRepository(firstStation, secondStation), patients, teams);
         var team = await service.AddMobileTeamAsync("DELTA 1", null);
 
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddPatientToMobileTeamAsync(team.Id, null));
+        team = await service.DeployMobileTeamAsync(team.Id, null);
         var mobilePatient = await service.AddPatientToMobileTeamAsync(team.Id, null);
         Assert.Equal(team.Id, mobilePatient.CurrentMobileTeamId);
         Assert.Equal(1, await service.GetPatientsSeenThisShiftAsync());
@@ -186,9 +188,6 @@ public sealed class TreatmentCentreServiceTests
         Assert.Equal(firstStation.Id, (await patients.GetByUidAsync(mobilePatient.Uid))!.CurrentStationId);
         Assert.Equal(1, (await service.GetDashboardAsync()).Occupancy[^1].OccupiedStations);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.MovePatientAsync(mobilePatient.Uid, new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id), false));
-        team = await service.DeployMobileTeamAsync(team.Id, null);
         await service.MovePatientAsync(mobilePatient.Uid, new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id), false);
         Assert.Equal(team.Id, (await patients.GetByUidAsync(mobilePatient.Uid))!.CurrentMobileTeamId);
         Assert.Equal(0, (await service.GetDashboardAsync()).Occupancy[^1].OccupiedStations);
@@ -198,9 +197,82 @@ public sealed class TreatmentCentreServiceTests
             service.MovePatientAsync(stationPatient.Uid, new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id), false));
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.StandDownMobileTeamAsync(team.Id));
 
-        await service.DischargeAssignedPatientAsync(mobilePatient.Uid, "Home", null);
+        var swapped = await service.MovePatientAsync(
+            stationPatient.Uid,
+            new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id),
+            true);
+        Assert.Equal(stationPatient.Uid, swapped.SourcePatient.Uid);
+        Assert.Equal(mobilePatient.Uid, swapped.SwappedPatient?.Uid);
+        Assert.Equal(secondStation.Id, (await patients.GetByUidAsync(mobilePatient.Uid))!.CurrentStationId);
+        Assert.Equal(team.Id, (await patients.GetByUidAsync(stationPatient.Uid))!.CurrentMobileTeamId);
+
+        await service.DischargeAssignedPatientAsync(stationPatient.Uid, "Home", null);
         team = await service.StandDownMobileTeamAsync(team.Id);
         Assert.False(team.IsDeployed);
+    }
+
+    [Fact]
+    public async Task Deployed_mobile_teams_support_direct_transfers_and_confirmed_swaps()
+    {
+        var patients = new InMemoryPatientRepository();
+        var teams = new InMemoryMobileTeamRepository();
+        var service = new TreatmentCentreService(new InMemoryStationRepository(), patients, teams);
+        var first = await service.AddMobileTeamAsync("ALPHA", null);
+        var second = await service.AddMobileTeamAsync("BRAVO", null);
+        first = await service.DeployMobileTeamAsync(first.Id, null);
+        second = await service.DeployMobileTeamAsync(second.Id, null);
+        var firstPatient = await service.AddPatientToMobileTeamAsync(first.Id, null);
+
+        await service.MovePatientAsync(firstPatient.Uid, new PatientAssignment(PatientAssignmentKind.MobileTeam, second.Id), false);
+        Assert.Equal(second.Id, (await patients.GetByUidAsync(firstPatient.Uid))!.CurrentMobileTeamId);
+
+        var secondPatient = await service.AddPatientToMobileTeamAsync(first.Id, null);
+        var result = await service.MovePatientAsync(
+            secondPatient.Uid,
+            new PatientAssignment(PatientAssignmentKind.MobileTeam, second.Id),
+            true);
+
+        Assert.Equal(secondPatient.Uid, result.SourcePatient.Uid);
+        Assert.Equal(firstPatient.Uid, result.SwappedPatient?.Uid);
+        Assert.Equal(first.Id, (await patients.GetByUidAsync(firstPatient.Uid))!.CurrentMobileTeamId);
+        Assert.Equal(second.Id, (await patients.GetByUidAsync(secondPatient.Uid))!.CurrentMobileTeamId);
+    }
+
+    [Fact]
+    public async Task Layout_commit_accepts_optional_types_and_normalizes_the_atomic_draft()
+    {
+        var existing = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var stations = new InMemoryStationRepository(existing);
+        var settings = new InMemoryTcSettingsRepository(new TcSessionSettings("Shift", null, null, false, GridDensity.Compact));
+        var repository = new RecordingLayoutRepository();
+        var service = new TreatmentCentreLayoutService(stations, new InMemoryPatientRepository(), settings, repository);
+        var added = new Station(Guid.NewGuid(), "  Bay 2  ", "   ", 12, 1, 8, 7);
+
+        await service.CommitAsync(new TreatmentCentreLayout([existing, added], GridDensity.Standard));
+
+        var committed = Assert.IsType<TreatmentCentreLayout>(repository.Committed);
+        Assert.Equal(GridDensity.Standard, committed.GridDensity);
+        Assert.Equal("Bay 2", committed.Stations[1].Name);
+        Assert.Equal(string.Empty, committed.Stations[1].Type);
+    }
+
+    [Fact]
+    public async Task Layout_commit_rejects_overlap_density_reduction_and_occupied_deletion()
+    {
+        var existing = new Station(Guid.NewGuid(), "Bay 1", "Bed", 1, 1, 8, 7);
+        var stations = new InMemoryStationRepository(existing);
+        var patients = new InMemoryPatientRepository();
+        await patients.AddAsync(new Patient(Guid.NewGuid(), 1, DateTimeOffset.UtcNow.AddMinutes(-1), existing.Id, null, null, null));
+        var settings = new InMemoryTcSettingsRepository(new TcSessionSettings("Shift", null, null, false, GridDensity.Standard));
+        var service = new TreatmentCentreLayoutService(stations, patients, settings, new RecordingLayoutRepository());
+
+        var overlapping = new Station(Guid.NewGuid(), "Bay 2", string.Empty, 2, 2, 8, 7);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CommitAsync(new TreatmentCentreLayout([existing, overlapping], GridDensity.Standard)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CommitAsync(new TreatmentCentreLayout([existing], GridDensity.Compact)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CommitAsync(new TreatmentCentreLayout([], GridDensity.Standard)));
     }
 
     private sealed class InMemoryStationRepository(params Station[] stations) : IStationRepository
@@ -237,6 +309,27 @@ public sealed class TreatmentCentreServiceTests
         public Task SoftDeleteAsync(Guid teamId, DateTimeOffset deletedAt, CancellationToken cancellationToken = default)
         {
             _teams.RemoveAll(team => team.Id == teamId);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class InMemoryTcSettingsRepository(TcSessionSettings settings) : ITcSettingsRepository
+    {
+        private TcSessionSettings _settings = settings;
+        public Task<TcSessionSettings> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(_settings);
+        public Task SaveAsync(TcSessionSettings settings, CancellationToken cancellationToken = default)
+        {
+            _settings = settings;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingLayoutRepository : ITreatmentCentreLayoutRepository
+    {
+        public TreatmentCentreLayout? Committed { get; private set; }
+        public Task CommitAsync(TreatmentCentreLayout layout, DateTimeOffset deletedAt, CancellationToken cancellationToken = default)
+        {
+            Committed = layout;
             return Task.CompletedTask;
         }
     }
