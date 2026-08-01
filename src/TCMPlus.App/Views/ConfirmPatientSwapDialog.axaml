@@ -14,7 +14,7 @@
       <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
         <StackPanel Spacing="12">
           <TextBlock Name="DescriptionText" Foreground="#60737A" TextWrapping="Wrap"/>
-          <TextBlock Text="This will exchange the patients between both stations." Foreground="#60737A" FontSize="11" TextWrapping="Wrap"/>
+          <TextBlock Text="Both assignments are rechecked before commit. Nothing changes if either patient or location has changed." Foreground="#60737A" FontSize="11" TextWrapping="Wrap"/>
         </StackPanel>
       </ScrollViewer>
       <StackPanel Grid.Row="2" Classes="dialog-footer">

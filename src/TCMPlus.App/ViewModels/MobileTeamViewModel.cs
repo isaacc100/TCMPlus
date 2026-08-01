@@ -14,6 +14,7 @@ public partial class MobileTeamViewModel : ViewModelBase
     private readonly Action<MobileTeamViewModel> _requestEdit;
     private readonly Action<MobileTeamViewModel> _requestDelete;
     private readonly Func<MobileTeamViewModel, Guid, Task> _dropPatient;
+    private readonly Action<Guid> _requestTransfer;
 
     public MobileTeamViewModel(
         MobileTeam team,
@@ -26,7 +27,8 @@ public partial class MobileTeamViewModel : ViewModelBase
         Action<MobileTeamViewModel> requestEdit,
         Action<MobileTeamViewModel> requestDelete,
         Func<MobileTeamViewModel, Guid, Task> dropPatient,
-        bool allowDelete = true)
+        bool allowDelete,
+        Action<Guid> requestTransfer)
     {
         Id = team.Id;
         _callsign = team.Callsign;
@@ -42,6 +44,7 @@ public partial class MobileTeamViewModel : ViewModelBase
         _requestEdit = requestEdit;
         _requestDelete = requestDelete;
         _dropPatient = dropPatient;
+        _requestTransfer = requestTransfer;
         AllowDelete = allowDelete;
     }
 
@@ -56,8 +59,8 @@ public partial class MobileTeamViewModel : ViewModelBase
 
     public bool IsAvailable => !IsDeployed;
     public bool IsOccupied => CurrentPatient is not null;
-    public bool CanAddPatient => !IsOccupied;
-    public bool CanAcceptPatientDrop => IsDeployed && !IsOccupied;
+    public bool CanAddPatient => IsDeployed && !IsOccupied;
+    public bool CanAcceptPatientDrop => IsDeployed;
     public bool HasNote => !string.IsNullOrWhiteSpace(Note);
     public bool HasLocation => !string.IsNullOrWhiteSpace(DeploymentLocation);
     public bool CanDelete => AllowDelete && !IsDeployed && !IsOccupied;
@@ -86,12 +89,14 @@ public partial class MobileTeamViewModel : ViewModelBase
     [RelayCommand] private void AddPatient() => _requestPatient(this);
     [RelayCommand] private void StandDown() => _requestStandDown(this);
     [RelayCommand] private void DischargePatient() => _requestDischarge(this);
+    [RelayCommand] private void TransferPatient() { if (CurrentPatient is not null) _requestTransfer(CurrentPatient.Uid); }
     [RelayCommand] private void Edit() => _requestEdit(this);
     [RelayCommand] private void Delete() => _requestDelete(this);
 
     partial void OnIsDeployedChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAvailable));
+        OnPropertyChanged(nameof(CanAddPatient));
         OnPropertyChanged(nameof(CanAcceptPatientDrop));
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(StatusText));

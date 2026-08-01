@@ -31,23 +31,12 @@
           <TextBlock Text="Shift name" FontWeight="SemiBold" Foreground="#364958"/>
           <TextBox Name="ShiftNameInput" PlaceholderText="e.g. Night shift"/>
           <TextBlock Text="Six-digit shift PIN" FontWeight="SemiBold" Foreground="#364958"/>
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="9">
-            <TextBox Name="PinDigitBox1" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown"/>
-            <TextBox Name="PinDigitBox2" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown"/>
-            <TextBox Name="PinDigitBox3" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown"/>
-            <TextBox Name="PinDigitBox4" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown"/>
-            <TextBox Name="PinDigitBox5" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown"/>
-            <TextBox Name="PinDigitBox6" MaxLength="1" PasswordChar="*" Width="42" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" TextChanged="OnPinDigitChanged" KeyDown="OnPinDigitKeyDown"/>
-          </StackPanel>
+          <TextBox Name="ShiftPinInput" MaxLength="6" PasswordChar="*" Width="300" HorizontalAlignment="Center" Height="48" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="20" PlaceholderText="Six-digit PIN" AutomationProperties.Name="Six-digit shift PIN" KeyDown="OnPinKeyDown"/>
+          <CheckBox Content="Show PIN" HorizontalAlignment="Center" Click="OnTogglePinVisibility"/>
           <TextBlock Text="Session password" FontWeight="SemiBold" Foreground="#364958"/>
           <TextBox Name="SessionPasswordInput" PasswordChar="*" PlaceholderText="At least 8 characters"/>
           <TextBox Name="ConfirmSessionPasswordInput" PasswordChar="*" PlaceholderText="Confirm session password"/>
-          <TextBlock Text="Map density" FontWeight="SemiBold" Foreground="#364958"/>
-          <ComboBox Name="GridDensityInput" SelectedIndex="0">
-            <ComboBoxItem Content="Compact (50 × 30)"/>
-            <ComboBoxItem Content="Standard (60 × 36)"/>
-            <ComboBoxItem Content="Dense (75 × 45)"/>
-          </ComboBox>
+          <TextBlock Text="The map starts at Compact size. Increase it later while editing the Treatment Centre layout." Classes="muted" TextWrapping="Wrap"/>
           <TextBlock Name="ValidationMessage"
                      Foreground="#963D3D"
                      HorizontalAlignment="Center"

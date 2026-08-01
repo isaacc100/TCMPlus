@@ -9,6 +9,7 @@
         <SolidColorBrush x:Key="DeepSeaBrush" Color="#3B6064" />
         <SolidColorBrush x:Key="InkBrush" Color="#364958" />
         <SolidColorBrush x:Key="CanvasBrush" Color="#F5F8F4" />
+        <SolidColorBrush x:Key="FrameBrush" Color="#A9BBB2" />
         <SolidColorBrush x:Key="OpenBrush" Color="#2F8F61" />
         <SolidColorBrush x:Key="OpenSoftBrush" Color="#E7F5EC" />
         <SolidColorBrush x:Key="ClosedBrush" Color="#B94B4B" />
@@ -23,6 +24,42 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="14,9"/>
             <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="Padding" Value="14,9"/>
+        </Style>
+        <Style Selector="Button:focus-visible">
+            <Setter Property="BorderBrush" Value="#5B21B6"/>
+            <Setter Property="BorderThickness" Value="3"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        <Style Selector="NumericUpDown">
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        <Style Selector="Button.window-control">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="5"/>
+        </Style>
+        <Style Selector="Button.window-control:pointerover">
+            <Setter Property="Background" Value="#FFFFFF22"/>
+        </Style>
+        <Style Selector="Button.window-control.close:pointerover">
+            <Setter Property="Background" Value="#B42318"/>
         </Style>
         <Style Selector="Button.secondary">
             <Setter Property="Background" Value="#E7F5EC"/>
@@ -41,10 +78,10 @@
     <Style Selector="Border.dialog-card">
       <Setter Property="Background" Value="White" />
       <Setter Property="BorderBrush" Value="#87BBA2" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="Padding" Value="22" />
-      <Setter Property="Margin" Value="20" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="24" />
+      <Setter Property="Margin" Value="0" />
     </Style>
     <Style Selector="TextBlock.dialog-header">
       <Setter Property="FontSize" Value="21" />

@@ -132,6 +132,7 @@ public partial class StationCard : UserControl
         }
 
         _interactionMode = mode;
+        Focus();
         _pointerStart = e.GetPosition(_canvas);
         _originalGeometry = viewModel.Geometry;
         e.Pointer.Capture(this);
@@ -210,6 +211,41 @@ public partial class StationCard : UserControl
         }
 
         ClearInteraction(null);
+    }
+
+    private async void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (ViewModel is not { IsEditMode: true } station
+            || e.Key is not (Key.Left or Key.Right or Key.Up or Key.Down))
+        {
+            return;
+        }
+
+        var original = station.Geometry;
+        var step = e.KeyModifiers.HasFlag(KeyModifiers.Control) ? 5d : 1d;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            switch (e.Key)
+            {
+                case Key.Left: station.GridWidth = Math.Max(MinimumGridWidth, station.GridWidth - step); break;
+                case Key.Right: station.GridWidth += step; break;
+                case Key.Up: station.GridHeight = Math.Max(MinimumGridHeight, station.GridHeight - step); break;
+                case Key.Down: station.GridHeight += step; break;
+            }
+        }
+        else
+        {
+            switch (e.Key)
+            {
+                case Key.Left: station.GridX -= step; break;
+                case Key.Right: station.GridX += step; break;
+                case Key.Up: station.GridY -= step; break;
+                case Key.Down: station.GridY += step; break;
+            }
+        }
+
+        await station.CommitGeometryAsync(original);
+        e.Handled = true;
     }
 
     private void ClearInteraction(IPointer? pointer)

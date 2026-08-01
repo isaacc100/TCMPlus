@@ -9,6 +9,7 @@ using TCMPlus.Domain.Models;
 using TCMPlus.Domain.Persistence;
 using TCMPlus.Domain.Services;
 using TCMPlus.Infrastructure.Networking;
+using TCMPlus.Infrastructure.Persistence;
 using TCMPlus.Protocol;
 
 namespace TCMPlus.App.ViewModels;
@@ -16,6 +17,7 @@ namespace TCMPlus.App.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     private readonly ITreatmentCentreService _treatmentCentreService;
+    private readonly ITreatmentCentreLayoutService _layoutService;
     private readonly ITcSettingsRepository _settingsRepository;
     private readonly IShiftPinService _shiftPinService;
     private readonly IAppSettingsRepository _appSettingsRepository;
@@ -30,25 +32,33 @@ public partial class MainViewModel : ViewModelBase
     private readonly DispatcherTimer _terminalRefreshTimer;
     private bool _terminalRefreshInProgress;
     private bool _isInitializingQuickEntry;
+    private TreatmentCentreLayout? _persistedLayout;
+    private TreatmentCentreLayout? _draftCheckpoint;
+    private readonly Stack<TreatmentCentreLayout> _layoutUndo = new();
+    private readonly Stack<TreatmentCentreLayout> _layoutRedo = new();
 
     public MainViewModel(
         ITreatmentCentreService treatmentCentreService,
+        ITreatmentCentreLayoutService layoutService,
         ITcSettingsRepository settingsRepository,
         IShiftPinService shiftPinService,
         IAppSettingsRepository appSettingsRepository,
         LanDisplayServer lanDisplayServer,
         IAppUpdateService appUpdateService,
         TerminalOperatorPreferencesStore terminalOperatorPreferencesStore,
+        DevicePreferencesStore devicePreferencesStore,
         SessionDescriptor session,
         TerminalRuntimeContext runtime)
     {
         _treatmentCentreService = treatmentCentreService;
+        _layoutService = layoutService;
         _settingsRepository = settingsRepository;
         _shiftPinService = shiftPinService;
         _appSettingsRepository = appSettingsRepository;
         _lanDisplayServer = lanDisplayServer;
         _appUpdateService = appUpdateService;
         _terminalOperatorPreferencesStore = terminalOperatorPreferencesStore;
+        Appearance = new AppearancePreferencesViewModel(devicePreferencesStore);
         _runtime = runtime;
         Session = session;
         _shiftName = session.ShiftName;
@@ -73,7 +83,8 @@ public partial class MainViewModel : ViewModelBase
 
     public event EventHandler? AddStationRequested;
     public event Action<StationViewModel>? NewPatientRequested;
-    public event Action<StationViewModel, StationViewModel>? PatientSwapConfirmationRequested;
+    public event Action<PatientSwapRequest>? PatientSwapConfirmationRequested;
+    public event Action<Guid>? PatientTransferRequested;
     public event Action<StationViewModel>? DischargeRequested;
     public event Action<StationViewModel>? StationDeletionRequested;
     public event Action<PatientViewModel>? PatientDeletionRequested;
@@ -92,8 +103,10 @@ public partial class MainViewModel : ViewModelBase
     public event EventHandler? SessionUnlockRequested;
     public event Action<TerminalPairingRequestInfo>? TerminalPairingRequested;
     public event EventHandler? TerminalPairingReturnRequested;
+    public event Action<Func<Task>>? UnsavedLayoutNavigationRequested;
 
     public SessionDescriptor Session { get; }
+    public AppearancePreferencesViewModel Appearance { get; }
     public ObservableCollection<StationViewModel> Stations { get; } = [];
     public ObservableCollection<MobileTeamViewModel> MobileTeams { get; } = [];
     public ObservableCollection<DashboardChartSlice> ComplaintBreakdown { get; } = [];
@@ -109,7 +122,7 @@ public partial class MainViewModel : ViewModelBase
     public ObservableCollection<TerminalRegistration> RegisteredTerminals { get; } = [];
     public ObservableCollection<TerminalAuditEntry> TerminalAuditEntries { get; } = [];
 
-    [ObservableProperty] private TcArea _selectedArea = TcArea.Manager;
+    [ObservableProperty] private TcArea _selectedArea = TcArea.TreatmentCentre;
     [ObservableProperty] private TcPage _selectedPage = TcPage.Map;
     [ObservableProperty] private bool _isEditMode;
     [ObservableProperty] private bool _isPatientEditMode;
@@ -127,12 +140,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private string _currentTimeText = "";
     [ObservableProperty] private bool _isLocked;
     [ObservableProperty] private double _lockBlurRadius = 10d;
-    [ObservableProperty] private string _unlockDigit1 = "";
-    [ObservableProperty] private string _unlockDigit2 = "";
-    [ObservableProperty] private string _unlockDigit3 = "";
-    [ObservableProperty] private string _unlockDigit4 = "";
-    [ObservableProperty] private string _unlockDigit5 = "";
-    [ObservableProperty] private string _unlockDigit6 = "";
+    [ObservableProperty] private string _unlockPinEntry = "";
     [ObservableProperty] private string _lockMessage = "Enter the shift PIN to continue.";
     [ObservableProperty] private bool _isBannerVisible;
     [ObservableProperty] private string _bannerText = "";
@@ -162,8 +170,13 @@ public partial class MainViewModel : ViewModelBase
 
     public bool HasNoStations => Stations.Count == 0;
     public bool HasNoMobileTeams => MobileTeams.Count == 0;
-    public bool IsDashboard => SelectedArea == TcArea.Dashboard;
-    public bool IsManager => SelectedArea == TcArea.Manager;
+    public bool IsOperationalMode => !IsEditMode;
+    public bool IsLayoutDirty => IsEditMode && _persistedLayout is not null && !LayoutsEqual(_persistedLayout, CaptureLayout());
+    public bool CanUndoLayout => IsEditMode && (_layoutUndo.Count > 0
+        || (_draftCheckpoint is not null && !LayoutsEqual(_draftCheckpoint, CaptureLayout())));
+    public bool CanRedoLayout => IsEditMode && _layoutRedo.Count > 0;
+    public bool IsDashboard => SelectedArea == TcArea.Overview;
+    public bool IsManager => SelectedArea == TcArea.TreatmentCentre;
     public bool IsSettings => SelectedArea == TcArea.Settings;
     public bool IsSettingsGeneral => SettingsPage == SettingsPage.General;
     public bool IsSettingsOperations => SettingsPage == SettingsPage.Operations;
@@ -173,9 +186,10 @@ public partial class MainViewModel : ViewModelBase
     public bool IsNotificationError => NotificationKind == NotificationKind.Error;
     public double ActiveBlurRadius => IsLocked ? LockBlurRadius : 0d;
     public bool IsMapPage => IsManager && SelectedPage == TcPage.Map;
-    public bool IsTablesPage => IsManager && SelectedPage == TcPage.Tables;
-    public bool IsPatientsPage => IsManager && SelectedPage == TcPage.Patients;
-    public bool IsSetupPage => IsManager && SelectedPage == TcPage.Setup;
+    public bool IsTablesPage => IsManager && SelectedPage == TcPage.Stations;
+    public bool IsTeamsPage => IsManager && SelectedPage == TcPage.Teams;
+    public bool IsPatientsPage => SelectedArea == TcArea.Patients;
+    public bool IsSetupPage => SelectedArea == TcArea.ShiftSetup;
     public bool HasNoPatients => Patients.Count == 0;
     public bool HasNoComplaintBreakdown => !HasComplaintBreakdown;
     public bool HasNoDischargeRouteBreakdown => !HasDischargeRouteBreakdown;
@@ -207,7 +221,7 @@ public partial class MainViewModel : ViewModelBase
     public int DeployedMobileTeams => MobileTeams.Count(team => team.IsDeployed);
     public string ApplicationVersion => typeof(MainViewModel).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
         .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().SingleOrDefault()?.InformationalVersion ?? "";
-    public string EditModeText => IsEditMode ? "Finish editing" : "Edit Treatment Centre";
+    public string EditModeText => IsEditMode ? "Editing layout" : "Edit Treatment Centre";
     public string PatientEditModeText => IsPatientEditMode ? "Finish editing" : "Edit patients";
     public string MapStatusText => IsEditMode ? "Drag a station from anywhere except a corner. Use any corner to resize, or delete an available station from its card." : "Click an available station to add a patient. Drag a patient counter to transfer.";
     public int TotalStations => AvailableStations + OccupiedStations;
@@ -215,6 +229,7 @@ public partial class MainViewModel : ViewModelBase
 
     public async Task InitializeAsync()
     {
+        await Appearance.InitializeAsync();
         try
         {
             foreach (var item in await _treatmentCentreService.GetSnapshotAsync()) AddViewModel(item.Station, item.CurrentPatient);
@@ -272,21 +287,30 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand] private async Task ShowDashboardAsync() { ClearPatientEdits(); SelectedArea = TcArea.Dashboard; await RefreshDashboardAsync(); }
-    [RelayCommand] private void ShowManager() => SelectedArea = TcArea.Manager;
-    [RelayCommand] private void ShowMap() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Map; }
-    [RelayCommand] private void ShowTables() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Tables; }
+    [RelayCommand] private Task ShowDashboardAsync() => NavigateAwayFromLayoutAsync(async () => { ClearPatientEdits(); SelectedArea = TcArea.Overview; await RefreshDashboardAsync(); });
+    [RelayCommand] private void ShowManager() => NavigateAwayFromLayout(() => { SelectedArea = TcArea.TreatmentCentre; return Task.CompletedTask; });
+    [RelayCommand] private void ShowMap() { SelectedArea = TcArea.TreatmentCentre; SelectedPage = TcPage.Map; }
+    [RelayCommand] private void ShowTables() => NavigateAwayFromLayout(() => { SelectedArea = TcArea.TreatmentCentre; SelectedPage = TcPage.Stations; return Task.CompletedTask; });
+    [RelayCommand] private void ShowTeams() => NavigateAwayFromLayout(() => { SelectedArea = TcArea.TreatmentCentre; SelectedPage = TcPage.Teams; return Task.CompletedTask; });
     [RelayCommand]
     private async Task ShowPatientsAsync()
     {
         if (!CanAdministerHost) return;
-        SelectedArea = TcArea.Manager;
-        SelectedPage = TcPage.Patients;
+        if (IsLayoutDirty)
+        {
+            UnsavedLayoutNavigationRequested?.Invoke(ShowPatientsAsync);
+            return;
+        }
+        if (IsEditMode)
+        {
+            DiscardLayout();
+        }
+        SelectedArea = TcArea.Patients;
         try { await RefreshPatientsAsync(); }
         catch (Exception exception) { Notify($"Unable to load patients: {exception.Message}", true); }
     }
-    [RelayCommand] private void ShowSetup() { SelectedArea = TcArea.Manager; SelectedPage = TcPage.Setup; }
-    [RelayCommand] private void ToggleEditMode() { if (CanAdministerHost) IsEditMode = !IsEditMode; }
+    [RelayCommand] private void ShowSetup() { if (CanAdministerHost) NavigateAwayFromLayout(() => { SelectedArea = TcArea.ShiftSetup; return Task.CompletedTask; }); }
+    [RelayCommand] private void ToggleEditMode() { if (CanAdministerHost && !IsEditMode) BeginLayoutEdit(); }
     [RelayCommand] private void TogglePatientEditMode() { if (CanAdministerHost) IsPatientEditMode = !IsPatientEditMode; }
     [RelayCommand]
     private void RequestBulkComplaint()
@@ -302,7 +326,7 @@ public partial class MainViewModel : ViewModelBase
     }
     [RelayCommand] private void RequestAddStation() { if (CanAdministerHost) AddStationRequested?.Invoke(this, EventArgs.Empty); }
     [RelayCommand] private void RequestAddMobileTeam() => AddMobileTeamRequested?.Invoke(this, EventArgs.Empty);
-    [RelayCommand] private void ShowSettings() { if (CanAdministerHost) { ClearPatientEdits(); SelectedArea = TcArea.Settings; } }
+    [RelayCommand] private void ShowSettings() => NavigateAwayFromLayout(() => { ClearPatientEdits(); SelectedArea = TcArea.Settings; return Task.CompletedTask; });
     [RelayCommand] private void ShowSettingsGeneral() => SettingsPage = SettingsPage.General;
     [RelayCommand] private void ShowSettingsOperations() => SettingsPage = SettingsPage.Operations;
     [RelayCommand] private void ShowSettingsDisplays() => SettingsPage = SettingsPage.Displays;
@@ -495,6 +519,76 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand] private void SetCompactDensity() => SetGridDensity(GridDensity.Compact);
     [RelayCommand] private void SetStandardDensity() => SetGridDensity(GridDensity.Standard);
     [RelayCommand] private void SetDenseDensity() => SetGridDensity(GridDensity.Dense);
+    [RelayCommand]
+    private async Task SaveLayoutAsync()
+    {
+        if (!IsEditMode)
+        {
+            return;
+        }
+
+        try
+        {
+            var layout = CaptureLayout();
+            await _layoutService.CommitAsync(layout);
+            _persistedLayout = layout;
+            _draftCheckpoint = layout;
+            _layoutUndo.Clear();
+            _layoutRedo.Clear();
+            IsEditMode = false;
+            RefreshLayoutCommandState();
+            await RefreshSummaryAsync();
+            Notify("Treatment Centre layout saved.");
+        }
+        catch (Exception exception)
+        {
+            Notify($"Layout not saved: {exception.Message}", true);
+        }
+    }
+
+    [RelayCommand]
+    private void DiscardLayout()
+    {
+        if (_persistedLayout is not null)
+        {
+            ApplyLayout(_persistedLayout);
+        }
+        _layoutUndo.Clear();
+        _layoutRedo.Clear();
+        _draftCheckpoint = _persistedLayout;
+        IsEditMode = false;
+        RefreshLayoutCommandState();
+        Notify("Unsaved layout changes discarded.");
+    }
+
+    [RelayCommand]
+    private void UndoLayout()
+    {
+        if (_draftCheckpoint is not null && !LayoutsEqual(_draftCheckpoint, CaptureLayout()))
+        {
+            _layoutRedo.Push(CaptureLayout());
+            ApplyLayout(_draftCheckpoint);
+            RefreshLayoutCommandState();
+            return;
+        }
+        if (_layoutUndo.Count == 0) return;
+        _layoutRedo.Push(CaptureLayout());
+        var previous = _layoutUndo.Pop();
+        ApplyLayout(previous);
+        _draftCheckpoint = previous;
+        RefreshLayoutCommandState();
+    }
+
+    [RelayCommand]
+    private void RedoLayout()
+    {
+        if (_layoutRedo.Count == 0) return;
+        _layoutUndo.Push(CaptureLayout());
+        var next = _layoutRedo.Pop();
+        ApplyLayout(next);
+        _draftCheckpoint = next;
+        RefreshLayoutCommandState();
+    }
     [RelayCommand] private void BeginPinChange() => IsChangingPin = true;
 
     [RelayCommand]
@@ -524,7 +618,33 @@ public partial class MainViewModel : ViewModelBase
 
     public async Task CreateStationAsync(StationDraft draft)
     {
-        try { var station = await _treatmentCentreService.AddStationAsync(draft.Name, draft.Type); AddViewModel(station, null); await RefreshSummaryAsync(); Notify($"{station.Name} added."); }
+        try
+        {
+            if (IsEditMode)
+            {
+                if (string.IsNullOrWhiteSpace(draft.Name))
+                {
+                    throw new InvalidOperationException("Enter a station name.");
+                }
+                var position = FindAvailableStationPosition();
+                if (position is null)
+                {
+                    throw new InvalidOperationException("There is no clear 7 by 7 space on this map. Increase the map density or move another station.");
+                }
+                RecordLayoutChange();
+                var station = new Station(Guid.NewGuid(), draft.Name.Trim(), draft.Type.Trim(), position.Value.X, position.Value.Y, 7, 7);
+                AddViewModel(station, null);
+                _draftCheckpoint = CaptureLayout();
+                RefreshLayoutCommandState();
+                Notify($"{station.Name} added to the draft. Save layout to commit it.");
+                return;
+            }
+
+            var saved = await _treatmentCentreService.AddStationAsync(draft.Name, draft.Type);
+            AddViewModel(saved, null);
+            await RefreshSummaryAsync();
+            Notify($"{saved.Name} added.");
+        }
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
@@ -674,9 +794,15 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
-    public async Task ConfirmPatientSwapAsync(StationViewModel source, StationViewModel destination)
+    public async Task ConfirmPatientSwapAsync(PatientSwapRequest request)
     {
-        try { await MovePatientAsync(source, destination, true); Notify($"Patients swapped between {source.Name} and {destination.Name}."); }
+        try
+        {
+            await _treatmentCentreService.MovePatientAsync(request.SourcePatientUid, request.Destination, true);
+            await RefreshAssignmentsAsync();
+            await RefreshOperationalDataAsync();
+            Notify($"{request.SourcePatientLabel} and {request.DestinationPatientLabel} swapped between {request.SourceLocation} and {request.DestinationLocation}.");
+        }
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
@@ -695,7 +821,11 @@ public partial class MainViewModel : ViewModelBase
         NewPin = ""; IsChangingPin = false; PinStatusText = "Shift details saved for this session.";
     }
 
-    partial void OnSelectedAreaChanged(TcArea value) => RefreshAreaProperties();
+    partial void OnSelectedAreaChanged(TcArea value)
+    {
+        if (value != TcArea.Patients) ClearPatientEdits();
+        RefreshAreaProperties();
+    }
     partial void OnIsLanDisplayRunningChanged(bool value) => OnPropertyChanged(nameof(IsLanDisplayStopped));
     partial void OnIsTerminalHostRunningChanged(bool value) => OnPropertyChanged(nameof(IsTerminalHostStopped));
     partial void OnPendingTerminalCommandsChanged(int value)
@@ -726,13 +856,12 @@ public partial class MainViewModel : ViewModelBase
     partial void OnNotificationKindChanged(NotificationKind value) { OnPropertyChanged(nameof(IsNotificationInfo)); OnPropertyChanged(nameof(IsNotificationWarning)); OnPropertyChanged(nameof(IsNotificationError)); }
     partial void OnSelectedPageChanged(TcPage value)
     {
-        if (value != TcPage.Patients) ClearPatientEdits();
         RefreshAreaProperties();
     }
     partial void OnIsEditModeChanged(bool value)
     {
         foreach (var station in Stations) station.IsEditMode = value;
-        OnPropertyChanged(nameof(EditModeText)); OnPropertyChanged(nameof(MapStatusText));
+        OnPropertyChanged(nameof(EditModeText)); OnPropertyChanged(nameof(MapStatusText)); OnPropertyChanged(nameof(IsOperationalMode));
     }
     partial void OnIsPatientEditModeChanged(bool value)
     {
@@ -760,7 +889,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void RefreshAreaProperties()
     {
-        OnPropertyChanged(nameof(IsDashboard)); OnPropertyChanged(nameof(IsManager)); OnPropertyChanged(nameof(IsSettings)); OnPropertyChanged(nameof(IsMapPage)); OnPropertyChanged(nameof(IsTablesPage)); OnPropertyChanged(nameof(IsPatientsPage)); OnPropertyChanged(nameof(IsSetupPage));
+        OnPropertyChanged(nameof(IsDashboard)); OnPropertyChanged(nameof(IsManager)); OnPropertyChanged(nameof(IsSettings)); OnPropertyChanged(nameof(IsMapPage)); OnPropertyChanged(nameof(IsTablesPage)); OnPropertyChanged(nameof(IsTeamsPage)); OnPropertyChanged(nameof(IsPatientsPage)); OnPropertyChanged(nameof(IsSetupPage));
     }
 
     private void SetGridDensity(GridDensity density)
@@ -770,13 +899,145 @@ public partial class MainViewModel : ViewModelBase
             NotifyWarning("Map density can only be increased after stations have been placed.");
             return;
         }
+        if (density == GridDensity)
+        {
+            return;
+        }
+        if (IsEditMode)
+        {
+            RecordLayoutChange();
+        }
         GridDensity = density;
+        if (IsEditMode)
+        {
+            _draftCheckpoint = CaptureLayout();
+            RefreshLayoutCommandState();
+        }
     }
+
+    private void BeginLayoutEdit()
+    {
+        _persistedLayout = CaptureLayout();
+        _draftCheckpoint = _persistedLayout;
+        _layoutUndo.Clear();
+        _layoutRedo.Clear();
+        IsEditMode = true;
+        RefreshLayoutCommandState();
+    }
+
+    private TreatmentCentreLayout CaptureLayout() =>
+        new(Stations.Select(station => station.ToDomain()).ToList(), GridDensity);
+
+    private void ApplyLayout(TreatmentCentreLayout layout)
+    {
+        var patients = Stations.ToDictionary(station => station.Id, station => station.CurrentPatient);
+        Stations.Clear();
+        GridDensity = layout.GridDensity;
+        foreach (var station in layout.Stations)
+        {
+            AddViewModel(station, patients.GetValueOrDefault(station.Id));
+        }
+        foreach (var station in Stations)
+        {
+            station.IsEditMode = IsEditMode;
+        }
+        OnPropertyChanged(nameof(HasNoStations));
+        OnPropertyChanged(nameof(IsLayoutDirty));
+    }
+
+    private void RecordLayoutChange(TreatmentCentreLayout? previous = null)
+    {
+        var state = previous ?? CaptureLayout();
+        if (_layoutUndo.Count == 0 || !LayoutsEqual(_layoutUndo.Peek(), state))
+        {
+            _layoutUndo.Push(state);
+        }
+        _layoutRedo.Clear();
+    }
+
+    private void RefreshLayoutCommandState()
+    {
+        OnPropertyChanged(nameof(IsLayoutDirty));
+        OnPropertyChanged(nameof(CanUndoLayout));
+        OnPropertyChanged(nameof(CanRedoLayout));
+        SaveLayoutCommand.NotifyCanExecuteChanged();
+        UndoLayoutCommand.NotifyCanExecuteChanged();
+        RedoLayoutCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NavigateAwayFromLayout(Func<Task> continuation)
+    {
+        if (IsLayoutDirty)
+        {
+            UnsavedLayoutNavigationRequested?.Invoke(continuation);
+            return;
+        }
+        if (IsEditMode)
+        {
+            DiscardLayout();
+        }
+        _ = continuation();
+    }
+
+    private Task NavigateAwayFromLayoutAsync(Func<Task> continuation)
+    {
+        NavigateAwayFromLayout(continuation);
+        return Task.CompletedTask;
+    }
+
+    public async Task DiscardLayoutAndContinueAsync(Func<Task> continuation)
+    {
+        DiscardLayout();
+        await continuation();
+    }
+
+    private (double X, double Y)? FindAvailableStationPosition()
+    {
+        var (columns, rows) = GridDimensions(GridDensity);
+        for (var y = 0d; y <= rows - 7; y++)
+        {
+            for (var x = 0d; x <= columns - 7; x++)
+            {
+                var candidate = new Station(Guid.Empty, string.Empty, string.Empty, x, y, 7, 7);
+                if (Stations.All(station => !Intersects(candidate, station.ToDomain())))
+                {
+                    return (x, y);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static (double Columns, double Rows) GridDimensions(GridDensity density) => density switch
+    {
+        GridDensity.Standard => (60, 36),
+        GridDensity.Dense => (75, 45),
+        _ => (50, 30)
+    };
+
+    private static bool LayoutsEqual(TreatmentCentreLayout first, TreatmentCentreLayout second) =>
+        first.GridDensity == second.GridDensity && first.Stations.SequenceEqual(second.Stations);
 
     private void AddViewModel(Station station, Patient? patient)
     {
-        var viewModel = new StationViewModel(station, patient, SaveStationAsync, DeleteStationAsync, RequestNewPatient, RequestDischarge, CommitGeometryAsync, RequestPatientDropAsync) { IsEditMode = IsEditMode, GridSizePixels = GridPixelSize };
-        viewModel.PropertyChanged += async (_, args) => { if (args.PropertyName is nameof(StationViewModel.CurrentPatient)) await RefreshSummaryAsync(); };
+        var viewModel = new StationViewModel(station, patient, SaveStationAsync, DeleteStationAsync, RequestNewPatient, RequestDischarge, CommitGeometryAsync, RequestPatientDropAsync, RequestPatientTransfer) { IsEditMode = IsEditMode, GridSizePixels = GridPixelSize };
+        viewModel.PropertyChanged += async (_, args) =>
+        {
+            if (args.PropertyName is nameof(StationViewModel.CurrentPatient))
+            {
+                await RefreshSummaryAsync();
+            }
+            else if (IsEditMode && args.PropertyName is
+                     nameof(StationViewModel.Name)
+                     or nameof(StationViewModel.Type)
+                     or nameof(StationViewModel.GridX)
+                     or nameof(StationViewModel.GridY)
+                     or nameof(StationViewModel.GridWidth)
+                     or nameof(StationViewModel.GridHeight))
+            {
+                RefreshLayoutCommandState();
+            }
+        };
         Stations.Add(viewModel); OnPropertyChanged(nameof(HasNoStations));
     }
 
@@ -793,7 +1054,8 @@ public partial class MainViewModel : ViewModelBase
             RequestMobileTeamEdit,
             RequestMobileTeamDeletion,
             RequestMobileTeamPatientDropAsync,
-            CanAdministerHost);
+            CanAdministerHost,
+            RequestPatientTransfer);
         viewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(MobileTeamViewModel.IsDeployed))
@@ -809,7 +1071,16 @@ public partial class MainViewModel : ViewModelBase
     private void RequestMobileTeamDeploy(MobileTeamViewModel team) => MobileTeamDeployRequested?.Invoke(team);
     private void RequestMobileTeamLocation(MobileTeamViewModel team) => MobileTeamLocationRequested?.Invoke(team);
     private void RequestMobileTeamStandDown(MobileTeamViewModel team) => MobileTeamStandDownRequested?.Invoke(team);
-    private void RequestMobileTeamDischarge(MobileTeamViewModel team) => MobileTeamDischargeRequested?.Invoke(team);
+    private void RequestMobileTeamDischarge(MobileTeamViewModel team)
+    {
+        if (QuickEntry)
+        {
+            _ = CompleteMobileTeamDischargeAsync(team, null, null, false);
+            return;
+        }
+
+        MobileTeamDischargeRequested?.Invoke(team);
+    }
     private void RequestMobileTeamEdit(MobileTeamViewModel team) => MobileTeamEditRequested?.Invoke(team);
     private void RequestMobileTeamDeletion(MobileTeamViewModel team) => MobileTeamDeletionRequested?.Invoke(team);
     private void RequestMobileTeamPatient(MobileTeamViewModel team)
@@ -834,11 +1105,18 @@ public partial class MainViewModel : ViewModelBase
     }
     private async Task RequestPatientDropAsync(StationViewModel destination, Guid patientUid)
     {
-        var sourceStation = Stations.FirstOrDefault(station => station.CurrentPatient?.Uid == patientUid);
-        if (sourceStation == destination) return;
-        if (destination.IsOccupied && sourceStation is not null)
+        var source = FindPatientAssignment(patientUid);
+        if (source?.Assignment == new PatientAssignment(PatientAssignmentKind.Station, destination.Id)) return;
+        if (destination.CurrentPatient is { } destinationPatient && source is not null)
         {
-            PatientSwapConfirmationRequested?.Invoke(sourceStation, destination);
+            PatientSwapConfirmationRequested?.Invoke(new PatientSwapRequest(
+                patientUid,
+                source.PatientLabel,
+                source.Location,
+                destinationPatient.Uid,
+                $"Patient {destinationPatient.PatientNumber}",
+                destination.Name,
+                new PatientAssignment(PatientAssignmentKind.Station, destination.Id)));
             return;
         }
         if (destination.IsOccupied)
@@ -864,6 +1142,21 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
+        var source = FindPatientAssignment(patientUid);
+        if (source?.Assignment == new PatientAssignment(PatientAssignmentKind.MobileTeam, destination.Id)) return;
+        if (destination.CurrentPatient is { } destinationPatient && source is not null)
+        {
+            PatientSwapConfirmationRequested?.Invoke(new PatientSwapRequest(
+                patientUid,
+                source.PatientLabel,
+                source.Location,
+                destinationPatient.Uid,
+                $"Patient {destinationPatient.PatientNumber}",
+                destination.Callsign,
+                new PatientAssignment(PatientAssignmentKind.MobileTeam, destination.Id)));
+            return;
+        }
+
         try
         {
             await _treatmentCentreService.MovePatientAsync(patientUid, new PatientAssignment(PatientAssignmentKind.MobileTeam, destination.Id), false);
@@ -872,6 +1165,59 @@ public partial class MainViewModel : ViewModelBase
             Notify($"{destination.PatientCounterText} moved to {destination.Callsign}.");
         }
         catch (Exception exception) { Notify(exception.Message, true); }
+    }
+
+    private PatientAssignmentInfo? FindPatientAssignment(Guid patientUid)
+    {
+        var station = Stations.FirstOrDefault(item => item.CurrentPatient?.Uid == patientUid);
+        if (station?.CurrentPatient is { } stationPatient)
+        {
+            return new PatientAssignmentInfo(
+                new PatientAssignment(PatientAssignmentKind.Station, station.Id),
+                station.Name,
+                $"Patient {stationPatient.PatientNumber}");
+        }
+
+        var team = MobileTeams.FirstOrDefault(item => item.CurrentPatient?.Uid == patientUid);
+        if (team?.CurrentPatient is { } teamPatient)
+        {
+            return new PatientAssignmentInfo(
+                new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id),
+                team.Callsign,
+                $"Patient {teamPatient.PatientNumber}");
+        }
+
+        return null;
+    }
+
+    private void RequestPatientTransfer(Guid patientUid) => PatientTransferRequested?.Invoke(patientUid);
+
+    public IReadOnlyList<PatientTransferOption> GetTransferOptions(Guid patientUid)
+    {
+        var source = FindPatientAssignment(patientUid)?.Assignment;
+        var options = Stations
+            .Select(station => new PatientTransferOption(
+                new PatientAssignment(PatientAssignmentKind.Station, station.Id),
+                station.Name,
+                station.IsOccupied ? station.PatientCounterText : "Available"))
+            .Concat(MobileTeams.Where(team => team.IsDeployed).Select(team => new PatientTransferOption(
+                new PatientAssignment(PatientAssignmentKind.MobileTeam, team.Id),
+                team.Callsign,
+                team.IsOccupied ? team.PatientCounterText : $"Deployed — {team.LocationText}")))
+            .Where(option => option.Assignment != source)
+            .OrderBy(option => option.Label, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return options;
+    }
+
+    public Task RequestPatientTransferAsync(Guid patientUid, PatientAssignment destination)
+    {
+        var station = Stations.FirstOrDefault(item => destination.Kind == PatientAssignmentKind.Station && item.Id == destination.Id);
+        if (station is not null) return RequestPatientDropAsync(station, patientUid);
+        var team = MobileTeams.FirstOrDefault(item => destination.Kind == PatientAssignmentKind.MobileTeam && item.Id == destination.Id);
+        if (team is not null) return RequestMobileTeamPatientDropAsync(team, patientUid);
+        Notify("That transfer destination is no longer available.", true);
+        return Task.CompletedTask;
     }
 
     private async Task MovePatientAsync(StationViewModel source, StationViewModel destination, bool swap)
@@ -891,7 +1237,25 @@ public partial class MainViewModel : ViewModelBase
 
     private async Task SaveStationAsync(StationViewModel station)
     {
-        try { await _treatmentCentreService.SaveStationAsync(station.ToDomain()); Notify($"{station.Name} saved."); }
+        try
+        {
+            if (IsEditMode)
+            {
+                if (string.IsNullOrWhiteSpace(station.Name))
+                {
+                    throw new InvalidOperationException("Stations require a name.");
+                }
+                RecordLayoutChange(_draftCheckpoint);
+                station.Name = station.Name.Trim();
+                station.Type = station.Type.Trim();
+                _draftCheckpoint = CaptureLayout();
+                RefreshLayoutCommandState();
+                Notify($"{station.Name} updated in the draft. Save layout to commit it.");
+                return;
+            }
+            await _treatmentCentreService.SaveStationAsync(station.ToDomain());
+            Notify($"{station.Name} saved.");
+        }
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
@@ -915,8 +1279,19 @@ public partial class MainViewModel : ViewModelBase
                 return;
             }
 
-            await _treatmentCentreService.ReorderStationsAsync(Stations.Select(station => station.Id).ToList());
-            Notify("Station order saved.");
+            if (IsEditMode)
+            {
+                var prior = new TreatmentCentreLayout(originalOrder.Select(station => station.ToDomain()).ToList(), GridDensity);
+                RecordLayoutChange(prior);
+                _draftCheckpoint = CaptureLayout();
+                RefreshLayoutCommandState();
+                Notify("Station order changed in the draft.");
+            }
+            else
+            {
+                await _treatmentCentreService.ReorderStationsAsync(Stations.Select(station => station.Id).ToList());
+                Notify("Station order saved.");
+            }
         }
         catch (Exception exception)
         {
@@ -965,7 +1340,29 @@ public partial class MainViewModel : ViewModelBase
 
     public async Task ConfirmDeleteStationAsync(StationViewModel station)
     {
-        try { await _treatmentCentreService.DeleteStationAsync(station.Id); Stations.Remove(station); await RefreshSummaryAsync(); await RefreshDashboardAsync(); OnPropertyChanged(nameof(HasNoStations)); Notify($"{station.Name} removed."); }
+        try
+        {
+            if (IsEditMode)
+            {
+                if (station.IsOccupied)
+                {
+                    throw new InvalidOperationException("Transfer or discharge the current patient before deleting this station.");
+                }
+                RecordLayoutChange();
+                Stations.Remove(station);
+                _draftCheckpoint = CaptureLayout();
+                OnPropertyChanged(nameof(HasNoStations));
+                RefreshLayoutCommandState();
+                Notify($"{station.Name} removed from the draft. Save layout to commit it.");
+                return;
+            }
+            await _treatmentCentreService.DeleteStationAsync(station.Id);
+            Stations.Remove(station);
+            await RefreshSummaryAsync();
+            await RefreshDashboardAsync();
+            OnPropertyChanged(nameof(HasNoStations));
+            Notify($"{station.Name} removed.");
+        }
         catch (Exception exception) { Notify(exception.Message, true); }
     }
 
@@ -1069,7 +1466,33 @@ public partial class MainViewModel : ViewModelBase
 
     private async Task CommitGeometryAsync(StationViewModel station, StationGeometry originalGeometry)
     {
+        var (columns, rows) = GridDimensions(GridDensity);
+        if (station.GridWidth < 7 || station.GridHeight < 7
+            || station.GridX < 0 || station.GridY < 0
+            || station.GridX + station.GridWidth > columns
+            || station.GridY + station.GridHeight > rows)
+        {
+            station.RestoreGeometry(originalGeometry);
+            Notify("Stations must stay within the map and remain at least 7 by 7 grid units.", true);
+            return;
+        }
         if (Stations.Any(other => other != station && Intersects(station, other))) { station.RestoreGeometry(originalGeometry); Notify("Stations cannot overlap. The previous position was restored.", true); return; }
+        if (IsEditMode)
+        {
+            var before = CaptureLayout();
+            var original = station.ToDomain() with
+            {
+                GridX = originalGeometry.GridX,
+                GridY = originalGeometry.GridY,
+                GridWidth = originalGeometry.GridWidth,
+                GridHeight = originalGeometry.GridHeight
+            };
+            before = before with { Stations = before.Stations.Select(item => item.Id == station.Id ? original : item).ToList() };
+            RecordLayoutChange(before);
+            _draftCheckpoint = CaptureLayout();
+            RefreshLayoutCommandState();
+            return;
+        }
         await SaveStationAsync(station);
     }
 
@@ -1319,17 +1742,28 @@ public partial class MainViewModel : ViewModelBase
         foreach (var station in Stations) station.RefreshPatientArrivalText();
         foreach (var team in MobileTeams) team.RefreshPatientArrivalText();
     }
-    private string UnlockPin => string.Concat(UnlockDigit1, UnlockDigit2, UnlockDigit3, UnlockDigit4, UnlockDigit5, UnlockDigit6);
-    private void ClearUnlockPin() { UnlockDigit1 = ""; UnlockDigit2 = ""; UnlockDigit3 = ""; UnlockDigit4 = ""; UnlockDigit5 = ""; UnlockDigit6 = ""; }
+    private string UnlockPin => UnlockPinEntry.Trim();
+    private void ClearUnlockPin() => UnlockPinEntry = "";
     private static string FormatDuration(TimeSpan value) => value.TotalHours >= 1 ? $"{(int)value.TotalHours}h {value.Minutes}m" : $"{Math.Max(1, value.Minutes)}m";
     private static bool Intersects(StationViewModel first, StationViewModel second) => first.GridX < second.GridX + second.GridWidth && first.GridX + first.GridWidth > second.GridX && first.GridY < second.GridY + second.GridHeight && first.GridY + first.GridHeight > second.GridY;
+    private static bool Intersects(Station first, Station second) => first.GridX < second.GridX + second.GridWidth && first.GridX + first.GridWidth > second.GridX && first.GridY < second.GridY + second.GridHeight && first.GridY + first.GridHeight > second.GridY;
     private static readonly string[] ChartColors = ["#87BBA2", "#55828B", "#3B6064", "#364958", "#C9E4CA"];
 }
 
 public sealed record StationDraft(string Name, string Type);
+public sealed record PatientSwapRequest(
+    Guid SourcePatientUid,
+    string SourcePatientLabel,
+    string SourceLocation,
+    Guid DestinationPatientUid,
+    string DestinationPatientLabel,
+    string DestinationLocation,
+    PatientAssignment Destination);
+internal sealed record PatientAssignmentInfo(PatientAssignment Assignment, string Location, string PatientLabel);
+public sealed record PatientTransferOption(PatientAssignment Assignment, string Label, string Status);
 public sealed record MobileTeamDraft(string Callsign, string? Note);
 public sealed record NewPatientDraft(string? PresentingComplaint);
-public enum TcArea { Dashboard, Manager, Settings }
-public enum TcPage { Map, Tables, Patients, Setup }
+public enum TcArea { Overview, TreatmentCentre, Patients, ShiftSetup, Settings }
+public enum TcPage { Map, Stations, Teams }
 public enum SettingsPage { General, Operations, Displays }
 public enum NotificationKind { Info, Warning, Error }

@@ -52,6 +52,8 @@ public partial class App : Application
         shiftSetup.LoadExistingRequested += (_, _) => ShowRecentSessions(shiftSetup);
         shiftSetup.TerminalConnectionRequested += (_, _) => ShowTerminalConnection(shiftSetup);
         shiftSetup.UpdateCheckRequested += async (_, _) => await CheckForUpdatesAtStartAsync(shiftSetup);
+        shiftSetup.Opened += async (_, _) =>
+            await AppearancePreferencesViewModel.InitializeApplicationAsync(new DevicePreferencesStore());
         desktop.MainWindow = shiftSetup;
         if (show) shiftSetup.Show();
         return shiftSetup;
@@ -59,6 +61,8 @@ public partial class App : Application
 
     private static async Task CheckForUpdatesAtStartAsync(ShiftSetupWindow shiftSetup)
     {
+        try
+        {
         shiftSetup.SetUpdateStatus("Checking for updates...");
         var result = await UpdateService.CheckForUpdatesAsync();
         shiftSetup.SetUpdateStatus(result.StatusText);
@@ -88,6 +92,11 @@ public partial class App : Application
         shiftSetup.SetUpdateStatus($"Downloading TCM+ {result.Version}...");
         var applyResult = await UpdateService.DownloadAndRestartAsync();
         shiftSetup.SetUpdateStatus(applyResult.StatusText);
+        }
+        catch (Exception exception)
+        {
+            shiftSetup.SetUpdateStatus($"Update check unavailable: {exception.Message}");
+        }
     }
 
     private static async Task OpenShiftAsync(IClassicDesktopStyleApplicationLifetime desktop, ShiftSetupWindow shiftSetup, ShiftSetupDraft draft)
@@ -254,6 +263,7 @@ public partial class App : Application
         window.Closing += async (_, args) =>
         {
             if (activeSession.CloseAllowed) return;
+            if (viewModel.IsLayoutDirty) return;
             args.Cancel = true;
             if (activeSession.CloseInProgress) return;
 
@@ -424,13 +434,16 @@ public partial class App : Application
         services.AddSingleton(session);
         services.AddSingleton<IAppUpdateService>(UpdateService);
         services.AddSingleton<TerminalOperatorPreferencesStore>();
+        services.AddSingleton<DevicePreferencesStore>();
         services.AddSingleton(connectionFactory);
         services.AddSingleton<IStationRepository, SqliteStationRepository>();
+        services.AddSingleton<ITreatmentCentreLayoutRepository, SqliteTreatmentCentreLayoutRepository>();
         services.AddSingleton<IMobileTeamRepository, SqliteMobileTeamRepository>();
         services.AddSingleton<IPatientRepository, SqlitePatientRepository>();
         services.AddSingleton<ITcSettingsRepository, SqliteTcSettingsRepository>();
         services.AddSingleton<IAppSettingsRepository, JsonAppSettingsRepository>();
         services.AddSingleton<IShiftPinService, ShiftPinService>();
+        services.AddSingleton<ITreatmentCentreLayoutService, TreatmentCentreLayoutService>();
         services.AddSingleton<TreatmentCentreService>();
         services.AddSingleton<SerializedTreatmentCentreService>(provider =>
             new SerializedTreatmentCentreService(provider.GetRequiredService<TreatmentCentreService>()));

@@ -1,0 +1,31 @@
+<views:ResponsiveDialogWindow xmlns="https://github.com/avaloniaui"
+                              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                              xmlns:views="using:TCMPlus.App.Views"
+                              xmlns:vm="using:TCMPlus.App.ViewModels"
+                              x:Class="TCMPlus.App.Views.TransferPatientDialog"
+                              x:DataType="views:TransferPatientDialog"
+                              Title="Transfer patient"
+                              Width="560" Height="350"
+                              CanResize="False"
+                              WindowStartupLocation="CenterOwner">
+  <StackPanel Spacing="16">
+    <TextBlock Text="Transfer patient" Classes="dialog-title"/>
+    <TextBlock Text="Choose a station or deployed mobile team. Occupied destinations require a separate, explicit swap confirmation." Classes="muted" TextWrapping="Wrap"/>
+    <TextBlock Text="Destination" FontWeight="SemiBold"/>
+    <ComboBox x:Name="DestinationBox" ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption, Mode=TwoWay}" AutomationProperties.Name="Transfer destination">
+      <ComboBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:PatientTransferOption">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted"/>
+          </Grid>
+        </DataTemplate>
+      </ComboBox.ItemTemplate>
+    </ComboBox>
+    <TextBlock x:Name="EmptyMessage" Text="No other transfer destinations are currently available." Classes="muted" IsVisible="False"/>
+    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
+      <Button Grid.Column="1" Classes="secondary" Content="Cancel" Click="OnCancel" IsCancel="True"/>
+      <Button x:Name="TransferButton" Grid.Column="2" Classes="primary" Content="Continue" Click="OnContinue" IsDefault="True"/>
+    </Grid>
+  </StackPanel>
+</views:ResponsiveDialogWindow>

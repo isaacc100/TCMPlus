@@ -4,6 +4,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using TCMPlus.App.Controls;
+using TCMPlus.App.ViewModels;
 
 namespace TCMPlus.App.Views;
 
@@ -13,14 +15,39 @@ public abstract class ResponsiveDialogWindow : Window
 
     public ResponsiveDialogWindow()
     {
+        WindowDecorations = Avalonia.Controls.WindowDecorations.None;
+        ExtendClientAreaToDecorationsHint = false;
         Opened += (_, _) =>
         {
+            AppearancePreferencesViewModel.ApplyToWindow(this);
             EnsureVerticalScrollFallback();
+            EnsureCustomChrome();
             ConstrainToActiveWorkingArea();
             Dispatcher.UIThread.Post(
                 ConstrainToActiveWorkingArea,
                 DispatcherPriority.Loaded);
         };
+    }
+
+    private bool _customChromeApplied;
+
+    private void EnsureCustomChrome()
+    {
+        if (_customChromeApplied || Content is not Control content)
+        {
+            return;
+        }
+
+        Content = null;
+        var host = new Grid
+        {
+            RowDefinitions = new RowDefinitions("Auto,*")
+        };
+        host.Children.Add(new WindowChrome());
+        Grid.SetRow(content, 1);
+        host.Children.Add(content);
+        Content = host;
+        _customChromeApplied = true;
     }
 
     private void EnsureVerticalScrollFallback()

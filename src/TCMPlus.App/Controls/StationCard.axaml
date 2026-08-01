@@ -4,6 +4,9 @@
              xmlns:dnd="clr-namespace:Avalonia.Input;assembly=Avalonia.Base"
              x:Class="TCMPlus.App.Controls.StationCard"
              x:DataType="vm:StationViewModel"
+             Focusable="True"
+             AutomationProperties.Name="{Binding Name, StringFormat=Layout editor for {0}}"
+             KeyDown="OnKeyDown"
              PointerMoved="OnPointerMoved"
              PointerReleased="OnPointerReleased"
              PointerCaptureLost="OnPointerCaptureLost">
@@ -53,13 +56,14 @@
                     <TextBlock Text="{Binding StatusText}" Foreground="#364958" FontSize="11" />
                     <TextBlock Text="{Binding PatientArrivalText}" IsVisible="{Binding IsOccupied}" Foreground="#50636B" FontSize="10" />
                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
+                        <Button Classes="station-action" Background="#DDEAF0" Foreground="#364958" Content="Transfer" Command="{Binding TransferPatientCommand}" IsVisible="{Binding IsOccupied}" />
                         <Button Classes="station-action" Background="#F5D5D5" Foreground="#843434" Content="Discharge" Command="{Binding DischargePatientCommand}" IsVisible="{Binding CanDischargePatient}" />
                     </StackPanel>
                 </StackPanel>
                 <StackPanel IsVisible="{Binding IsEditMode}" VerticalAlignment="Center" Spacing="5">
                     <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="#364958" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="Drag anywhere to move." Foreground="#50636B" FontSize="10" />
-                    <TextBlock Text="Use any corner to resize." Foreground="#50636B" FontSize="10" />
+                    <TextBlock Text="Arrow keys move." Foreground="#50636B" FontSize="10" />
+                    <TextBlock Text="Shift + arrows resize." Foreground="#50636B" FontSize="10" />
                     <Button Classes="station-action" Background="#F5D5D5" Foreground="#843434" Content="Delete station" Command="{Binding DeleteStationCommand}" IsEnabled="{Binding CanDelete}" HorizontalAlignment="Left" />
                 </StackPanel>
                 <Border Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" BorderBrush="#3B6064" BorderThickness="2,2,0,0" Cursor="SizeNorthSouth" PointerPressed="OnTopLeftResizePointerPressed" IsVisible="{Binding IsEditMode}" />

@@ -69,4 +69,68 @@ public sealed class ResponsiveDialogTests
         Assert.Equal(1956, placement.Position.X);
         Assert.Equal(399, placement.Position.Y);
     }
+
+    [Fact]
+    public void Axaml_uses_vector_icons_and_has_no_placeholder_or_icon_font_glyphs()
+    {
+        var appRoot = Path.Combine(RepositoryRoot(), "src", "TCMPlus.App");
+        foreach (var path in Directory.EnumerateFiles(appRoot, "*.axaml", SearchOption.AllDirectories))
+        {
+            var content = File.ReadAllText(path);
+            Assert.DoesNotContain("Segoe Fluent Icons", content, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain('\uFFFD', content);
+            Assert.DoesNotContain("⠿", content, StringComparison.Ordinal);
+            Assert.DoesNotContain("□", content, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Pin_interfaces_use_one_pasteable_six_digit_field()
+    {
+        var views = Path.Combine(RepositoryRoot(), "src", "TCMPlus.App", "Views");
+        var shiftSetup = File.ReadAllText(Path.Combine(views, "ShiftSetupWindow.axaml"));
+        var main = File.ReadAllText(Path.Combine(views, "MainWindow.axaml"));
+
+        Assert.DoesNotContain("PinDigitBox", shiftSetup, StringComparison.Ordinal);
+        Assert.DoesNotContain("UnlockDigitBox", main, StringComparison.Ordinal);
+        Assert.Contains("ShiftPinInput", shiftSetup, StringComparison.Ordinal);
+        Assert.Contains("UnlockPinInput", main, StringComparison.Ordinal);
+        Assert.Contains("MaxLength=\"6\"", shiftSetup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Patient_correction_surface_never_offers_add_patient()
+    {
+        var main = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "TCMPlus.App", "Views", "MainWindow.axaml"));
+        var start = main.IndexOf("IsPatientsPage", StringComparison.Ordinal);
+        var end = main.IndexOf("IsSetupPage", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        var patientsSection = main[start..end];
+        Assert.DoesNotContain("Add patient", patientsSection, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Window_chrome_and_interaction_size_contract_is_declared()
+    {
+        var root = RepositoryRoot();
+        var appStyles = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "App.axaml"));
+        var main = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "Views", "MainWindow.axaml"));
+        var external = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "Views", "ExternalDisplayWindow.axaml"));
+
+        Assert.Contains("MinHeight\" Value=\"44", appStyles, StringComparison.Ordinal);
+        Assert.Contains("WindowDecorations=\"None\"", main, StringComparison.Ordinal);
+        Assert.Contains("WindowDecorations=\"None\"", external, StringComparison.Ordinal);
+        Assert.Contains("WindowControlButtons", main, StringComparison.Ordinal);
+        Assert.Contains("WindowControlButtons", external, StringComparison.Ordinal);
+    }
+
+    private static string RepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Directory.Build.props")))
+        {
+            directory = directory.Parent;
+        }
+        return directory?.FullName ?? throw new InvalidOperationException("Could not locate the repository root.");
+    }
 }

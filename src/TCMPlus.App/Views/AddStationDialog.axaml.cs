@@ -16,9 +16,9 @@ public partial class AddStationDialog : ResponsiveDialogWindow
     {
         var name = StationNameInput.Text?.Trim() ?? string.Empty;
         var type = StationTypeInput.Text?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type))
+        if (string.IsNullOrWhiteSpace(name))
         {
-            ValidationMessage.Text = "Enter both a station name and type.";
+            ValidationMessage.Text = "Enter a station name. Station type is optional.";
             return;
         }
 

@@ -15,8 +15,8 @@
         <StackPanel Spacing="11">
           <TextBlock Text="Name" FontWeight="SemiBold" Foreground="#364958"/>
           <TextBox Name="StationNameInput" PlaceholderText="e.g. Bay 1" KeyDown="OnNameKeyDown"/>
-          <TextBlock Text="Type" FontWeight="SemiBold" Foreground="#364958"/>
-          <TextBox Name="StationTypeInput" PlaceholderText="e.g. Resus, Bed, Minors" KeyDown="OnSubmitKeyDown"/>
+          <TextBlock Text="Station type (optional)" FontWeight="SemiBold" Foreground="#364958"/>
+          <TextBox Name="StationTypeInput" PlaceholderText="e.g. Resus, Bed, Minors" KeyDown="OnSubmitKeyDown" AutomationProperties.Name="Optional station type"/>
           <TextBlock Name="ValidationMessage" Foreground="#963D3D" FontSize="11" TextWrapping="Wrap"/>
         </StackPanel>
       </ScrollViewer>

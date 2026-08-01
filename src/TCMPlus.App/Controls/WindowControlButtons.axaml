@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TCMPlus.App.Controls.WindowControlButtons"
+             x:Name="Root">
+  <StackPanel Orientation="Horizontal" Spacing="2">
+    <Button Name="MinimizeButton"
+            Classes="window-control"
+            Click="OnMinimize"
+            ToolTip.Tip="Minimise window"
+            AutomationProperties.Name="Minimise window">
+      <PathIcon Data="M 4,12 L 16,12" Width="14" Height="14"/>
+    </Button>
+    <Button Name="MaximizeButton"
+            Classes="window-control"
+            Click="OnMaximizeRestore"
+            ToolTip.Tip="Maximise or restore window"
+            AutomationProperties.Name="Maximise or restore window">
+      <PathIcon Name="MaximizeIcon" Data="M 4,4 L 16,4 L 16,16 L 4,16 Z" Width="13" Height="13"/>
+    </Button>
+    <Button Name="CloseButton"
+            Classes="window-control close"
+            Click="OnClose"
+            ToolTip.Tip="Close window"
+            AutomationProperties.Name="Close window">
+      <PathIcon Data="M 5,5 L 15,15 M 15,5 L 5,15" Width="14" Height="14"/>
+    </Button>
+  </StackPanel>
+</UserControl>

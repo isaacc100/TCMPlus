@@ -14,6 +14,7 @@ public partial class MessageWindow : ResponsiveDialogWindow
         string cancelText = "Cancel")
     {
         InitializeComponent();
+        Title = heading;
         _confirmation = confirmation;
         Heading.Text = heading;
         Message.Text = message;

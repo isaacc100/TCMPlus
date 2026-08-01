@@ -13,6 +13,7 @@ public partial class StationViewModel : ViewModelBase
     private readonly Action<StationViewModel> _requestDischarge;
     private readonly Func<StationViewModel, StationGeometry, Task> _commitGeometry;
     private readonly Func<StationViewModel, Guid, Task> _dropPatient;
+    private readonly Action<Guid> _requestTransfer;
 
     public StationViewModel(
         Station station,
@@ -22,7 +23,8 @@ public partial class StationViewModel : ViewModelBase
         Action<StationViewModel> requestPatient,
         Action<StationViewModel> requestDischarge,
         Func<StationViewModel, StationGeometry, Task> commitGeometry,
-        Func<StationViewModel, Guid, Task> dropPatient)
+        Func<StationViewModel, Guid, Task> dropPatient,
+        Action<Guid> requestTransfer)
     {
         Id = station.Id;
         _name = station.Name;
@@ -38,6 +40,7 @@ public partial class StationViewModel : ViewModelBase
         _requestDischarge = requestDischarge;
         _commitGeometry = commitGeometry;
         _dropPatient = dropPatient;
+        _requestTransfer = requestTransfer;
     }
 
     public Guid Id { get; }
@@ -129,6 +132,12 @@ public partial class StationViewModel : ViewModelBase
 
     [RelayCommand]
     private void DischargePatient() => _requestDischarge(this);
+
+    [RelayCommand]
+    private void TransferPatient()
+    {
+        if (CurrentPatient is not null) _requestTransfer(CurrentPatient.Uid);
+    }
 
     public Task DropPatientAsync(Guid patientUid) => _dropPatient(this, patientUid);
 
