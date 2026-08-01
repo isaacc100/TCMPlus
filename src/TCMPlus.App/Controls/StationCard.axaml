@@ -40,8 +40,8 @@
     </UserControl.Styles>
 
     <Border Classes="station" Classes.occupied="{Binding IsOccupied}" Classes.drop-target="{Binding IsDropTarget}" ClipToBounds="True" dnd:DragDrop.AllowDrop="True" PointerPressed="OnDragSurfacePointerPressed" dnd:DragDrop.DragOver="OnDragOver" dnd:DragDrop.DragLeave="OnDragLeave" dnd:DragDrop.Drop="OnDrop">
-        <Grid RowDefinitions="28,*">
-            <Border Grid.Row="0" Classes="station-header" Classes.occupied="{Binding IsOccupied}">
+        <Grid RowDefinitions="Auto,*">
+            <Border Grid.Row="0" Height="28" IsVisible="{Binding HasType}" Classes="station-header" Classes.occupied="{Binding IsOccupied}">
                 <Grid ColumnDefinitions="Auto,*" Margin="9,0">
                     <Ellipse Width="7" Height="7" Fill="White" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{Binding Type}" Foreground="White" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="7,0,0,0" />

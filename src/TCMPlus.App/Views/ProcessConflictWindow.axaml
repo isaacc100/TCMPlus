@@ -11,12 +11,12 @@
   <Border Classes="dialog-card" BorderBrush="#D39B28">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Classes="dialog-header" Text="Another TCM+ instance is running"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="10">
           <TextBlock Name="MessageText" TextWrapping="Wrap" Foreground="#60737A"/>
           <TextBlock Name="ErrorText" Foreground="#B94B4B" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <WrapPanel Grid.Row="2" Classes="dialog-footer">
         <Button Content="Exit this instance" Click="OnExit"/>
         <Button Classes="danger" Content="Terminate others and continue" Click="OnTerminate"/>

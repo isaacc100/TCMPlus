@@ -11,7 +11,7 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Classes="dialog-header" Text="Recent shifts"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="10">
           <ListBox Name="SessionsList"
                    Height="260"
@@ -21,7 +21,7 @@
           <TextBox Name="PasswordInput" PasswordChar="*" PlaceholderText="Session password"/>
           <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <WrapPanel Grid.Row="2" Classes="dialog-footer">
         <Button Content="Rename" Click="OnRename"/>
         <Button Content="Delete" Click="OnDelete"/>

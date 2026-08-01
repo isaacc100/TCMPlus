@@ -11,7 +11,7 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Name="Heading" Classes="dialog-header" Text="Add mobile team"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="11">
           <TextBlock Text="Callsign" FontWeight="SemiBold" Foreground="#364958"/>
           <TextBox Name="CallsignInput" PlaceholderText="e.g. RESPONSE 3" KeyDown="OnCallsignKeyDown"/>
@@ -19,7 +19,7 @@
           <TextBox Name="NoteInput" PlaceholderText="Optional, e.g. team member names" KeyDown="OnNoteKeyDown"/>
           <TextBlock Name="ValidationMessage" Foreground="#B94B4B" FontSize="11" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Classes="secondary" Content="Cancel" Click="OnCancel"/>
         <Button Classes="primary" Content="Save team" Click="OnSave"/>

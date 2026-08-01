@@ -8,21 +8,27 @@
             Click="OnMinimize"
             ToolTip.Tip="Minimise window"
             AutomationProperties.Name="Minimise window">
-      <PathIcon Data="M 4,12 L 16,12" Width="14" Height="14"/>
+      <PathIcon Data="M 4,11 L 16,11 L 16,13 L 4,13 Z"
+                Foreground="{Binding Foreground, ElementName=MinimizeButton}"
+                Width="14" Height="14"/>
     </Button>
     <Button Name="MaximizeButton"
             Classes="window-control"
             Click="OnMaximizeRestore"
             ToolTip.Tip="Maximise or restore window"
             AutomationProperties.Name="Maximise or restore window">
-      <PathIcon Name="MaximizeIcon" Data="M 4,4 L 16,4 L 16,16 L 4,16 Z" Width="13" Height="13"/>
+      <PathIcon Name="MaximizeIcon" Data="M 4,4 L 16,4 L 16,16 L 4,16 Z"
+                Foreground="{Binding Foreground, ElementName=MaximizeButton}"
+                Width="13" Height="13"/>
     </Button>
     <Button Name="CloseButton"
             Classes="window-control close"
             Click="OnClose"
             ToolTip.Tip="Close window"
             AutomationProperties.Name="Close window">
-      <PathIcon Data="M 5,5 L 15,15 M 15,5 L 5,15" Width="14" Height="14"/>
+      <PathIcon Data="M 4,5 L 5.5,3.5 L 10,8 L 14.5,3.5 L 16,5 L 11.5,9.5 L 16,14 L 14.5,15.5 L 10,11 L 5.5,15.5 L 4,14 L 8.5,9.5 Z"
+                Foreground="{Binding Foreground, ElementName=CloseButton}"
+                Width="14" Height="14"/>
     </Button>
   </StackPanel>
 </UserControl>

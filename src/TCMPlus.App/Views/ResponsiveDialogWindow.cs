@@ -2,8 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Platform;
+using Avalonia.Media;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using TCMPlus.App.Controls;
 using TCMPlus.App.ViewModels;
 
@@ -12,6 +12,7 @@ namespace TCMPlus.App.Views;
 public abstract class ResponsiveDialogWindow : Window
 {
     internal const double WorkingAreaMargin = 24d;
+    internal const double CustomChromeHeight = 38d;
 
     public ResponsiveDialogWindow()
     {
@@ -22,14 +23,18 @@ public abstract class ResponsiveDialogWindow : Window
             AppearancePreferencesViewModel.ApplyToWindow(this);
             EnsureVerticalScrollFallback();
             EnsureCustomChrome();
+            ApplyModalBackdrop();
             ConstrainToActiveWorkingArea();
             Dispatcher.UIThread.Post(
                 ConstrainToActiveWorkingArea,
                 DispatcherPriority.Loaded);
         };
+        Closed += (_, _) => RemoveModalBackdrop();
     }
 
     private bool _customChromeApplied;
+    private Panel? _ownerBackdropPanel;
+    private Border? _ownerBackdrop;
 
     private void EnsureCustomChrome()
     {
@@ -46,19 +51,87 @@ public abstract class ResponsiveDialogWindow : Window
         host.Children.Add(new WindowChrome());
         Grid.SetRow(content, 1);
         host.Children.Add(content);
-        Content = host;
+        Content = new Border
+        {
+            Background = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.Parse("#6F8D80")),
+            BorderThickness = new Thickness(1),
+            Child = host
+        };
+        if (double.IsFinite(Height) && Height > 0)
+        {
+            // Preserve the dialog's declared content height as well as the narrow
+            // frame. Without the two frame pixels, fixed-height dialogs acquire a
+            // pointless vertical scrollbar even when their content fits exactly.
+            Height += CustomChromeHeight + 2d;
+        }
         _customChromeApplied = true;
     }
 
-    private void EnsureVerticalScrollFallback()
+    private void ApplyModalBackdrop()
     {
-        if (Content is not Control content
-            || content is ScrollViewer
-            || content.GetVisualDescendants().OfType<ScrollViewer>().Any())
+        var ownerPanel = FindBackdropPanel(Owner?.Content);
+        if (ownerPanel is null || _ownerBackdrop is not null)
         {
             return;
         }
 
+        _ownerBackdropPanel = ownerPanel;
+        _ownerBackdrop = new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#520F2428")),
+            IsHitTestVisible = false,
+            ZIndex = 10000
+        };
+        ownerPanel.Children.Add(_ownerBackdrop);
+    }
+
+    private static Panel? FindBackdropPanel(object? content) => content switch
+    {
+        Panel panel => panel,
+        Border { Child: not null } border => FindBackdropPanel(border.Child),
+        ContentControl { Content: not null } control => FindBackdropPanel(control.Content),
+        _ => null
+    };
+
+    private void RemoveModalBackdrop()
+    {
+        if (_ownerBackdropPanel is not null && _ownerBackdrop is not null)
+        {
+            _ownerBackdropPanel.Children.Remove(_ownerBackdrop);
+        }
+
+        _ownerBackdropPanel = null;
+        _ownerBackdrop = null;
+    }
+
+    private void EnsureVerticalScrollFallback()
+    {
+        if (Content is not Control content || content is ScrollViewer)
+        {
+            return;
+        }
+
+        var screen = (Owner is null ? null : Screens.ScreenFromWindow(Owner))
+                     ?? Screens.ScreenFromWindow(this)
+                     ?? Screens.ScreenFromPoint(Position)
+                     ?? Screens.Primary;
+        if (screen is null)
+        {
+            return;
+        }
+
+        var scaling = double.IsFinite(screen.Scaling) && screen.Scaling > 0 ? screen.Scaling : 1d;
+        var marginPixels = Math.Max(0, (int)Math.Ceiling(WorkingAreaMargin * scaling));
+        var maximumHeight = Math.Max(1, screen.WorkingArea.Height - (marginPixels * 2)) / scaling;
+        var desiredHeight = (double.IsFinite(Height) && Height > 0 ? Height : Bounds.Height)
+                            + CustomChromeHeight + 2d;
+        if (desiredHeight <= maximumHeight + 0.5d)
+        {
+            return;
+        }
+
+        Content = null;
         Content = new ScrollViewer
         {
             Content = content,

@@ -96,6 +96,8 @@ public sealed class ResponsiveDialogTests
         Assert.Contains("ShiftPinInput", shiftSetup, StringComparison.Ordinal);
         Assert.Contains("UnlockPinInput", main, StringComparison.Ordinal);
         Assert.Contains("MaxLength=\"6\"", shiftSetup, StringComparison.Ordinal);
+        Assert.DoesNotContain("0.13.0-DEV", shiftSetup, StringComparison.Ordinal);
+        Assert.Contains("VersionLabel", shiftSetup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -122,6 +124,30 @@ public sealed class ResponsiveDialogTests
         Assert.Contains("WindowDecorations=\"None\"", external, StringComparison.Ordinal);
         Assert.Contains("WindowControlButtons", main, StringComparison.Ordinal);
         Assert.Contains("WindowControlButtons", external, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Main_window_declares_compact_bounds_and_a_fixed_ratio_map_viewport()
+    {
+        var root = RepositoryRoot();
+        var main = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "Views", "MainWindow.axaml"));
+        var codeBehind = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "Views", "MainWindow.axaml.cs"));
+
+        Assert.Contains("MinWidth=\"1024\"", main, StringComparison.Ordinal);
+        Assert.Contains("MinHeight=\"600\"", main, StringComparison.Ordinal);
+        Assert.Contains("Name=\"StationMapViewport\"", main, StringComparison.Ordinal);
+        Assert.Contains("StationMapAspectRatio = 5d / 3d", codeBehind, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Shared_styles_keep_selection_and_disabled_affordances_visible()
+    {
+        var appStyles = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "TCMPlus.App", "App.axaml"));
+
+        Assert.Contains("ComboBoxDropDownGlyphForeground", appStyles, StringComparison.Ordinal);
+        Assert.Contains("CheckBoxCheckBackgroundStrokeUnchecked", appStyles, StringComparison.Ordinal);
+        Assert.Contains("<Style Selector=\"Button:disabled\">", appStyles, StringComparison.Ordinal);
+        Assert.Contains("<ControlTemplate>", appStyles, StringComparison.Ordinal);
     }
 
     private static string RepositoryRoot()

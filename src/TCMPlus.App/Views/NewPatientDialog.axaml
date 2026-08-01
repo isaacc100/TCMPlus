@@ -11,14 +11,14 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Classes="dialog-header" Text="New patient"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="11">
           <TextBlock Name="StationText" Foreground="#60737A" TextWrapping="Wrap"/>
           <TextBlock Text="Presenting complaint" FontWeight="SemiBold" Foreground="#364958"/>
           <TextBox Name="ComplaintInput" PlaceholderText="Optional" KeyDown="OnComplaintKeyDown"/>
           <TextBlock Text="No details are required to add the patient." Foreground="#60737A" FontSize="11" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Classes="secondary" Content="Cancel" Click="OnCancel"/>
         <Button Classes="primary" Content="Add patient" Click="OnAddPatient"/>

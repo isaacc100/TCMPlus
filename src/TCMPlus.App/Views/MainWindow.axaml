@@ -16,8 +16,8 @@
         ExtendClientAreaToDecorationsHint="False"
         Width="1280"
         Height="820"
-        MinWidth="1040"
-        MinHeight="680"
+        MinWidth="1024"
+        MinHeight="600"
         KeyDown="OnKeyDown"
         Background="{StaticResource CanvasBrush}">
 
@@ -41,6 +41,14 @@
             <Setter Property="Background" Value="#55828B" />
             <Setter Property="Foreground" Value="White" />
         </Style>
+        <Style Selector="Button.primary-nav:pointerover">
+            <Setter Property="Background" Value="#FFFFFF18" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.primary-nav:pressed">
+            <Setter Property="Background" Value="#55828B" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
         <Style Selector="Button.icon">
             <Setter Property="Width" Value="44" />
             <Setter Property="Height" Value="44" />
@@ -54,6 +62,10 @@
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
+        <Style Selector="Button.icon:pointerover">
+            <Setter Property="Background" Value="#FFFFFF22" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
         <Style Selector="Button.sub-nav">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -64,6 +76,18 @@
         <Style Selector="Button.sub-nav.active">
             <Setter Property="Background" Value="#E7F5EC" />
             <Setter Property="Foreground" Value="#245A42" />
+        </Style>
+        <Style Selector="Button.sub-nav:pointerover">
+            <Setter Property="Background" Value="#E7F5EC" />
+            <Setter Property="Foreground" Value="#245A42" />
+        </Style>
+        <Style Selector="Button.sub-nav:pressed">
+            <Setter Property="Background" Value="#E7F5EC" />
+            <Setter Property="Foreground" Value="#245A42" />
+        </Style>
+        <Style Selector="ComboBox.settings-select">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="MinWidth" Value="220" />
         </Style>
         <Style Selector="Button.primary">
             <Setter Property="Background" Value="#3B6064" />
@@ -79,12 +103,24 @@
             <Setter Property="Padding" Value="13,8" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
+        <Style Selector="Button.secondary:disabled">
+            <Setter Property="Background" Value="#EDF1EF" />
+            <Setter Property="Foreground" Value="#718087" />
+            <Setter Property="BorderBrush" Value="#C7D3CD" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
         <Style Selector="Button.danger">
             <Setter Property="Background" Value="#FCEAEA" />
             <Setter Property="Foreground" Value="#963D3D" />
             <Setter Property="BorderBrush" Value="#E5A0A0" />
             <Setter Property="Padding" Value="13,8" />
             <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Button.danger:disabled">
+            <Setter Property="Background" Value="#F6EEEE" />
+            <Setter Property="Foreground" Value="#8E7474" />
+            <Setter Property="BorderBrush" Value="#D8C4C4" />
+            <Setter Property="Opacity" Value="1" />
         </Style>
         <Style Selector="Border.card">
             <Setter Property="Background" Value="White" />
@@ -137,16 +173,16 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="4">
                     <TextBlock Text="{Binding CurrentTimeText}" Foreground="White" FontFamily="Consolas" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,4,0" />
                     <Button Classes="icon" Click="OnFullScreenClicked" ToolTip.Tip="Toggle fullscreen">
-                        <PathIcon Data="M 3,8 L 3,3 L 8,3 M 12,3 L 17,3 L 17,8 M 17,12 L 17,17 L 12,17 M 8,17 L 3,17 L 3,12" Width="18" Height="18" />
+                        <PathIcon Data="M 3,3 L 9,3 L 9,5 L 5,5 L 5,9 L 3,9 Z M 11,3 L 17,3 L 17,9 L 15,9 L 15,5 L 11,5 Z M 15,11 L 17,11 L 17,17 L 11,17 L 11,15 L 15,15 Z M 3,11 L 5,11 L 5,15 L 9,15 L 9,17 L 3,17 Z" Foreground="White" Width="18" Height="18" />
                     </Button>
                     <Button Classes="icon" Command="{Binding LockCommand}" ToolTip.Tip="Lock application" IsVisible="{Binding CanLock}">
-                        <PathIcon Data="M 5,9 L 15,9 L 15,17 L 5,17 Z M 7,9 L 7,6 C 7,2 13,2 13,6 L 13,9" Width="18" Height="18" />
+                        <PathIcon Data="M 5,8 L 7,8 L 7,6 C 7,2 13,2 13,6 L 13,8 L 15,8 L 15,18 L 5,18 Z M 9,8 L 11,8 L 11,6 C 11,4 9,4 9,6 Z" Foreground="White" Width="18" Height="18" />
                     </Button>
                     <Button Classes="icon" Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Application settings">
-                        <PathIcon Data="M 3,5 L 17,5 M 3,10 L 17,10 M 3,15 L 17,15 M 7,3 L 7,7 M 13,8 L 13,12 M 8,13 L 8,17" Width="18" Height="18" />
+                        <PathIcon Data="M 3,4 L 6,4 L 6,2 L 8,2 L 8,4 L 17,4 L 17,6 L 8,6 L 8,8 L 6,8 L 6,6 L 3,6 Z M 3,9 L 12,9 L 12,7 L 14,7 L 14,9 L 17,9 L 17,11 L 14,11 L 14,13 L 12,13 L 12,11 L 3,11 Z M 3,14 L 7,14 L 7,12 L 9,12 L 9,14 L 17,14 L 17,16 L 9,16 L 9,18 L 7,18 L 7,16 L 3,16 Z" Foreground="White" Width="18" Height="18" />
                     </Button>
                     <Button Classes="icon" Click="OnSafeExitClicked" ToolTip.Tip="Seal this shift and exit TCM+">
-                        <PathIcon Data="M 10,2 L 10,10 M 5,5 C 0,10 3,18 10,18 C 17,18 20,10 15,5" Width="18" Height="18" />
+                        <PathIcon Data="M 9,2 L 11,2 L 11,11 L 9,11 Z M 5.2,4.3 L 6.6,5.8 C 4.9,6.9 4,8.6 4,10.5 C 4,13.8 6.7,16.5 10,16.5 C 13.3,16.5 16,13.8 16,10.5 C 16,8.6 15.1,6.9 13.4,5.8 L 14.8,4.3 C 16.8,5.8 18,8 18,10.5 C 18,14.9 14.4,18.5 10,18.5 C 5.6,18.5 2,14.9 2,10.5 C 2,8 3.2,5.8 5.2,4.3 Z" Foreground="White" Width="18" Height="18" />
                     </Button>
                     <controls:WindowControlButtons />
                 </StackPanel>
@@ -185,17 +221,18 @@
                 <ColumnDefinition Width="320"/>
             </Grid.ColumnDefinitions>
             <Border Classes="card" Padding="18">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="18">
                     <TextBlock Text="Treatment centre" Classes="section-title" />
-                    <StackPanel Spacing="8">
+                    <StackPanel Spacing="8" IsVisible="{Binding IsOperationalMode}">
                         <TextBlock Text="{Binding AvailableStations}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource OpenBrush}" />
                         <TextBlock Text="Available stations" Classes="muted" />
                     </StackPanel>
-                    <StackPanel Spacing="8">
+                    <StackPanel Spacing="8" IsVisible="{Binding IsOperationalMode}">
                         <TextBlock Text="{Binding OccupiedStations}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource ClosedBrush}" />
                         <TextBlock Text="Occupied stations" Classes="muted" />
                     </StackPanel>
-                    <StackPanel Spacing="8">
+                    <StackPanel Spacing="8" IsVisible="{Binding IsOperationalMode}">
                         <TextBlock Text="{Binding PatientsSeenThisShift}" FontSize="34" FontWeight="Bold" Foreground="{StaticResource DeepSeaBrush}" />
                         <TextBlock Text="Patients seen this shift" Classes="muted" TextWrapping="Wrap" />
                     </StackPanel>
@@ -219,17 +256,19 @@
                     <Button Classes="secondary" Content="View all teams" Command="{Binding ShowTeamsCommand}" IsVisible="{Binding IsOperationalMode}" />
                     <Button Classes="primary" Content="Add mobile team" Command="{Binding RequestAddMobileTeamCommand}" IsVisible="{Binding IsOperationalMode}" />
                 </StackPanel>
+                </ScrollViewer>
             </Border>
 
             <Grid x:Name="StationMapHost" Grid.Column="2">
                 <Border x:Name="StationMapCard" Classes="card" Padding="0" ClipToBounds="True"
-                        HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Grid RowDefinitions="Auto,*">
-                        <Border Background="#EEF5EF" Padding="18,14" BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel>
+                        HorizontalAlignment="Center" VerticalAlignment="Stretch">
+                    <Grid RowDefinitions="*,Auto">
+                        <Border Background="#EEF5EF" Padding="18,14" MinHeight="76"
+                                BorderBrush="#D5E2DA" BorderThickness="0,0,0,1">
+                            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Station map" Classes="section-title" />
-                                    <TextBlock Text="{Binding MapStatusText}" Classes="muted" />
+                                    <TextBlock Text="{Binding MapStatusText}" Classes="muted" TextWrapping="Wrap" MaxLines="2" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
                                     <Button x:Name="MobileTeamDrawerButton" Classes="secondary" Content="{Binding DeployedMobileTeams, StringFormat=Mobile teams ({0} deployed)}" Click="OnToggleMobileTeamDrawer" IsVisible="False"/>
@@ -244,7 +283,8 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
-                        <Viewbox Grid.Row="1" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Viewbox x:Name="StationMapViewport" Grid.Row="1" Stretch="Uniform"
+                                 HorizontalAlignment="Center" VerticalAlignment="Bottom">
                             <Grid Width="1200" Height="720">
                                 <Border Background="#FFF7D6" Opacity="0.62" IsVisible="{Binding IsEditMode}"/>
                                 <controls:DotGridControl Spacing="{Binding GridPixelSize}" />
@@ -297,7 +337,8 @@
                             </ItemsControl>
                             <StackPanel IsVisible="{Binding HasNoMobileTeams}" Spacing="8" Margin="8,24" HorizontalAlignment="Center">
                         <TextBlock Text="No mobile teams configured" FontWeight="Bold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Add a team without leaving Treatment Centre." Classes="muted" TextAlignment="Center"/>
+                                <TextBlock Text="Add a team without leaving Treatment Centre." Classes="muted"
+                                           TextAlignment="Center" TextWrapping="Wrap"/>
                                 <Button Classes="primary" Content="Add mobile team" Command="{Binding RequestAddMobileTeamCommand}"/>
                             </StackPanel>
                         </StackPanel>
@@ -520,9 +561,9 @@
             </Border>
             <Border Grid.Row="2" Classes="card" Padding="0" ClipToBounds="True">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <StackPanel MinWidth="1720">
+                    <StackPanel MinWidth="1180">
                         <Border Background="#EEF5EF" Padding="18,13">
-                            <Grid ColumnDefinitions="48,90,110,140,170,170,1.2*,1*,1.3*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="36,82,96,115,135,135,1.2*,1*,1.1*,Auto" ColumnSpacing="8">
                                 <TextBlock Grid.Column="1" Text="Patient" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                                 <TextBlock Grid.Column="2" Text="Status" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
                                 <TextBlock Grid.Column="3" Text="Current location" FontWeight="Bold" Foreground="{StaticResource InkBrush}" />
@@ -537,7 +578,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Background="White" Padding="18,13">
-                                        <Grid ColumnDefinitions="48,90,110,140,170,170,1.2*,1*,1.3*,Auto" ColumnSpacing="8">
+                                        <Grid ColumnDefinitions="36,82,96,115,135,135,1.2*,1*,1.1*,Auto" ColumnSpacing="8">
                                             <Grid.Styles>
                                                 <Style Selector="TextBlock.status"><Setter Property="Foreground" Value="#2F8F61" /><Setter Property="FontWeight" Value="Bold" /></Style>
                                                 <Style Selector="TextBlock.status.discharged"><Setter Property="Foreground" Value="#60737A" /></Style>
@@ -587,7 +628,7 @@
             </Border>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSettings}" ColumnDefinitions="210,18,*">
+        <Grid Grid.Row="2" Margin="28" IsVisible="{Binding IsSettings}" ColumnDefinitions="250,18,*">
             <Border Classes="card" Padding="12"><StackPanel Spacing="5"><TextBlock Text="Settings" Classes="section-title" Margin="8,4,0,10"/><Button Classes="sub-nav" Content="Appearance &amp; accessibility" Command="{Binding ShowSettingsGeneralCommand}"/><Button Classes="sub-nav" Content="Operations" Command="{Binding ShowSettingsOperationsCommand}" IsVisible="{Binding CanAdminHost}"/><Button Classes="sub-nav" Content="Displays" Command="{Binding ShowSettingsDisplaysCommand}"/></StackPanel></Border>
             <Border Grid.Column="2" Classes="card" Padding="24">
                 <Grid>
@@ -598,33 +639,33 @@
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="18" RowDefinitions="Auto,Auto,Auto,Auto">
                                 <StackPanel Grid.Row="0" Spacing="5">
                                     <TextBlock Text="Preset" FontWeight="SemiBold"/>
-                                    <ComboBox ItemsSource="{Binding Appearance.Presets}" SelectedItem="{Binding Appearance.SelectedPreset, Mode=TwoWay}" AutomationProperties.Name="Accessibility preset"/>
+                                    <ComboBox Classes="settings-select" ItemsSource="{Binding Appearance.Presets}" SelectedItem="{Binding Appearance.SelectedPreset, Mode=TwoWay}" AutomationProperties.Name="Accessibility preset"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="0" Grid.Column="1" Spacing="5">
                                     <TextBlock Text="Font" FontWeight="SemiBold"/>
-                                    <ComboBox ItemsSource="{Binding Appearance.Fonts}" SelectedItem="{Binding Appearance.Font, Mode=TwoWay}" AutomationProperties.Name="Interface font"/>
+                                    <ComboBox Classes="settings-select" ItemsSource="{Binding Appearance.Fonts}" SelectedItem="{Binding Appearance.Font, Mode=TwoWay}" AutomationProperties.Name="Interface font"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Margin="0,12,0,0" Spacing="5">
                                     <TextBlock Text="Text size" FontWeight="SemiBold"/>
-                                    <ComboBox ItemsSource="{Binding Appearance.TextScales}" SelectedItem="{Binding Appearance.TextScale, Mode=TwoWay}" AutomationProperties.Name="Text size"/>
+                                    <ComboBox Classes="settings-select" ItemsSource="{Binding Appearance.TextScales}" SelectedItem="{Binding Appearance.TextScale, Mode=TwoWay}" AutomationProperties.Name="Text size"/>
                                     <TextBlock Text="{Binding Appearance.TextScaleText}" Classes="muted"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,12,0,0" Spacing="5">
                                     <TextBlock Text="Theme" FontWeight="SemiBold"/>
-                                    <ComboBox ItemsSource="{Binding Appearance.Themes}" SelectedItem="{Binding Appearance.Theme, Mode=TwoWay}" AutomationProperties.Name="Colour theme"/>
+                                    <ComboBox Classes="settings-select" ItemsSource="{Binding Appearance.Themes}" SelectedItem="{Binding Appearance.Theme, Mode=TwoWay}" AutomationProperties.Name="Colour theme"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Margin="0,12,0,0" Spacing="5">
                                     <TextBlock Text="Spacing" FontWeight="SemiBold"/>
-                                    <ComboBox ItemsSource="{Binding Appearance.SpacingScales}" SelectedItem="{Binding Appearance.SpacingScale, Mode=TwoWay}" AutomationProperties.Name="Control spacing"/>
+                                    <ComboBox Classes="settings-select" ItemsSource="{Binding Appearance.SpacingScales}" SelectedItem="{Binding Appearance.SpacingScale, Mode=TwoWay}" AutomationProperties.Name="Control spacing"/>
                                     <TextBlock Text="{Binding Appearance.SpacingScaleText}" Classes="muted"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,12,0,0" Spacing="5">
                                     <TextBlock Text="Motion" FontWeight="SemiBold"/>
-                                    <ComboBox ItemsSource="{Binding Appearance.MotionPreferences}" SelectedItem="{Binding Appearance.ReducedMotion, Mode=TwoWay}" AutomationProperties.Name="Reduced motion"/>
+                                    <ComboBox Classes="settings-select" ItemsSource="{Binding Appearance.MotionPreferences}" SelectedItem="{Binding Appearance.ReducedMotion, Mode=TwoWay}" AutomationProperties.Name="Reduced motion"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="3" Margin="0,12,0,0" Spacing="5">
                                     <TextBlock Text="Colour-vision palette" FontWeight="SemiBold"/>
-                                    <ComboBox ItemsSource="{Binding Appearance.ColorVisionPalettes}" SelectedItem="{Binding Appearance.ColorVisionPalette, Mode=TwoWay}" AutomationProperties.Name="Colour-vision palette"/>
+                                    <ComboBox Classes="settings-select" ItemsSource="{Binding Appearance.ColorVisionPalettes}" SelectedItem="{Binding Appearance.ColorVisionPalette, Mode=TwoWay}" AutomationProperties.Name="Colour-vision palette"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,12,0,0" Spacing="8">
                                     <CheckBox Content="Simplified / easy read" IsChecked="{Binding Appearance.EasyRead, Mode=TwoWay}"/>
@@ -678,7 +719,7 @@
                             <TextBlock Text="Displays and terminals" Classes="section-title"/>
                             <StackPanel IsVisible="{Binding CanAdminHost}" Spacing="10">
                             <TextBlock Text="Secure app-to-app terminals" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
-                            <TextBlock Text="Terminal connections start automatically for this shift. A terminal must be approved here using the six-digit code shown on its own screen."
+                            <TextBlock Text="Enable terminal connections here when they are needed. A terminal must be approved using the six-digit code shown on its own screen."
                                        Classes="muted" TextWrapping="Wrap"/>
                             <Button IsVisible="{Binding IsTerminalHostStopped}" Classes="primary" Content="Enable terminal connections" Command="{Binding StartTerminalHostCommand}"/>
                             <StackPanel IsVisible="{Binding IsTerminalHostRunning}" Spacing="10">
@@ -801,7 +842,7 @@
             </Grid>
         </Border>
 
-        <Border Classes="banner" IsVisible="{Binding IsBannerVisible}" ZIndex="90" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Padding="16,8">
+        <Border Classes="banner" IsVisible="{Binding IsBannerVisible}" ZIndex="90" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,136,20,0" Padding="16,8">
             <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="{Binding BannerText}" Foreground="#364958" FontWeight="SemiBold" VerticalAlignment="Center" /><Ellipse Classes="notification-info" Classes.notification-info="{Binding IsNotificationInfo}" Classes.notification-warning="{Binding IsNotificationWarning}" Classes.notification-error="{Binding IsNotificationError}" Width="10" Height="10" VerticalAlignment="Center" /></StackPanel>
         </Border>
 

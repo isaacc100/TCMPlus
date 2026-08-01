@@ -12,16 +12,21 @@
     <TextBlock Text="Transfer patient" Classes="dialog-title"/>
     <TextBlock Text="Choose a station or deployed mobile team. Occupied destinations require a separate, explicit swap confirmation." Classes="muted" TextWrapping="Wrap"/>
     <TextBlock Text="Destination" FontWeight="SemiBold"/>
-    <ComboBox x:Name="DestinationBox" ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption, Mode=TwoWay}" AutomationProperties.Name="Transfer destination">
-      <ComboBox.ItemTemplate>
-        <DataTemplate x:DataType="vm:PatientTransferOption">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-            <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
-            <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted"/>
-          </Grid>
-        </DataTemplate>
-      </ComboBox.ItemTemplate>
-    </ComboBox>
+    <Border Classes="select-shell">
+    <Grid>
+      <ComboBox x:Name="DestinationBox" Classes="shell-select" ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption, Mode=TwoWay}" AutomationProperties.Name="Transfer destination">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:PatientTransferOption">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
+              <TextBlock Grid.Column="1" Text="{Binding Status}" Classes="muted"/>
+            </Grid>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <PathIcon Classes="dropdown-chevron" Data="M 4,7 L 10,13 L 16,7 Z"/>
+    </Grid>
+    </Border>
     <TextBlock x:Name="EmptyMessage" Text="No other transfer destinations are currently available." Classes="muted" IsVisible="False"/>
     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
       <Button Grid.Column="1" Classes="secondary" Content="Cancel" Click="OnCancel" IsCancel="True"/>

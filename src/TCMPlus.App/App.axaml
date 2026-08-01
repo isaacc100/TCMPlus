@@ -14,6 +14,34 @@
         <SolidColorBrush x:Key="OpenSoftBrush" Color="#E7F5EC" />
         <SolidColorBrush x:Key="ClosedBrush" Color="#B94B4B" />
         <SolidColorBrush x:Key="ClosedSoftBrush" Color="#FCEAEA" />
+        <!-- The application canvas is intentionally light even when Windows uses a dark theme.
+             Override Fluent's text-input state brushes so focused fields do not become dark islands. -->
+        <SolidColorBrush x:Key="TextControlBackground" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#EDF1EF" />
+        <SolidColorBrush x:Key="TextControlForeground" Color="#364958" />
+        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#364958" />
+        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#364958" />
+        <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#6A7B82" />
+        <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#6A7B82" />
+        <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#6A7B82" />
+        <!-- Keep stock Fluent selection affordances visible against the application's
+             deliberately light surfaces. These resources are consumed inside the
+             built-in ComboBox and CheckBox control templates. -->
+        <SolidColorBrush x:Key="ComboBoxDropDownGlyphForeground" Color="#364958" />
+        <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundPointerOver" Color="#245A42" />
+        <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundPressed" Color="#245A42" />
+        <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundFocused" Color="#364958" />
+        <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundDisabled" Color="#718087" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUnchecked" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver" Color="#EDF5F0" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPressed" Color="#DCEEE4" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedDisabled" Color="#EDF1EF" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUnchecked" Color="#6F8D80" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPointerOver" Color="#3B6064" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPressed" Color="#245A42" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedDisabled" Color="#A9BBB2" />
         <x:Double x:Key="ControlMinHeight">44</x:Double>
         <Thickness x:Key="ControlPadding">14,9</Thickness>
         <Thickness x:Key="FocusRingThickness">3</Thickness>
@@ -21,6 +49,9 @@
 
     <Application.Styles>
         <FluentTheme />
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+        </Style>
         <Style Selector="Button.primary">
             <Setter Property="Background" Value="#3B6064"/>
             <Setter Property="Foreground" Value="White"/>
@@ -31,22 +62,125 @@
         <Style Selector="Button">
             <Setter Property="MinHeight" Value="{DynamicResource ControlMinHeight}"/>
             <Setter Property="Padding" Value="{DynamicResource ControlPadding}"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
         </Style>
         <Style Selector="Button:focus-visible">
             <Setter Property="BorderBrush" Value="#5B21B6"/>
             <Setter Property="BorderThickness" Value="{DynamicResource FocusRingThickness}"/>
         </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#EDF5F0"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+        </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="Background" Value="#DCEEE4"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Background" Value="#EDF1EF"/>
+            <Setter Property="Foreground" Value="#718087"/>
+            <Setter Property="BorderBrush" Value="#C7D3CD"/>
+            <Setter Property="Opacity" Value="1"/>
+            <!-- Fluent's disabled-state presenter can become effectively transparent
+                 after device accessibility colours are applied. Use a small explicit
+                 template so disabled actions remain discoverable and readable. -->
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#2F5155"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.primary:pressed">
+            <Setter Property="Background" Value="#2F5155"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
         <Style Selector="TextBox">
             <Setter Property="MinHeight" Value="{DynamicResource ControlMinHeight}"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource SeaBrush}"/>
+        </Style>
+        <Style Selector="TextBox:pointerover">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeaBrush}"/>
+        </Style>
+        <Style Selector="TextBox:focus-within">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeaBrush}"/>
         </Style>
         <Style Selector="ComboBox">
             <Setter Property="MinHeight" Value="{DynamicResource ControlMinHeight}"/>
+            <Setter Property="Padding" Value="12,0,40,0"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
+        </Style>
+        <Style Selector="PathIcon.dropdown-chevron">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,13,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <Style Selector="Border.select-shell">
+            <Setter Property="MinHeight" Value="{DynamicResource ControlMinHeight}"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+        <Style Selector="ComboBox.shell-select">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
         </Style>
         <Style Selector="NumericUpDown">
             <Setter Property="MinHeight" Value="{DynamicResource ControlMinHeight}"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
         </Style>
         <Style Selector="CheckBox">
             <Setter Property="MinHeight" Value="{DynamicResource ControlMinHeight}"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
+        </Style>
+        <Style Selector="CheckBox:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+        </Style>
+        <Style Selector="CheckBox:checked">
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+        </Style>
+        <Style Selector="ToggleSwitch">
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+        </Style>
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FrameBrush}"/>
         </Style>
         <Style Selector="Button.window-control">
             <Setter Property="Width" Value="42"/>
@@ -71,12 +205,46 @@
             <Setter Property="Padding" Value="13,8"/>
             <Setter Property="CornerRadius" Value="6"/>
         </Style>
+        <Style Selector="Button.secondary:pointerover">
+            <Setter Property="Background" Value="#DCEEE4"/>
+            <Setter Property="Foreground" Value="#245A42"/>
+        </Style>
+        <Style Selector="Button.secondary:pressed">
+            <Setter Property="Background" Value="#DCEEE4"/>
+            <Setter Property="Foreground" Value="#245A42"/>
+        </Style>
     <Style Selector="Button.danger">
             <Setter Property="Background" Value="#FCEAEA"/>
             <Setter Property="Foreground" Value="#963D3D"/>
             <Setter Property="BorderBrush" Value="#E5A0A0"/>
             <Setter Property="Padding" Value="13,8"/>
             <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="Button.danger:pointerover">
+      <Setter Property="Background" Value="#F5D5D5"/>
+      <Setter Property="Foreground" Value="#843434"/>
+    </Style>
+    <Style Selector="Button.danger:pressed">
+      <Setter Property="Background" Value="#F5D5D5"/>
+      <Setter Property="Foreground" Value="#843434"/>
+    </Style>
+    <Style Selector="Button.primary:disabled">
+      <Setter Property="Background" Value="#718087"/>
+      <Setter Property="Foreground" Value="#F5F8F4"/>
+      <Setter Property="BorderBrush" Value="#718087"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.secondary:disabled">
+      <Setter Property="Background" Value="#EDF1EF"/>
+      <Setter Property="Foreground" Value="#718087"/>
+      <Setter Property="BorderBrush" Value="#C7D3CD"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="Button.danger:disabled">
+      <Setter Property="Background" Value="#F6EEEE"/>
+      <Setter Property="Foreground" Value="#8E7474"/>
+      <Setter Property="BorderBrush" Value="#D8C4C4"/>
+      <Setter Property="Opacity" Value="1"/>
     </Style>
     <Style Selector="Border.dialog-card">
       <Setter Property="Background" Value="White" />
@@ -111,7 +279,7 @@
     </Style>
     <Style Selector="Window.compact-dialog Border.dialog-card">
       <Setter Property="Padding" Value="14" />
-      <Setter Property="Margin" Value="10" />
+      <Setter Property="Margin" Value="0" />
     </Style>
     <Style Selector="Window.compact-dialog TextBlock.dialog-header">
       <Setter Property="FontSize" Value="19" />

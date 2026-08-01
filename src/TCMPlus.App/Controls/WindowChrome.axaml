@@ -2,17 +2,31 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:TCMPlus.App.Controls"
              x:Class="TCMPlus.App.Controls.WindowChrome"
-             Height="42"
+             Height="38"
              PointerPressed="OnPointerPressed">
-  <Border Background="{StaticResource InkBrush}"
-          BorderBrush="{StaticResource FrameBrush}"
+  <UserControl.Styles>
+    <Style Selector="Button.window-control">
+      <Setter Property="Foreground" Value="{DynamicResource InkBrush}"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="MinHeight" Value="32"/>
+    </Style>
+    <Style Selector="Button.window-control:pointerover">
+      <Setter Property="Background" Value="#E7EFEB"/>
+    </Style>
+    <Style Selector="Button.window-control.close:pointerover">
+      <Setter Property="Background" Value="#B42318"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+  </UserControl.Styles>
+  <Border Background="White"
+          BorderBrush="#D5E2DA"
           BorderThickness="0,0,0,1"
-          Padding="14,0">
+          Padding="12,0">
     <Grid ColumnDefinitions="Auto,*,Auto">
-      <TextBlock Text="TCM+" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+      <TextBlock Text="TCM+" Foreground="{DynamicResource InkBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
       <TextBlock Name="WindowTitle"
                  Grid.Column="1"
-                 Foreground="#E8F2ED"
+                 Foreground="#60737A"
                  FontWeight="SemiBold"
                  Margin="12,0"
                  TextTrimming="CharacterEllipsis"

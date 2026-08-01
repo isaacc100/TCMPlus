@@ -11,7 +11,7 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Classes="dialog-header" Text="Application settings"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="12">
           <TextBlock Text="Discharge routes" FontWeight="SemiBold" Foreground="#364958"/>
           <ListBox Name="RoutesList" Height="190"/>
@@ -28,7 +28,7 @@
             </ComboBox>
           </WrapPanel>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <WrapPanel Grid.Row="2" Classes="dialog-footer">
         <Button Content="Open external display" Click="OnOpenDisplay"/>
         <Button Content="Cancel" Click="OnCancel"/>

@@ -11,12 +11,12 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Classes="dialog-header" Text="Swap patients?"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="12">
           <TextBlock Name="DescriptionText" Foreground="#60737A" TextWrapping="Wrap"/>
           <TextBlock Text="Both assignments are rechecked before commit. Nothing changes if either patient or location has changed." Foreground="#60737A" FontSize="11" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Classes="secondary" Content="Cancel" Click="OnCancel"/>
         <Button Classes="primary" Content="Swap patients" Click="OnConfirm"/>

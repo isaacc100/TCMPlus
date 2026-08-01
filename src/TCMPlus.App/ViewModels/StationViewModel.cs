@@ -86,6 +86,7 @@ public partial class StationViewModel : ViewModelBase
     public double CanvasWidth => GridWidth * GridSizePixels;
     public double CanvasHeight => GridHeight * GridSizePixels;
     public bool IsOperationalMode => !IsEditMode;
+    public bool HasType => !string.IsNullOrWhiteSpace(Type);
     public bool IsOccupied => CurrentPatient is not null;
     public bool CanAddPatient => IsOperationalMode && !IsOccupied;
     public bool CanDischargePatient => IsOperationalMode && IsOccupied;
@@ -158,6 +159,8 @@ public partial class StationViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanAddPatient));
         OnPropertyChanged(nameof(CanDischargePatient));
     }
+
+    partial void OnTypeChanged(string value) => OnPropertyChanged(nameof(HasType));
 
     partial void OnGridXChanged(double value) => OnPropertyChanged(nameof(CanvasX));
     partial void OnGridYChanged(double value) => OnPropertyChanged(nameof(CanvasY));

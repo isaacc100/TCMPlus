@@ -12,14 +12,19 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Name="Heading" Classes="dialog-header"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="11">
           <TextBlock Text="This team still has a patient. Resolve the patient before standing down." Foreground="#60737A" TextWrapping="Wrap"/>
           <TextBlock Text="Transfer to an available station" FontWeight="SemiBold" Foreground="#364958"/>
-          <ComboBox Name="StationInput" DisplayMemberBinding="{Binding Name}" PlaceholderText="Choose a station"/>
+          <Border Classes="select-shell">
+            <Grid>
+              <ComboBox Name="StationInput" Classes="shell-select" DisplayMemberBinding="{Binding Name}" PlaceholderText="Choose a station"/>
+              <PathIcon Classes="dropdown-chevron" Data="M 4,7 L 10,13 L 16,7 Z"/>
+            </Grid>
+          </Border>
           <TextBlock Name="NoStationsMessage" Text="No stations are currently available." Foreground="#B94B4B" FontSize="11" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <WrapPanel Grid.Row="2" Classes="dialog-footer">
         <Button Classes="secondary" Content="Cancel" Click="OnCancel"/>
         <Button Classes="danger" Content="Discharge patient" Click="OnDischarge"/>

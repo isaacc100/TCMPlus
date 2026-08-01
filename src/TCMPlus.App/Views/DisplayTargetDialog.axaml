@@ -13,19 +13,24 @@
     <TextBlock Text="Select where the read-only view should open. TCM+ remembers this choice on this device and safely falls back if the monitor layout changes."
                Classes="muted" TextWrapping="Wrap"/>
     <TextBlock Text="Destination" FontWeight="SemiBold"/>
-    <ComboBox x:Name="DestinationBox"
-              ItemsSource="{Binding Options}"
-              SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
-              AutomationProperties.Name="Destination display">
-      <ComboBox.ItemTemplate>
-        <DataTemplate x:DataType="local:DisplayTargetOption">
-          <StackPanel>
-            <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding Detail}" Classes="muted"/>
-          </StackPanel>
-        </DataTemplate>
-      </ComboBox.ItemTemplate>
-    </ComboBox>
+    <Border Classes="select-shell">
+    <Grid>
+      <ComboBox x:Name="DestinationBox" Classes="shell-select"
+                ItemsSource="{Binding Options}"
+                SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
+                AutomationProperties.Name="Destination display">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="local:DisplayTargetOption">
+            <StackPanel>
+              <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding Detail}" Classes="muted"/>
+            </StackPanel>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <PathIcon Classes="dropdown-chevron" Data="M 4,7 L 10,13 L 16,7 Z"/>
+    </Grid>
+    </Border>
     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,8,0,0">
       <Button Grid.Column="1" Classes="secondary" Content="Cancel" Click="OnCancel" IsCancel="True"/>
       <Button Grid.Column="2" Classes="primary" Content="Open display" Click="OnOpen" IsDefault="True"/>

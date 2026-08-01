@@ -15,6 +15,7 @@ public partial class MainWindow : Window
 {
     private static readonly DataFormat<string> StationOrderFormat = DataFormat.CreateStringApplicationFormat("TCMPlus.StationOrder");
     private const double StationMapAspectRatio = 5d / 3d;
+    private const double MinimumStationMapToolbarHeight = 76d;
     private MainViewModel? _viewModel;
     private WindowState _windowStateBeforeFullScreen = WindowState.Normal;
     private ExternalDisplayWindow? _externalDisplay;
@@ -624,16 +625,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (availableWidth / availableHeight > StationMapAspectRatio)
-        {
-            StationMapCard.Height = availableHeight;
-            StationMapCard.Width = availableHeight * StationMapAspectRatio;
-        }
-        else
-        {
-            StationMapCard.Width = availableWidth;
-            StationMapCard.Height = availableWidth / StationMapAspectRatio;
-        }
+        // The 60-by-36 station grid must always remain 5:3. The former code
+        // applied that ratio to the card including its header, leaving the actual
+        // map with a different visible shape. Keep the map viewport exact and let
+        // the contextual toolbar absorb any surplus height instead.
+        var maximumMapHeight = Math.Max(1d, availableHeight - MinimumStationMapToolbarHeight);
+        var mapWidth = Math.Min(availableWidth, maximumMapHeight * StationMapAspectRatio);
+        var mapHeight = mapWidth / StationMapAspectRatio;
+
+        StationMapCard.Width = mapWidth;
+        StationMapCard.Height = availableHeight;
+        StationMapViewport.Width = mapWidth;
+        StationMapViewport.Height = mapHeight;
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

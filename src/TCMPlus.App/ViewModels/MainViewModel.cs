@@ -266,7 +266,9 @@ public partial class MainViewModel : ViewModelBase
             }
             else
             {
-                await StartTerminalHostAsync();
+                TerminalHostStatus = "Terminal connections are off. Enable them from Settings when they are needed.";
+                IsTerminalHostRunning = false;
+                OnPropertyChanged(nameof(IsTerminalHostStopped));
                 await RefreshRegisteredTerminalsAsync();
             }
         }

@@ -16,7 +16,7 @@
                    Foreground="#60737A"
                    TextWrapping="Wrap"/>
       </StackPanel>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,14,0,0">
+      <Border Grid.Row="1" Margin="0,14,0,0">
         <StackPanel Spacing="12">
           <TextBlock Text="Nearby TCM+ hosts" FontWeight="SemiBold" Foreground="#364958"/>
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -61,7 +61,7 @@
           </Border>
           <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Content="Cancel" Click="OnCancel"/>
         <Button Name="ConnectButton" Classes="primary" Content="Request access" Click="OnConnect"/>

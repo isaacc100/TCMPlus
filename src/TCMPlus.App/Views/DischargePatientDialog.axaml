@@ -12,15 +12,25 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Classes="dialog-header" Text="Discharge patient"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="12">
           <TextBlock Name="StationText" Foreground="#60737A" TextWrapping="Wrap"/>
           <TextBlock Text="Discharge route" FontWeight="SemiBold"/>
-          <ComboBox Name="RouteInput"/>
+          <Border Classes="select-shell">
+            <Grid>
+              <ComboBox Name="RouteInput" Classes="shell-select"/>
+              <PathIcon Classes="dropdown-chevron" Data="M 4,7 L 10,13 L 16,7 Z"/>
+            </Grid>
+          </Border>
           <TextBlock Text="Outcome (optional)" FontWeight="SemiBold"/>
-          <ComboBox Name="OutcomeInput"/>
+          <Border Classes="select-shell">
+            <Grid>
+              <ComboBox Name="OutcomeInput" Classes="shell-select"/>
+              <PathIcon Classes="dropdown-chevron" Data="M 4,7 L 10,13 L 16,7 Z"/>
+            </Grid>
+          </Border>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Content="Cancel" Click="OnCancel"/>
         <Button Classes="primary" Content="Discharge" Click="OnDischarge"/>

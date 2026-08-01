@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.1-DEV
+
+- Keep the Treatment Centre station canvas at its intended 5:3 aspect ratio while allowing its surrounding card and contextual control bar to fill the height beside operational panels.
+- Increase modal separation with a shared dimmed owner backdrop, compact edge-to-edge dialog chrome, and full-width visible dropdown shells.
+- Keep disabled primary, secondary, and destructive controls visibly present with explicit non-colour state styling.
+- Rebuilt the launch screen around explicit start/open/connect choices, corrected mixed-theme controls and invisible vector actions, removed unnecessary normal-size dialog scrolling, and restored the Debug build used for visual testing.
+- Made app-to-app terminal hosting an explicit Settings action so opening a host shift no longer interrupts the treatment-centre screen with an unsolicited firewall prompt.
+- Added a shared dimmed modal backdrop and narrow popup frame, corrected hover/checked text contrast, and removed standard-width overflow from the Patients table.
+- Kept layout-editor controls reachable at standard and compact heights, hid blank station-type headers, and fixed responsive popup re-parenting exposed by discharge dialogs.
+
 ## 0.13.0-DEV
 
 - Reworked the application shell around Overview, Treatment Centre, Patients, and host-only Shift setup destinations while preserving top navigation and existing operational content.

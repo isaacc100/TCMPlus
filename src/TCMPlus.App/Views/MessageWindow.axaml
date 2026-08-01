@@ -10,9 +10,9 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Name="Heading" Classes="dialog-header"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <TextBlock Name="Message" TextWrapping="Wrap" Foreground="#60737A"/>
-      </ScrollViewer>
+      </Border>
       <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Name="CancelButton" Content="Cancel" Click="OnCancel"/>
         <Button Name="ConfirmButton" Classes="primary" Content="OK" Click="OnConfirm"/>

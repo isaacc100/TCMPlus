@@ -11,7 +11,7 @@
   <Border Classes="dialog-card" CornerRadius="14">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Classes="dialog-header" Text="Terminal access request" FontSize="24"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="12">
           <TextBlock Name="TerminalNameText" FontSize="18" FontWeight="SemiBold" Foreground="#3B6064"/>
           <TextBlock Name="RequestDetailsText" Foreground="#60737A" TextWrapping="Wrap"/>
@@ -29,7 +29,7 @@
                    PlaceholderText="000000"/>
           <TextBlock Name="ValidationMessage" Foreground="#963D3D" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Classes="danger" Content="Deny" Click="OnDeny"/>
         <Button Classes="primary" Content="Approve terminal" Click="OnApprove"/>

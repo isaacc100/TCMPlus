@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using System.Reflection;
 using TCMPlus.Domain.Models;
 
 namespace TCMPlus.App.Views;
@@ -10,6 +11,9 @@ public partial class ShiftSetupWindow : ResponsiveDialogWindow
     public ShiftSetupWindow()
     {
         InitializeComponent();
+        var informationalVersion = typeof(ShiftSetupWindow).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        VersionLabel.Text = informationalVersion?.Split('+')[0] ?? "Development build";
         Opened += (_, _) =>
         {
             ShiftNameInput.Focus();
@@ -31,21 +35,40 @@ public partial class ShiftSetupWindow : ResponsiveDialogWindow
 
     private void OnStartShift(object? sender, RoutedEventArgs e)
     {
+        ClearValidation();
         var shiftName = ShiftNameInput.Text?.Trim() ?? string.Empty;
         var pin = ShiftPinInput.Text?.Trim() ?? string.Empty;
         var password = SessionPasswordInput.Text ?? string.Empty;
         if (string.IsNullOrWhiteSpace(shiftName))
         {
-            ValidationMessage.Text = "Enter a shift name.";
+            ShiftNameError.Text = "Enter a shift name.";
+            ValidationMessage.Text = "Correct the highlighted field to continue.";
+            ShiftNameInput.Focus();
             return;
         }
 
         if (pin.Length != 6 || !pin.All(char.IsAsciiDigit))
         {
-            ValidationMessage.Text = "Enter a six-digit PIN.";
+            ShiftPinError.Text = "Enter exactly six digits.";
+            ValidationMessage.Text = "Correct the highlighted field to continue.";
+            ShiftPinInput.Focus();
             return;
         }
-        if (password.Length < 8 || password != (ConfirmSessionPasswordInput.Text ?? string.Empty)) { ValidationMessage.Text = "Use and confirm a session password of at least eight characters."; return; }
+        if (password.Length < 8)
+        {
+            PasswordError.Text = "Use at least eight characters.";
+            ValidationMessage.Text = "Correct the highlighted field to continue.";
+            SessionPasswordInput.Focus();
+            return;
+        }
+
+        if (password != (ConfirmSessionPasswordInput.Text ?? string.Empty))
+        {
+            ConfirmPasswordError.Text = "Passwords do not match.";
+            ValidationMessage.Text = "Correct the highlighted field to continue.";
+            ConfirmSessionPasswordInput.Focus();
+            return;
+        }
 
         IsOpeningSession = true;
         ShiftStarted?.Invoke(this, new ShiftSetupDraft(shiftName, pin, password, GridDensity.Compact));
@@ -63,8 +86,24 @@ public partial class ShiftSetupWindow : ResponsiveDialogWindow
             e.Handled = true;
         }
     }
-    private void OnTogglePinVisibility(object? sender, RoutedEventArgs e) =>
-        ShiftPinInput.PasswordChar = sender is CheckBox { IsChecked: true } ? '\0' : '*';
+    private void OnTogglePinVisibility(object? sender, RoutedEventArgs e)
+    {
+        var show = ShiftPinInput.PasswordChar != '\0';
+        ShiftPinInput.PasswordChar = show ? '\0' : '*';
+        if (sender is Button button)
+        {
+            button.Content = show ? "Hide" : "Show";
+        }
+    }
+
+    private void ClearValidation()
+    {
+        ShiftNameError.Text = string.Empty;
+        ShiftPinError.Text = string.Empty;
+        PasswordError.Text = string.Empty;
+        ConfirmPasswordError.Text = string.Empty;
+        ValidationMessage.Text = string.Empty;
+    }
 }
 
 public sealed record ShiftSetupDraft(string ShiftName, string Pin, string SessionPassword, GridDensity GridDensity);

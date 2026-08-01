@@ -11,7 +11,7 @@
   <Border Classes="dialog-card">
     <Grid RowDefinitions="Auto,*,Auto">
       <TextBlock Classes="dialog-header" Text="Add station"/>
-      <ScrollViewer Grid.Row="1" Classes="dialog-body" Margin="0,12,0,0">
+      <Border Grid.Row="1" Margin="0,12,0,0">
         <StackPanel Spacing="11">
           <TextBlock Text="Name" FontWeight="SemiBold" Foreground="#364958"/>
           <TextBox Name="StationNameInput" PlaceholderText="e.g. Bay 1" KeyDown="OnNameKeyDown"/>
@@ -19,7 +19,7 @@
           <TextBox Name="StationTypeInput" PlaceholderText="e.g. Resus, Bed, Minors" KeyDown="OnSubmitKeyDown" AutomationProperties.Name="Optional station type"/>
           <TextBlock Name="ValidationMessage" Foreground="#963D3D" FontSize="11" TextWrapping="Wrap"/>
         </StackPanel>
-      </ScrollViewer>
+      </Border>
       <StackPanel Grid.Row="2" Classes="dialog-footer">
         <Button Classes="secondary" Content="Cancel" Click="OnCancel"/>
         <Button Classes="primary" Content="Add station" Click="OnAddStation"/>
