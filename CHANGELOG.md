@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.13.0-DEV
+
+- Reworked the application shell around Overview, Treatment Centre, Patients, and host-only Shift setup destinations while preserving top navigation and existing operational content.
+- Added shared edge-to-edge client-area window chrome with vector minimise, maximise/restore, and close controls, monitor-aware window behavior, 44-pixel interaction targets, and visible keyboard focus.
+- Added Map, Stations, and Teams Treatment Centre views with mobile-team access from Map and Stations, a responsive team drawer/rail, and team creation within Treatment Centre.
+- Kept Rapid Entry in the Treatment Centre header and extended it to one-action station and deployed-team admission or discharge while leaving discharged teams deployed.
+- Extended drag/drop transfers and swaps across stations and deployed mobile teams, with a keyboard/button destination picker and confirmations identifying both patients and locations.
+- Added atomic draft-based layout editing with Save, Discard, Undo, Redo, keyboard move/resize, numeric geometry controls, optional station type, occupied-deletion protection, and increase-only map density.
+- Added device-local appearance, accessibility, and external-display preferences with presets, granular live preview, reset, text scaling, spacing, motion, theme, font, easy-read, enhanced-keyboard, and color-vision options.
+- Made local Dashboard and Map displays available to host and terminal roles, including remembered monitor selection, topology-safe fallback, and a movable one-monitor preview; LAN hosting and terminal administration remain host-only.
+- Replaced split PIN entry with a labelled pasteable six-digit field and show/hide controls, removed map density from shift setup, and kept Patients strictly as a host-only correction surface with no Add patient action.
+- Added layout, transfer, preference, responsive-window, custom-chrome, PIN, icon, and patient-workflow regression coverage.
+
 ## 0.12.0-DEV
 
 - Added a visible Quick Entry switch for terminals that defaults off and is stored only in the local Windows operator preferences; terminal changes never alter the host shift setting.
