@@ -117,7 +117,7 @@ public sealed class ResponsiveDialogTests
         var main = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "Views", "MainWindow.axaml"));
         var external = File.ReadAllText(Path.Combine(root, "src", "TCMPlus.App", "Views", "ExternalDisplayWindow.axaml"));
 
-        Assert.Contains("MinHeight\" Value=\"44", appStyles, StringComparison.Ordinal);
+        Assert.Contains("ControlMinHeight", appStyles, StringComparison.Ordinal);
         Assert.Contains("WindowDecorations=\"None\"", main, StringComparison.Ordinal);
         Assert.Contains("WindowDecorations=\"None\"", external, StringComparison.Ordinal);
         Assert.Contains("WindowControlButtons", main, StringComparison.Ordinal);

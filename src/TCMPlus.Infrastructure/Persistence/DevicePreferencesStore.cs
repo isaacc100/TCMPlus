@@ -105,51 +105,55 @@ public sealed record DevicePreferences(
         PreferredMonitorId = string.IsNullOrWhiteSpace(PreferredMonitorId) ? null : PreferredMonitorId.Trim()
     };
 
-    public DevicePreferences ApplyPreset(AccessibilityPreset preset) => preset switch
+    public DevicePreferences ApplyPreset(AccessibilityPreset preset)
     {
-        AccessibilityPreset.Default => Default with
+        var baseline = Default with
         {
             ExternalDisplayMode = ExternalDisplayMode,
             PreferredMonitorId = PreferredMonitorId
-        },
-        AccessibilityPreset.HighContrast => this with
+        };
+        return preset switch
         {
-            Theme = UiThemePreference.HighContrast,
-            SelectedPreset = preset
-        },
-        AccessibilityPreset.DyslexiaFriendly => this with
-        {
-            Font = UiFontChoice.AtkinsonHyperlegible,
-            SpacingScale = 1.5d,
-            SelectedPreset = preset
-        },
-        AccessibilityPreset.LargeText => this with
-        {
-            TextScale = 1.5d,
-            SelectedPreset = preset
-        },
-        AccessibilityPreset.ReducedMotion => this with
-        {
-            ReducedMotion = ReducedMotionPreference.On,
-            SelectedPreset = preset
-        },
-        AccessibilityPreset.IncreasedSpacing => this with
-        {
-            SpacingScale = 1.5d,
-            SelectedPreset = preset
-        },
-        AccessibilityPreset.Simplified => this with
-        {
-            EasyRead = true,
-            SelectedPreset = preset
-        },
-        AccessibilityPreset.EnhancedKeyboard => this with
-        {
-            EnhancedKeyboard = true,
-            SelectedPreset = preset
-        },
-        _ => this with { SelectedPreset = AccessibilityPreset.Custom }
-    };
+            AccessibilityPreset.Default => baseline,
+            AccessibilityPreset.HighContrast => baseline with
+            {
+                Theme = UiThemePreference.HighContrast,
+                SelectedPreset = preset
+            },
+            AccessibilityPreset.DyslexiaFriendly => baseline with
+            {
+                Font = UiFontChoice.AtkinsonHyperlegible,
+                SpacingScale = 1.5d,
+                SelectedPreset = preset
+            },
+            AccessibilityPreset.LargeText => baseline with
+            {
+                TextScale = 1.5d,
+                SelectedPreset = preset
+            },
+            AccessibilityPreset.ReducedMotion => baseline with
+            {
+                ReducedMotion = ReducedMotionPreference.On,
+                SelectedPreset = preset
+            },
+            AccessibilityPreset.IncreasedSpacing => baseline with
+            {
+                SpacingScale = 1.5d,
+                SelectedPreset = preset
+            },
+            AccessibilityPreset.Simplified => baseline with
+            {
+                EasyRead = true,
+                SelectedPreset = preset
+            },
+            AccessibilityPreset.EnhancedKeyboard => baseline with
+            {
+                EnhancedKeyboard = true,
+                SelectedPreset = preset
+            },
+            _ => this with { SelectedPreset = AccessibilityPreset.Custom }
+        };
+    }
 
     private static double Closest(double value, IReadOnlyList<double> supported) =>
         supported.OrderBy(candidate => Math.Abs(candidate - value)).First();

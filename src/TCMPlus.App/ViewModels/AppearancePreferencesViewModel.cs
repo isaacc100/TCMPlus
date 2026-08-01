@@ -196,6 +196,9 @@ public partial class AppearancePreferencesViewModel(DevicePreferencesStore store
         };
 
         ApplyPalette(application, preferences);
+        application.Resources["ControlMinHeight"] = 44d * preferences.SpacingScale;
+        application.Resources["ControlPadding"] = new Thickness(14d * preferences.SpacingScale, 9d * preferences.SpacingScale);
+        application.Resources["FocusRingThickness"] = new Thickness(preferences.EnhancedKeyboard ? 5d : 3d);
         if (application.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
         {
             foreach (var window in desktop.Windows)
